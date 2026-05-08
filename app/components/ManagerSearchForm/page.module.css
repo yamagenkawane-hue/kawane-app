@@ -1,0 +1,19 @@
+.searchform {
+    display: flex;
+    justify-content: center;
+    margin-top: 10px;
+    margin-bottom: 5px;
+  }
+  
+  .searchIcon {
+    position: relative;
+    top: 5px;
+  }
+  
+  .search {
+    font-size: 20px;
+    height: 30px;
+    width: 160px;
+    margin-left: 10px;
+  }
+  

@@ -1,0 +1,70 @@
+.tableLine {
+  border: none;
+}
+
+.managerSave,
+.managerEdit,
+.managerDelete {
+  font-size: 20px;
+  width: 60px;
+  height: 40px;
+}
+
+.managerCancel {
+  font-size: 20px;
+  width: 120px;
+  height: 40px;
+}
+
+.managerEdit {
+  background-color: #91f9a6;
+  border-radius: 5px;
+}
+
+.managerEdit:hover {
+  transform: scale(90%);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.managerSave {
+  background-color: #85ddfa;
+  border-radius: 5px;
+}
+
+.managerSave:hover {
+  transform: scale(90%);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.managerDelete {
+  background-color: #f7a062;
+  border-radius: 5px;
+}
+
+.managerDelete:hover {
+  transform: scale(90%);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.managerCancel {
+  background-color: rgb(247, 247, 122);
+  border-radius: 5px;
+}
+
+.managerCancel:hover {
+  transform: scale(90%);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.text {
+  font-size: 20px;
+}
+
+.checkBox {
+  width: 20px;
+  height: 20px;
+}

@@ -1,0 +1,120 @@
+.managerImg {
+  display: flex;
+  flex-direction: column;
+  background-image: linear-gradient(
+      rgba(255, 255, 255, 0.6),
+      rgba(255, 255, 255, 0.6)
+    ),
+    url("/images/星.png");
+  background-position: center;
+  background-size: 40%;
+  height: 100vh;
+}
+
+.managerLink {
+  text-decoration: none;
+}
+
+.managerPage {
+  font-size: 20px;
+  font-weight: bold;
+  display: flex;
+  border: none;
+  width: 200px;
+  height: 40px;
+  border-radius: 10px;
+  background-color: #c6eaf7;
+  background-size: 10px 10px;
+  background-image: radial-gradient(#7ee7fa 15%, transparent 20%),
+    radial-gradient(#5cd3fa 15%, transparent 20%);
+  background-position: 0 0, 15px 15px;
+  margin: 5px auto 30px;
+  justify-content: center;
+  align-items: center;
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.managerDelete {
+  text-align: center;
+  margin-left: 400px;
+}
+
+.managerAllDelete {
+  display: flex;
+  justify-content: center;
+  margin-left: 500px;
+  margin-bottom: 15px;
+}
+
+.managerAllDelete:hover {
+  cursor: pointer;
+  transform: scale(85%);
+}
+
+.allDelete {
+  font-size: 20px;
+  background-color: rgb(249, 123, 123);
+  border-radius: 10px;
+  font-weight: bold;
+}
+
+.allDelete:hover {
+  cursor: pointer;
+  transform: scale(85%);
+}
+
+.managerError {
+  color: red;
+  text-align: center;
+}
+
+.userList {
+  background-color: white;
+  width: 850px;
+  margin: 0 auto;
+}
+
+.subTitle {
+  background-color: #fceed7;
+  font-size: 25px;
+}
+
+.managerDeleteText {
+  font-size: 20px;
+}
+
+.restore {
+  border: none;
+}
+
+.restoreButton {
+  font-size: 20px;
+  width: 60px;
+  height: 40px;
+  background-color: rgb(250, 177, 250);
+  border-radius: 5px;
+}
+
+.restoreButton:hover {
+  cursor: pointer;
+  transform: scale(85%);
+}
+
+.managerDeleteButton {
+  font-size: 20px;
+  width: 60px;
+  height: 40px;
+  background-color: rgb(249, 123, 123);
+  border-radius: 5px;
+  margin-left: 15px;
+}
+
+.managerDeleteButton:hover {
+  cursor: pointer;
+  transform: scale(85%);
+}

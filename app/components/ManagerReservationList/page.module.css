@@ -1,0 +1,79 @@
+.reservationText {
+    font-size: 20px;
+  }
+  
+  .reservationInput {
+    width: 90px;
+    height: 30px;
+    font-size: 20px;
+  }
+  
+  .subTitle {
+    background-color: rgb(247, 247, 178);
+  }
+  
+  .childName {
+    color: black;
+    font-weight: bold;
+    text-decoration: none;
+  }
+  
+  .childName:hover {
+    color: rgb(159, 4, 202);
+  }
+  
+  .saveButton {
+    font-size: 20px;
+    width: 60px;
+    height: 40px;
+    background-color: rgb(155, 217, 250);
+    border-radius: 5px;
+  }
+  
+  .saveButton:hover {
+    background-color: rgb(181, 240, 252);
+    cursor: pointer;
+    transform: scale(90%);
+  }
+  
+  .deleteButton {
+    font-size: 20px;
+    width: 60px;
+    height: 40px;
+    background-color: rgb(250, 142, 142);
+    border-radius: 5px;
+  }
+  
+  .deleteButton:hover {
+    background-color: rgb(250, 213, 213);
+    cursor: pointer;
+    transform: scale(90%);
+  }
+  
+  .cancelButton {
+    font-size: 20px;
+    width: 120px;
+    height: 40px;
+    background-color: yellow;
+    border-radius: 5px;
+  }
+  
+  .cancelButton:hover {
+    background-color: rgb(251, 251, 186);
+    transform: scale(90%);
+  }
+  
+  .editButton {
+    font-size: 20px;
+    width: 60px;
+    height: 40px;
+    background-color: #83f88b;
+    border-radius: 5px;
+  }
+  
+  .editButton:hover {
+    background-color: #ccf7c2;
+    cursor: pointer;
+    transform: scale(90%);
+  }
+  

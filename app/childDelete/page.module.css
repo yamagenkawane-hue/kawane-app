@@ -1,0 +1,104 @@
+.reservationImg {
+  display: flex;
+  flex-direction: column;
+  background-image: linear-gradient(
+      rgba(255, 255, 255, 0.4),
+      rgba(255, 255, 255, 0.4)
+    ),
+    url("/images/音符.png");
+  background-position: center -90px;
+  background-size: 40%;
+}
+
+.topPageButton {
+  font-size: 19px;
+  font-weight: bold;
+  display: flex;
+  border: none;
+  width: 200px;
+  height: 40px;
+  border-radius: 10px;
+  background-color: #e4f5fb;
+  background-size: 10px 10px;
+  background-image: radial-gradient(#a6ebf7 15%, transparent 20%),
+    radial-gradient(#85ddfa 15%, transparent 20%);
+  background-position: 0 0, 15px 15px;
+  margin: 5px auto 30px;
+  justify-content: center;
+  align-items: center;
+}
+
+.topPageButton:hover {
+  transform: scale(85%);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.topPageLink {
+  text-decoration: none;
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.listTitle {
+  margin: auto;
+  background-color: white;
+}
+
+.childDeleteList {
+  font-size: 20px;
+}
+
+.buttonType {
+  display: flex;
+}
+
+.childDeleteButton {
+  font-size: 20px;
+  width: 60px;
+  height: 40px;
+  background-color: rgb(250, 177, 250);
+  border-radius: 5px;
+}
+
+.childDeleteButton:hover {
+  cursor: pointer;
+  transform: scale(85%);
+}
+
+.childDelete {
+  font-size: 20px;
+  width: 60px;
+  height: 40px;
+  background-color: rgb(249, 123, 123);
+  border-radius: 5px;
+  margin-left: 15px;
+}
+
+.childDelete:hover {
+  cursor: pointer;
+  transform: scale(85%);
+}
+
+.childAllDelete {
+  display: flex;
+  justify-content: center;
+  margin-left: 500px;
+  margin-bottom: 15px;
+}
+
+.allDelete {
+  font-size: 20px;
+  background-color: rgb(249, 123, 123);
+  border-radius: 10px;
+  font-weight: bold;
+}
+
+.allDelete:hover {
+  cursor: pointer;
+  transform: scale(85%);
+}

@@ -1,0 +1,26 @@
+.subTitle {
+    background-color: rgb(247, 247, 178);
+    font-size: 23px;
+  }
+  
+.delete{
+    background-color: rgb(247, 102, 102);
+    font-size: 25px;
+    margin-right: 10px;
+}
+
+.delete:hover {
+    transform: scale(90%);
+    cursor: pointer;
+  }
+
+.selectAll{
+    background-color: rgb(122, 160, 242);
+    font-size: 25px;
+    margin-left: 10px;
+}
+
+.selectAll:hover{
+    transform: scale(90%);
+    cursor: pointer;
+}

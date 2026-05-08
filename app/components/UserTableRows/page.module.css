@@ -1,0 +1,15 @@
+.usersSave {
+  background-color: #85ddfa;
+}
+
+.usersCancel {
+  background-color: rgb(247, 247, 122);
+}
+
+.usersEdit {
+  background-color: #91f9a6;
+}
+
+.usersDelete {
+  background-color: #f7a062;
+}

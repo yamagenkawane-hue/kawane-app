@@ -1,0 +1,26 @@
+.main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto;
+  background-image: linear-gradient(
+      rgba(255, 255, 255, 0.3),
+      rgba(255, 255, 255, 0.3)
+    ),
+    url("/images/太陽と空2.jpg");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: top center;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.mainTitle {
+  font-size: 50px;
+  text-align: center;
+  text-shadow: 6px 3px #f8dcab;
+  margin-top: 150px;
+  margin-bottom: 80px;
+}

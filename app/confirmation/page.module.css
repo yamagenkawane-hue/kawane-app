@@ -1,0 +1,90 @@
+.reservationImg {
+  display: flex;
+  flex-direction: column;
+  background-image: linear-gradient(
+      rgba(255, 255, 255, 0.4),
+      rgba(255, 255, 255, 0.4)
+    ),
+    url("/images/音符.png");
+  background-position: center -90px;
+  background-size: 40%;
+}
+
+.searchDelete {
+  display: flex;
+  align-items: center;
+  margin: 0 auto;
+}
+
+.deleteIcon {
+  margin-left: 60px;
+  font-size: 35px;
+}
+
+.deleteIcon:hover {
+  cursor: pointer;
+  transform: scale(85%);
+  color: red;
+}
+
+.deleteIconLink {
+  color: blue;
+  margin-top: 15px;
+}
+
+.topPageButton {
+  font-size: 19px;
+  font-weight: bold;
+  display: flex;
+  border: none;
+  width: 200px;
+  height: 40px;
+  border-radius: 10px;
+  background-color: #e4f5fb;
+  background-size: 10px 10px;
+  background-image: radial-gradient(#a6ebf7 15%, transparent 20%),
+    radial-gradient(#85ddfa 15%, transparent 20%);
+  background-position: 0 0, 15px 15px;
+  margin: 5px auto 30px;
+  justify-content: center;
+  align-items: center;
+}
+
+.topPageButton:hover {
+  transform: scale(85%);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.topPageLink {
+  text-decoration: none;
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.button {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  font-size: 16px;
+}
+
+.listTitle {
+  margin: auto;
+  background-color: white;
+}
+
+.reservationPagination {
+  margin-top: 20px;
+  align-items: center;
+}

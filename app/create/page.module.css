@@ -1,0 +1,137 @@
+.createCenter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background-image: linear-gradient(
+      rgba(255, 255, 255, 0.4),
+      rgba(255, 255, 255, 0.4)
+    ),
+    url(../../../public/images/星.png);
+  background-size: contain;
+  background-color: rgb(224, 217, 237);
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  max-width: 700px;
+  margin: auto;
+}
+
+.createTitle {
+  font-size: 2rem;
+  color: #333;
+  margin-bottom: 50px;
+}
+
+.createChildName {
+  font-weight: bold;
+  margin-top: 10px;
+  margin-bottom: 5px;
+  color: #555;
+}
+
+.createChildInput {
+  font-size: 20px;
+  width: 103.5%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  transition: border 0.3s;
+}
+
+.classTitle {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.classInput {
+  font-size: 20px;
+  height: 30px;
+  width: 90%;
+  border: none;
+  margin-bottom: 20px;
+  border-radius: 5px;
+  background-color: white;
+}
+
+/* .submitButton {
+  width: 100%;
+  font-size: 20px;
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+} */
+.submitButton {
+  width: 100%;
+  font-size: 20px;
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s;
+  position: relative;
+}
+
+/* .submitButton:hover {
+  background-color: #0056b3;
+  transform: scale(85%);
+} */
+.submitButton:hover {
+  background-color: #0056b3;
+  transform: scale(0.98);
+}
+/* 送信中スタイル */
+.submitButton.submitting {
+  background-color: gray;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+/* ローディングアニメーション（擬似要素） */
+.submitButton.submitting::after {
+  content: "";
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  border: 2px solid white;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: translateY(-50%) rotate(360deg);
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .createCenter {
+    max-width: 100%;
+    padding: 10px;
+    box-shadow: none;
+  }
+
+  .createTitle {
+    font-size: 1.5rem;
+    margin-bottom: 30px;
+  }
+
+  .createChildInput {
+    width: 102%;
+    padding: 8px;
+  }
+
+  .submitButton {
+    width: 110%;
+    padding: 12px;
+  }
+}

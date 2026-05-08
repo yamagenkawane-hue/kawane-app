@@ -1,0 +1,55 @@
+.loginBox {
+  background-color: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(161, 240, 248, 0.1);
+  max-width: 400px;
+  width: 100%;
+}
+
+.errorMessage {
+  font-size: 15px;
+  color: red;
+}
+
+.logButton {
+  text-align: center;
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.formGroup {
+  margin-bottom: 15px;
+}
+
+.label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.input {
+  width: 90%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+.signin {
+  background-color: #bdf6bf;
+  border: none;
+  border-radius: 5px;
+}
+
+.signinButton {
+  width: 100%;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.signinButton:hover {
+  background-color: #45a049;
+  color: white;
+}

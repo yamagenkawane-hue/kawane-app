@@ -1,0 +1,103 @@
+.titleform {
+  background-color: rgba(249, 249, 249, 0.9);
+  background-image: linear-gradient(
+      rgba(255, 255, 255, 0.3),
+      rgba(255, 255, 255, 0.3)
+    ),
+    url("/images/海.png");
+  background-position: center;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  height: 90vh;
+  margin: auto;
+  text-align: center;
+}
+
+.maintext {
+  color: #fa5c4e;
+  margin: 50px 0 70px;
+}
+
+.titletext {
+  text-align: left;
+  padding: 0 0 0 50px;
+  font-size: 25px;
+  font-weight: bold;
+  margin-bottom: 25px;
+}
+
+.inputcenter {
+  display: block;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.buttonText {
+  background-color: #eb6100;
+  border: none;
+  font-size: 30px;
+  color: white;
+  width: 100px;
+  height: 60px;
+  margin-bottom: 20px;
+  border-radius: 30px;
+}
+
+.buttonText:hover {
+  transform: scale(90%);
+  background-color: #f7a062;
+  cursor: pointer;
+}
+
+.inputBox {
+  border: 2px solid #617bff;
+  border-radius: 5px;
+  padding: 5px;
+  font-size: 20px;
+  height: 30px;
+  width: 80%;
+  transition: border-color 0.3s;
+  transform: translateY(-20px);
+}
+
+.passTitle {
+  display: flex;
+  text-align: left;
+  padding: 0 0 0 50px;
+}
+
+.passWordtitle {
+  font-size: 25px;
+}
+
+.text {
+  font-size: 18px;
+  color: red;
+  margin: 30px 5px 0;
+}
+
+.backButton {
+  width: 100px;
+  height: 60px;
+  border-radius: 30px;
+  color: #fff;
+  background-color: #eb6100;
+  font-size: 30px;
+  justify-content: center;
+  align-items: center;
+  border: none;
+}
+
+.backButton:hover {
+  transform: scale(90%);
+  background-color: #f7a062;
+  cursor: pointer;
+}
+
+.errorText {
+  color: red;
+  font-size: 15px;
+  margin-top: 0;
+}

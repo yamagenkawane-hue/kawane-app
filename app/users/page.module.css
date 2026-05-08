@@ -1,0 +1,26 @@
+.usersImg {
+  background-image: linear-gradient(
+      rgba(255, 255, 255, 0.8),
+      rgba(255, 255, 255, 0.8)
+    ),
+    url(../../../public/images/蜂.png);
+  background-size: 150px;
+  background-position: left 25px;
+  height: 170px;
+  width: 98vw;
+}
+
+.usersCenter {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.usersListTitle {
+  margin: auto;
+}
+
+.usersSubTitle {
+  background-color: rgb(247, 247, 178);
+  font-size: 23px;
+}

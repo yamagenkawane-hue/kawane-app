@@ -1,0 +1,51 @@
+.allButton {
+  display: inline-flex;
+  text-align: center;
+  gap: 25px;
+}
+
+.link {
+  color: black;
+  text-decoration: none;
+}
+
+.reservationButton {
+  font-size: 40px;
+  display: flex;
+  width: 180px;
+  height: 70px;
+  border: none;
+  border-radius: 5px;
+  background-color: #ffcccc;
+  background-size: 10px 10px;
+  background-image: radial-gradient(#f8a7b1 15%, transparent 20%),
+    radial-gradient(#f8a7b1 15%, transparent 20%);
+  background-position: 0 0, 15px 15px;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.reservationButton:hover {
+  transform: scale(90%);
+  cursor: pointer;
+}
+
+.signout {
+  font-size: 30px;
+  display: inline-block;
+  width: 200px;
+  height: 70px;
+  border: none;
+  border-radius: 5px;
+  background-color: #91f9a6;
+  background-size: 10px 10px;
+  background-image: radial-gradient(#0fea3a 15%, transparent 20%),
+    radial-gradient(#0fea3a 15%, transparent 20%);
+  background-position: 0 0, 15px 15px;
+}
+
+.signout:hover {
+  transform: scale(90%);
+  cursor: pointer;
+}
