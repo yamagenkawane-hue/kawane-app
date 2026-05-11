@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { collection, doc, getDocs, updateDoc } from "firebase/firestore";
-import db from "../../../lib/firebase";
+import db from "../../lib/firebase";
 import { User } from "../type";
 
 export const useManager = () => {

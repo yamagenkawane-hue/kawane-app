@@ -1,6 +1,6 @@
 import { deleteDoc, doc } from "firebase/firestore";
 import { useState } from "react";
-import db from "../../../lib/firebase";
+import db from "../../lib/firebase";
 import { User } from "../type";
 
 export const useAllDelete = (

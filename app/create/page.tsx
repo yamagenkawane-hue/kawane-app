@@ -1,7 +1,7 @@
 "use client";
 
 import { collection, addDoc } from "firebase/firestore";
-import db from "../../../lib/firebase";
+import db from "../../lib/firebase";
 import React, { useEffect, useState } from "react";
 import firebase from "firebase/compat/app";
 import { v4 as uuidv4 } from "uuid";

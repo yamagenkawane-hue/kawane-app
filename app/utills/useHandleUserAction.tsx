@@ -1,5 +1,5 @@
 import { deleteDoc, doc, updateDoc } from "firebase/firestore";
-import db from "../../../lib/firebase";
+import db from "../../lib/firebase";
 import { useState } from "react";
 
 export const useHandleUserAction = (setShouldFetch: (val: boolean) => void) => {

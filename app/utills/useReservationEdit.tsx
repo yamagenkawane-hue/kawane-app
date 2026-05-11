@@ -1,8 +1,12 @@
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useState } from "react";
-import db from "../../../lib/firebase";
+import db from "../../lib/firebase";
+import { Post } from "../type";
 
-export const useReservationEdit = (posts: any[], setShouldFetch: any) => {
+//export const useReservationEdit = (posts: any[], setShouldFetch: any) => {
+  export const useReservationEdit = (posts: Post[], setShouldFetch: React.Dispatch<
+  React.SetStateAction<boolean>
+>) => {
   const [editStartTime, setEditStartTime] = useState("");
   const [editEndTime, setEditEndTime] = useState("");
   const [editingRow, setEditingRow] = useState<{

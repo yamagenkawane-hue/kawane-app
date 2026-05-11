@@ -2,7 +2,7 @@
 
 import { collection, getDocs } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
-import db from "../../../lib/firebase";
+import db from "../../lib/firebase";
 import Link from "next/link";
 import styles from "./page.module.css";
 import { User } from "../type";
@@ -20,26 +20,47 @@ const ManagerDelete = () => {
   );
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const postData = collection(db, "user");
-        const querySnapshot = await getDocs(postData);
-        const postsArray = querySnapshot.docs.map((doc) => {
+  const fetchData = async () => {
+    if (!shouldFetch) return;
+
+    try {
+      const postData = collection(
+        db,
+        "user"
+      );
+
+      const querySnapshot =
+        await getDocs(postData);
+
+      const postsArray =
+        querySnapshot.docs.map((doc) => {
           const data = doc.data();
-          return { ...data, id: doc.id } as User;
+
+          return {
+            ...data,
+            id: doc.id,
+          } as User;
         });
 
-        const filteredPosts = postsArray.filter((post) => post.delete);
-        setPosts(filteredPosts);
-      } catch (error) {
-        console.error("Error fetching posts:", error);
-      }
-    };
-    if (shouldFetch) {
-      fetchData();
+      const filteredPosts =
+        postsArray.filter(
+          (post) => post.delete
+        );
+
+      setPosts(filteredPosts);
+
+      // fetch完了後に更新
       setShouldFetch(false);
+    } catch (error) {
+      console.error(
+        "Error fetching posts:",
+        error
+      );
     }
-  }, [shouldFetch]);
+  };
+
+  fetchData();
+}, [shouldFetch]);
 
   return (
     <div className={styles.managerImg}>

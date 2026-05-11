@@ -1,6 +1,6 @@
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { Day } from "../type";
-import db from "../../../lib/firebase";
+import db from "../../lib/firebase";
 
 type UseSaveEditProps = {
   editData: Day | null;

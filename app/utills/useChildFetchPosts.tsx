@@ -1,6 +1,6 @@
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import db from "../../../lib/firebase";
+import db from "../../lib/firebase";
 import { Post } from "../type";
 
 export const useChildFetchPosts = (

@@ -1,6 +1,6 @@
 import { addDoc, collection } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import db from "../../../lib/firebase";
+import db from "../../lib/firebase";
 
 export const useNewRegistration = () => {
   const [userName, setUserName] = useState("");

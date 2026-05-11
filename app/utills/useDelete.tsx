@@ -1,5 +1,5 @@
 import { doc, updateDoc } from "firebase/firestore";
-import db from "../../../lib/firebase";
+import db from "../../lib/firebase";
 import { Post } from "../type";
 
 export const useDelete = (setShouldFetch: (val: boolean) => void) => {

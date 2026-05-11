@@ -11,7 +11,7 @@ import ConfirmationTable from "../components/ConfirmationTable/ConfirmationTable
 import ManagerSearchForm from "../components/ManagerSearchForm/ManagerSearchForm";
 import ManagerReservationList from "../components/ManagerReservationList/ManagerReservationList";
 import { deleteDoc, doc } from "firebase/firestore";
-import db from "../../../lib/firebase";
+import db from "../../lib/firebase";
 
 const itemsPerPage = 15;
 
