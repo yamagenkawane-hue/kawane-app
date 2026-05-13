@@ -79,12 +79,14 @@ export type UserRowProps = {
     manager: boolean;
     delete: boolean;
   };
+  isProtectedUser: boolean;
   onEdit: (user: User) => void;
   onSave: (userId: string) => void;
   onCancel: () => void;
   onDelete: (userId: string) => void;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onCheckboxChange: () => void;
+  
 };
 
 export type LoginFormProps = {

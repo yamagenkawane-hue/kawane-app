@@ -1,11 +1,11 @@
 .managerImg {
   display: flex;
   flex-direction: column;
-  background-image: linear-gradient(
+  /* background-image: linear-gradient(
       rgba(255, 255, 255, 0.6),
       rgba(255, 255, 255, 0.6)
     ),
-    url("/images/星.png");
+    url("/images/星.png"); */
   background-position: center;
   background-size: 40%;
   height: 100vh;
@@ -40,6 +40,7 @@
 }
 
 .center {
+  font-size: 40px;
   display: flex;
   justify-content: center;
   margin-bottom: 20px;
@@ -74,4 +75,11 @@
 .subTitle {
   background-color: #fceed7;
   font-size: 25px;
+}
+
+.userList th,
+.userList td {
+  border: 1px solid #000;
+  padding: 12px;
+  text-align: center;
 }

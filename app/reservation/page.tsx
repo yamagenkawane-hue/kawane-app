@@ -55,7 +55,7 @@ const Reservation = () => {
           <button className={styles.topPageButton}>トップページに戻る</button>
         </Link>
         <div className={styles.center}>
-          <h1>予約一覧</h1>
+          <h1>進捗管理</h1>
         </div>
         <div className={styles.searchDelete}>
           <SearchForm search={search} setSearch={setSearch} />

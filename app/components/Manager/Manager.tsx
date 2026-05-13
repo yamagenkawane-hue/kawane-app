@@ -12,6 +12,7 @@ const Manager: React.FC<UserRowProps> = ({
   onDelete,
   onInputChange,
   onCheckboxChange,
+  isProtectedUser,
 }) => {
   const isEditing = editingUserId === user.id;
 
@@ -50,7 +51,8 @@ const Manager: React.FC<UserRowProps> = ({
           checked={isEditing ? editedUser.manager : user.manager}
           onChange={isEditing ? onCheckboxChange : undefined}
           readOnly={!isEditing}
-        />
+          disabled={isProtectedUser}
+/>
       </td>
       <td className={styles.tableLine}>
         {isEditing ? (
@@ -67,12 +69,17 @@ const Manager: React.FC<UserRowProps> = ({
           </>
         ) : (
           <>
-            <button className={styles.managerEdit} onClick={() => onEdit(user)}>
+            <button
+              className={styles.managerEdit}
+              onClick={() => onEdit(user)}
+              disabled={isProtectedUser}
+            >
               変更
             </button>
             <button
               className={styles.managerDelete}
               onClick={() => onDelete(user.id)}
+              disabled={isProtectedUser}
             >
               削除
             </button>

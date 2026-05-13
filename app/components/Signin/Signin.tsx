@@ -90,14 +90,21 @@ const Signin = () => {
       {isLoggedIn ? (
         <div className={styles.allButton}>
           <div>
+          <div>
             <Link
               href="/reservation"
               className={
                 styles.reservationButton
               }
             >
-              予約一覧
+              進捗管理
             </Link>
+          </div>
+          <div>
+            <Link href="/" className={styles.reservationButton}>
+              注残管理
+            </Link>
+          </div>
           </div>
 
           {isManagerIn && (

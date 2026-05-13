@@ -30,7 +30,7 @@
 }
 
 .input {
-  width: 90%;
+  width: 120%;
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 5px;
@@ -38,6 +38,7 @@
 }
 
 .signin {
+  width:120%;
   background-color: #bdf6bf;
   border: none;
   border-radius: 5px;

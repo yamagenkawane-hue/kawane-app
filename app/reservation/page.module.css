@@ -1,11 +1,11 @@
 .reservationImg {
   display: flex;
   flex-direction: column;
-  background-image: linear-gradient(
+  /* background-image: linear-gradient(
       rgba(255, 255, 255, 0.4),
       rgba(255, 255, 255, 0.4)
     ),
-    url("/images/音符.png");
+    url("/images/音符.png"); */
   background-position: center -90px;
   background-size: 40%;
 }
@@ -61,6 +61,7 @@
 }
 
 .center {
+  font-size: 40px;
   display: flex;
   justify-content: center;
   margin-bottom: 20px;

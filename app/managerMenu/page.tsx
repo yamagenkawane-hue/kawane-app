@@ -50,32 +50,53 @@ const ManagerMenu = () => {
         </Link>
       </div>
       {errorMessage && <p className={styles.managerError}>{errorMessage}</p>}
+      <table className={styles.userList}>
+  <thead>
+    <tr className={styles.subTitle}>
+      <th>ユーザーID</th>
+      <th>パスワード</th>
+      <th>管理者</th>
+      <th>操作</th>
+    </tr>
+  </thead>
 
-      <table border={1} className={styles.userList}>
-        <tbody>
-          <tr className={styles.subTitle}>
-            <th>ユーザーID</th>
-            <th>パスワード</th>
-            <th>管理者</th>
-          </tr>
-          {data.map((user) => (
-            <Manager
-              key={user.id}
-              user={user}
-              editingUserId={editingUserId}
-              editedUser={editedUser}
-              onEdit={handleEdit}
-              onSave={handleSave}
-              onCancel={() => setEditingUserId(null)}
-              onDelete={() => deleteUser(user.id)}
-              onInputChange={handleInputChange}
-              onCheckboxChange={() =>
-                setEditedUser((prev) => ({ ...prev, manager: !prev.manager }))
-              }
-            />
-          ))}
-        </tbody>
-      </table>
+  <tbody>
+  {data.map((user) => {
+    const isProtectedUser =
+      user.name === "admin" &&
+      user.pass === "admin1234" &&
+      user.manager === true;
+
+    return (
+      <Manager
+        key={user.id}
+        user={user}
+        editingUserId={editingUserId}
+        editedUser={editedUser}
+        isProtectedUser={isProtectedUser}
+        onEdit={handleEdit}
+        onSave={handleSave}
+        onCancel={() =>
+          setEditingUserId(null)
+        }
+        onDelete={() =>
+          deleteUser(user.id)
+        }
+        onInputChange={
+          handleInputChange
+        }
+        onCheckboxChange={() =>
+          setEditedUser((prev) => ({
+            ...prev,
+            manager:
+              !prev.manager,
+          }))
+        }
+      />
+    );
+  })}
+</tbody>
+</table>
     </div>
   );
 };
