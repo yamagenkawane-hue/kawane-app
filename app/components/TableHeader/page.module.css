@@ -1,4 +1,173 @@
-.subTitle {
-  background-color: rgb(247, 247, 178);
-  font-size: 23px;
+/* =========================
+   テーブル全体
+========================= */
+
+.listTitle {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  table-layout: auto;
+}
+
+/* =========================
+   1段目ヘッダー
+========================= */
+
+.mainHeader th {
+  background-color: #1565c0;
+  color: white;
+  padding: 14px 10px;
+  text-align: center;
+  font-size: 14px;
+  border: 1px solid #999;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+/* =========================
+   2段目ヘッダー
+========================= */
+
+.subHeader th {
+  background-color: #42a5f5;
+  color: white;
+  padding: 10px;
+  text-align: center;
+  font-size: 13px;
+  border: 1px solid #999;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+/* =========================
+   工程ごとの区切り線
+========================= */
+
+.subHeader th:nth-child(2),
+.subHeader th:nth-child(4),
+.subHeader th:nth-child(6),
+.subHeader th:nth-child(8),
+.subHeader th:nth-child(10) {
+  border-right: 3px solid #555;
+}
+
+/* =========================
+   メインヘッダー区切り
+========================= */
+
+.mainHeader th {
+  border-right: 2px solid #666;
+}
+
+.mainHeader th:last-child {
+  border-right: 1px solid #999;
+}
+
+/* =========================
+   列幅
+========================= */
+
+/* 注番 */
+.orderHeader {
+  min-width: 140px;
+}
+
+/* 製品名 */
+.productHeader {
+  min-width: 180px;
+}
+
+/* 得意先 */
+.customerHeader {
+  min-width: 180px;
+}
+
+/* 工程 */
+.processHeader {
+  min-width: 160px;
+}
+
+/* 注残 */
+.remainingHeader {
+  min-width: 80px;
+}
+
+/* 進捗率 */
+.progressHeader {
+  min-width: 120px;
+}
+
+/* 状態 */
+.statusHeader {
+  min-width: 100px;
+}
+
+/* 遅延 */
+.delayHeader {
+  min-width: 80px;
+}
+
+/* 納期 */
+.deliveryHeader {
+  min-width: 120px;
+}
+
+/* 備考 */
+.remarkHeader {
+  min-width: 220px;
+}
+
+/* 操作 */
+.buttonHeader {
+  min-width: 140px;
+}
+
+/* =========================
+   レスポンシブ
+========================= */
+
+@media screen and (max-width: 1600px) {
+  .mainHeader th,
+  .subHeader th {
+    font-size: 12px;
+    padding: 8px;
+  }
+}
+
+@media screen and (max-width: 1200px) {
+  .mainHeader th,
+  .subHeader th {
+    font-size: 11px;
+    padding: 6px;
+  }
+}
+
+/* テーブル崩れ防止 */
+.listTitle {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+/* ヘッダー上段 */
+.headerTop th {
+  background: #1565c0;
+  color: white;
+  font-weight: bold;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* ヘッダー下段 */
+.headerBottom th {
+  background: #42a5f5;
+  color: white;
+  text-align: center;
+}
+
+/* セル */
+.listTitle th,
+.listTitle td {
+  border: 1px solid #777;
+  padding: 8px;
 }

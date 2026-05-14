@@ -1,137 +1,107 @@
-.createCenter {
+.container {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+  padding: 30px;
+}
+
+.headerArea {
+  position: relative;
+  margin-bottom: 40px;
+}
+
+.title {
+  text-align: center;
+  font-size: 55px;
+  font-weight: bold;
+  color: black;
+
+  text-shadow:
+    4px 4px 0px #d8c29d;
+}
+
+.backButton {
+  position: absolute;
+  left: 0;
+  top: 10px;
+
+  width: 180px;
+  height: 50px;
+
+  border: 2px solid #1f3b5b;
+  border-radius: 10px;
+
+  background-color: #ead7c9;
+
+  font-size: 24px;
+  cursor: pointer;
+
+  transition: 0.2s;
+}
+
+.backButton:hover {
+  opacity: 0.8;
+}
+
+.form {
+  width: 700px;
+  margin: 0 auto;
+
+  background-color: white;
+
+  border-radius: 15px;
+
+  padding: 40px;
+
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.formGroup {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 20px;
-  background-image: linear-gradient(
-      rgba(255, 255, 255, 0.4),
-      rgba(255, 255, 255, 0.4)
-    ),
-    url(../../../public/images/星.png);
-  background-size: contain;
-  background-color: rgb(224, 217, 237);
-  border-radius: 10px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  max-width: 700px;
-  margin: auto;
+
+  margin-bottom: 25px;
 }
 
-.createTitle {
-  font-size: 2rem;
-  color: #333;
-  margin-bottom: 50px;
-}
-
-.createChildName {
-  font-weight: bold;
-  margin-top: 10px;
-  margin-bottom: 5px;
-  color: #555;
-}
-
-.createChildInput {
-  font-size: 20px;
-  width: 103.5%;
-  padding: 10px;
+.formGroup label {
+  font-size: 24px;
   margin-bottom: 10px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  transition: border 0.3s;
-}
-
-.classTitle {
   font-weight: bold;
-  margin-bottom: 5px;
 }
 
-.classInput {
+.formGroup input,
+.formGroup textarea {
+  height: 50px;
+
+  border: 1px solid #999;
+  border-radius: 10px;
+
+  padding: 10px;
+
   font-size: 20px;
-  height: 30px;
-  width: 90%;
-  border: none;
-  margin-bottom: 20px;
-  border-radius: 5px;
-  background-color: white;
 }
 
-/* .submitButton {
-  width: 100%;
-  font-size: 20px;
-  padding: 10px 20px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-} */
+.formGroup textarea {
+  height: 120px;
+  resize: none;
+}
+
 .submitButton {
   width: 100%;
-  font-size: 20px;
-  padding: 10px 20px;
-  background-color: #007bff;
-  color: white;
+  height: 60px;
+
   border: none;
-  border-radius: 5px;
+  border-radius: 12px;
+
+  background-color: #8db1ff;
+
+  font-size: 28px;
+  font-weight: bold;
+
   cursor: pointer;
-  transition: background-color 0.3s, transform 0.2s;
-  position: relative;
+
+  transition: 0.2s;
 }
 
-/* .submitButton:hover {
-  background-color: #0056b3;
-  transform: scale(85%);
-} */
 .submitButton:hover {
-  background-color: #0056b3;
-  transform: scale(0.98);
-}
-/* 送信中スタイル */
-.submitButton.submitting {
-  background-color: gray;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-/* ローディングアニメーション（擬似要素） */
-.submitButton.submitting::after {
-  content: "";
-  position: absolute;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  border: 2px solid white;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: translateY(-50%) rotate(360deg);
-  }
-}
-
-@media screen and (max-width: 600px) {
-  .createCenter {
-    max-width: 100%;
-    padding: 10px;
-    box-shadow: none;
-  }
-
-  .createTitle {
-    font-size: 1.5rem;
-    margin-bottom: 30px;
-  }
-
-  .createChildInput {
-    width: 102%;
-    padding: 8px;
-  }
-
-  .submitButton {
-    width: 110%;
-    padding: 12px;
-  }
+  opacity: 0.8;
 }

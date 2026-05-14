@@ -1,27 +1,22 @@
+"use client";
+
 import React from "react";
-import SearchIcon from "@mui/icons-material/Search";
+
 import styles from "./page.module.css";
-import { SearchDateProps } from "@/app/type";
 
-const SearchForm: React.FC<SearchDateProps> = ({ search, setSearch }) => {
-  const getTodayDate = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, "0");
-    const day = String(today.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
+import { SearchProps } from "@/app/type";
 
+const SearchForm: React.FC<SearchProps> = ({ search, setSearch }) => {
   return (
-    <div className={styles.searchform}>
-      <div className={styles.searchIcon}>
-        <SearchIcon />
-      </div>
+    <div className={styles.searchArea}>
       <input
-        className={styles.search}
-        type="date"
-        value={search || getTodayDate()}
+        type="text"
+        value={search}
         onChange={(e) => setSearch(e.target.value)}
+        placeholder="
+          注番・製品名・得意先・状態で検索
+        "
+        className={styles.searchInput}
       />
     </div>
   );

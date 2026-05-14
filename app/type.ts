@@ -1,115 +1,159 @@
-export type Day = {
-  date: string;
-  name: string;
-  id: string;
-  class: string;
-  startTime: string;
-  endTime: string;
-  realStartTime?: string;
-  realEndTime?: string;
-  remark?: string;
-  delete: boolean;
-  userId: string;
-};
+export type StatusType =
+  | "未着手"
+  | "製造中"
+  | "洗浄中"
+  | "検査中"
+  | "測量中"
+  | "梱包中"
+  | "出荷完了";
 
 export type Post = {
   id: string;
-  days: Day[];
+
+  // 注番
+  orderNo: string;
+
+  // 製品情報
+  productCode: string;
+
+  productName: string;
+
+  // 客先
+  customerName: string;
+
+  // =========================
+  // 受注
+  // =========================
+
+  // 受注数量
+  orderAmount: number;
+
+  // 注残
+  remainingAmount: number;
+
+  // =========================
+  // 製造
+  // =========================
+  manufacturingDate: string;
+
+  manufacturingAmount: number;
+
+  // =========================
+  // 洗浄
+  // =========================
+  cleaningDate: string;
+
+  cleaningAmount: number;
+
+  // =========================
+  // 検査
+  // =========================
+  inspectionDate: string;
+
+  inspectionAmount: number;
+
+  // =========================
+  // 測量
+  // =========================
+  measurementDate: string;
+
+  measurementAmount: number;
+
+  // =========================
+  // 梱包
+  // =========================
+  packagingDate: string;
+
+  packagingAmount: number;
+
+  // 納期
+  deliveryDate: string;
+
+  // 備考
+  remark: string;
+
+  // 状態
+  status: StatusType;
+
+  // 論理削除
   delete?: boolean;
+
+  // 作成情報
+  createdBy: string;
+
+  updatedBy: string;
+
+  createdAt: string;
+
+  updatedAt: string;
 };
 
 export type User = {
   id: string;
+
   name: string;
+
   pass: string;
+
   manager: boolean;
+
   delete: boolean;
 };
 
-export type EditData = {
-  date: string;
-  startTime: string;
-  endTime: string;
-  remark: string;
-};
-
-export type UserTableRowsProps = {
-  filteredPosts: Post[];
-  editingRow: { postIndex: number; dayIndex: number } | null;
-  editData: EditData;
-  setEditData: (data: EditData) => void;
-  handleEdit: (postIndex: number, dayIndex: number) => void;
-  handleSave: () => void;
-  handleDelete: (post: Post) => void;
-  setEditingRow: (row: { postIndex: number; dayIndex: number } | null) => void;
-};
-
-export type SearchDateProps = {
+export type SearchProps = {
   search: string;
-  setSearch: (date: string) => void;
+
+  setSearch: (value: string) => void;
 };
 
 export type ReservationRowProps = {
-  post: { id: string; days: Day[] };
-  postIndex: number;
-  editingRow: { postId: string; dayIndex: number } | null;
-  editStartTime: string;
-  editEndTime: string;
-  setEditStartTime: (time: string) => void;
-  setEditEndTime: (time: string) => void;
-  handleEdit: (postId: string, dayIndex: number) => void;
-  handleSave: () => Promise<void>;
-  handleDelete: (postIndex: number) => Promise<void>;
-  handleCancel: () => void;
+  post: Post;
+
+  handleDelete: () => Promise<void>;
 };
 
 export type PaginationProps = {
   totalItems: number;
+
   itemsPerPage: number;
+
   currentPage: number;
+
   onPageChange: (page: number) => void;
 };
 
 export type UserRowProps = {
   user: User;
+
   editingUserId: string | null;
+
   editedUser: {
     name: string;
+
     pass: string;
+
     manager: boolean;
+
     delete: boolean;
   };
+
   isProtectedUser: boolean;
+
   onEdit: (user: User) => void;
+
   onSave: (userId: string) => void;
+
   onCancel: () => void;
+
   onDelete: (userId: string) => void;
+
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+
   onCheckboxChange: () => void;
-  
 };
 
 export type LoginFormProps = {
   posts: User[];
+
   onLoginSuccess: (isManager: boolean) => void;
-};
-
-export type ReservationInputProps = {
-  day: string;
-  index: number;
-  onChange: (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => void;
-};
-
-export type ChildReservationRowProps = {
-  postId: string;
-  day: Day;
-  dayIndex: number;
-  editingRow: { postId: string; dayIndex: number } | null;
-  editData: Day | null;
-  handleChange: (field: keyof Day, value: string) => void;
-  handleEdit: (day: Day, postId: string, dayIndex: number) => void;
-  handleSave: () => void;
-  handleCancel: () => void;
-  handleDelete: (postIndex: number) => void;
-  postIndex: number;
 };

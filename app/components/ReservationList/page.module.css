@@ -1,78 +1,243 @@
-.reservationText {
-  font-size: 20px;
-}
-
-.reservationInput {
-  width: 100px;
-  height: 30px;
-  font-size: 20px;
-}
-
-.subTitle {
-  background-color: rgb(247, 247, 178);
-}
-
-.childName {
-  color: black;
-  font-weight: bold;
-  text-decoration: none;
-}
-
-.childName:hover {
-  color: rgb(159, 4, 202);
-}
-
-.saveButton {
-  font-size: 20px;
-  width: 60px;
-  height: 40px;
-  background-color: rgb(155, 217, 250);
-  border-radius: 5px;
-}
-
-.saveButton:hover {
-  background-color: rgb(181, 240, 252);
-  cursor: pointer;
-  transform: scale(90%);
-}
-
-.deleteButton {
-  font-size: 20px;
-  width: 60px;
-  height: 40px;
-  background-color: rgb(250, 142, 142);
-  border-radius: 5px;
-}
-
-.deleteButton:hover {
-  background-color: rgb(250, 213, 213);
-  cursor: pointer;
-  transform: scale(90%);
-}
-
-.cancelButton {
-  font-size: 20px;
-  width: 120px;
-  height: 40px;
-  background-color: yellow;
-  border-radius: 5px;
-}
-
-.cancelButton:hover {
-  background-color: rgb(251, 251, 186);
-  transform: scale(90%);
-}
-
+/* 編集ボタン */
 .editButton {
-  font-size: 20px;
-  width: 60px;
-  height: 40px;
-  background-color: #83f88b;
-  border-radius: 5px;
+  background-color: #1976d2;
+
+  color: white;
+
+  border: none;
+
+  padding: 8px 14px;
+
+  border-radius: 6px;
+
+  cursor: pointer;
+
+  font-size: 13px;
+
+  margin-right: 8px;
 }
 
 .editButton:hover {
-  background-color: #ccf7c2;
+  opacity: 0.8;
+}
+
+/* 保存ボタン */
+.saveButton {
+  background-color: #2e7d32;
+
+  color: white;
+
+  border: none;
+
+  padding: 8px 14px;
+
+  border-radius: 6px;
+
   cursor: pointer;
-  transform: scale(90%);
+
+  font-size: 13px;
+
+  margin-right: 8px;
+}
+
+.saveButton:hover {
+  opacity: 0.8;
+}
+
+/* input */
+.reservationText input {
+  width: 100%;
+
+  padding: 6px;
+
+  border: 1px solid #ccc;
+
+  border-radius: 4px;
+
+  font-size: 13px;
+
+  box-sizing: border-box;
+}
+
+/* =========================
+   ステータス
+========================= */
+
+.statusBadge {
+  padding: 6px 12px;
+
+  border-radius: 20px;
+
+  color: white;
+
+  font-size: 12px;
+
+  font-weight: bold;
+
+  display: inline-block;
+
+  min-width: 80px;
+}
+
+/* 未着手 */
+
+.未着手 {
+  background-color: #9e9e9e;
+}
+
+/* 洗浄中 */
+
+.洗浄中 {
+  background-color: #1976d2;
+}
+
+/* 検査中 */
+
+.検査中 {
+  background-color: #ef6c00;
+}
+
+/* 測量中 */
+
+.測量中 {
+  background-color: #8e24aa;
+}
+
+/* 梱包中 */
+
+.梱包中 {
+  background-color: #2e7d32;
+}
+
+/* 出荷完了 */
+
+.出荷完了 {
+  background-color: #d32f2f;
+}
+
+/* =========================
+   納期警告
+========================= */
+
+/* 納期1週間前 */
+
+.warning {
+  background-color: #f9a825;
+
+  color: white;
+
+  padding: 6px 10px;
+
+  border-radius: 8px;
+
+  font-weight: bold;
+}
+
+/* 納期3日前・超過 */
+
+.danger {
+  background-color: #d32f2f;
+
+  color: white;
+
+  padding: 6px 10px;
+
+  border-radius: 8px;
+
+  font-weight: bold;
+}
+
+/* =========================
+   進捗バー
+========================= */
+
+.progressArea {
+  min-width: 120px;
+}
+
+.progressBar {
+  width: 100%;
+
+  height: 14px;
+
+  background-color: #e0e0e0;
+
+  border-radius: 20px;
+
+  overflow: hidden;
+
+  margin-top: 4px;
+}
+
+.progressFill {
+  height: 100%;
+
+  background-color: #43a047;
+
+  transition: 0.3s;
+}
+/* =========================
+   工程色分け
+========================= */
+
+/* 製造 */
+
+.manufacturingCell {
+  background-color: #bbdefb;
+}
+
+/* 洗浄 */
+
+.cleaningCell {
+  background-color: #b2ebf2;
+}
+
+/* 検査 */
+
+.inspectionCell {
+  background-color: #ffe0b2;
+}
+
+/* 測量 */
+
+.measurementCell {
+  background-color: #e1bee7;
+}
+
+/* 梱包 */
+
+.packagingCell {
+  background-color: #c8e6c9;
+}
+
+/* =========================
+   遅延判定
+========================= */
+
+.delayBadge {
+  background-color: #d32f2f;
+
+  color: white;
+
+  padding: 6px 12px;
+
+  border-radius: 20px;
+
+  font-size: 12px;
+
+  font-weight: bold;
+}
+
+.normalBadge {
+  background-color: #43a047;
+
+  color: white;
+
+  padding: 6px 12px;
+
+  border-radius: 20px;
+
+  font-size: 12px;
+
+  font-weight: bold;
 }
