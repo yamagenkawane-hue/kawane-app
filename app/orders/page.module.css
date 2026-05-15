@@ -1,0 +1,93 @@
+.container {
+  width: 95%;
+  max-width: 1600px;
+  margin: 30px auto;
+  padding: 24px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.title {
+  text-align: center;
+  font-size: 32px;
+  font-weight: bold;
+}
+
+.headerArea {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.backButton {
+  position: absolute;
+  left: 0;
+  background: #2563eb;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: bold;
+  transition: 0.2s;
+}
+
+.backButton:hover {
+  background: #1d4ed8;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1100px;
+}
+.table th {
+  background: #f3f4f6;
+  padding: 14px;
+  border-bottom: 2px solid #d1d5db;
+  text-align: center;
+  font-size: 15px;
+}
+.table td {
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: center;
+  font-size: 14px;
+}
+.table tr:hover {
+  background: #f9fafb;
+}
+.remaining {
+  color: #dc2626;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.delayRow {
+  background: #fee2e2;
+}
+.delayRow:hover {
+  background: #fecaca !important;
+}
+
+.warningRow {
+  background: #fef9c3;
+}
+
+.warningRow:hover {
+  background: #fde68a !important;
+}
+
+.dangerRow {
+  background: #fee2e2;
+}
+
+.dangerRow:hover {
+  background: #fecaca !important;
+}

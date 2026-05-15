@@ -49,10 +49,7 @@ const Signin = () => {
         console.log(usersArray);
         setPosts(usersArray);
       } catch (error) {
-        console.error(
-          "Firestore取得エラー:",
-          error
-        );
+        console.error("Firestore取得エラー:", error);
       }
     };
 
@@ -70,17 +67,12 @@ const Signin = () => {
       setIsLoggedIn(false);
       setIsManagerIn(false);
     } catch (error) {
-      console.error(
-        "サインアウトエラー:",
-        error
-      );
+      console.error("サインアウトエラー:", error);
     }
   };
 
   // ログイン成功時
-  const handleLoginSuccess = (
-    isManager: boolean
-  ) => {
+  const handleLoginSuccess = (isManager: boolean) => {
     setIsLoggedIn(true);
     setIsManagerIn(isManager);
   };
@@ -90,46 +82,32 @@ const Signin = () => {
       {isLoggedIn ? (
         <div className={styles.allButton}>
           <div>
-          <div>
-            <Link
-              href="/reservation"
-              className={
-                styles.reservationButton
-              }
-            >
-              進捗管理
-            </Link>
-          </div>
-          <div>
-            <Link href="/" className={styles.reservationButton}>
-              注残管理
-            </Link>
-          </div>
+            <div>
+              <Link href="/reservation" className={styles.reservationButton}>
+                進捗管理
+              </Link>
+            </div>
+            <div>
+              <Link href="/orders" className={styles.reservationButton}>
+                注残管理
+              </Link>
+            </div>
           </div>
 
-          {isManagerIn && (
-            <SigninManager />
-          )}
+          {isManagerIn && <SigninManager />}
 
           <div>
             <button
               type="button"
               className={styles.signout}
-              onClick={
-                handleSignoutClick
-              }
+              onClick={handleSignoutClick}
             >
               サインアウト
             </button>
           </div>
         </div>
       ) : (
-        <LoginForm
-          posts={posts}
-          onLoginSuccess={
-            handleLoginSuccess
-          }
-        />
+        <LoginForm posts={posts} onLoginSuccess={handleLoginSuccess} />
       )}
     </>
   );
