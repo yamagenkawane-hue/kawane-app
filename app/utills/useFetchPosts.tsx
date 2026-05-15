@@ -29,28 +29,98 @@ export const useFetchPosts = () => {
         const postsArray: Post[] = querySnapshot.docs.map((doc) => {
           const data = doc.data();
 
-          // 数量
+          // =========================
+          // 日別実績
+          // =========================
+          const manufacturingLogs = data.manufacturingLogs || [];
+
+          const cleaningLogs = data.cleaningLogs || [];
+
+          const inspectionLogs = data.inspectionLogs || [];
+
+          const measurementLogs = data.measurementLogs || [];
+
+          const packagingLogs = data.packagingLogs || [];
+
+          // =========================
+          // 合計数量
+          // =========================
+          const manufacturingAmount = manufacturingLogs.reduce(
+            (
+              sum: number,
+              log: {
+                amount: number;
+              },
+            ) => sum + log.amount,
+            0,
+          );
+
+          const cleaningAmount = cleaningLogs.reduce(
+            (
+              sum: number,
+              log: {
+                amount: number;
+              },
+            ) => sum + log.amount,
+            0,
+          );
+
+          const inspectionAmount = inspectionLogs.reduce(
+            (
+              sum: number,
+              log: {
+                amount: number;
+              },
+            ) => sum + log.amount,
+            0,
+          );
+
+          const measurementAmount = measurementLogs.reduce(
+            (
+              sum: number,
+              log: {
+                amount: number;
+              },
+            ) => sum + log.amount,
+            0,
+          );
+
+          const packagingAmount = packagingLogs.reduce(
+            (
+              sum: number,
+              log: {
+                amount: number;
+              },
+            ) => sum + log.amount,
+            0,
+          );
+
+          // =========================
+          // 受注数量
+          // =========================
           const orderAmount = data.orderAmount || 0;
 
-          const packagingAmount = data.packagingAmount || 0;
-
-          // 注残再計算
+          // =========================
+          // 注残
+          // =========================
           const remainingAmount = orderAmount - packagingAmount;
 
-          // 状態再計算
+          // =========================
+          // 状態
+          // =========================
           let status: Post["status"] = "未着手";
 
           if (packagingAmount >= orderAmount && orderAmount > 0) {
-            status = "出荷完了";
+            status = "出荷OK";
           } else if (packagingAmount > 0) {
             status = "梱包中";
-          } else if (data.measurementAmount > 0) {
+          } else if (measurementAmount > 0) {
             status = "測量中";
-          } else if (data.inspectionAmount > 0) {
+          } else if (inspectionAmount > 0) {
             status = "検査中";
-          } else if (data.cleaningAmount > 0) {
+          } else if (cleaningAmount > 0) {
             status = "洗浄中";
-          } else if (data.manufacturingAmount > 0) {
+          } else if (manufacturingAmount > 0) {
             status = "製造中";
           }
 
@@ -76,28 +146,28 @@ export const useFetchPosts = () => {
             // =========================
             manufacturingDate: data.manufacturingDate || "",
 
-            manufacturingAmount: data.manufacturingAmount || 0,
+            manufacturingAmount,
 
             // =========================
             // 洗浄
             // =========================
             cleaningDate: data.cleaningDate || "",
 
-            cleaningAmount: data.cleaningAmount || 0,
+            cleaningAmount,
 
             // =========================
             // 検査
             // =========================
             inspectionDate: data.inspectionDate || "",
 
-            inspectionAmount: data.inspectionAmount || 0,
+            inspectionAmount,
 
             // =========================
             // 測量
             // =========================
             measurementDate: data.measurementDate || "",
 
-            measurementAmount: data.measurementAmount || 0,
+            measurementAmount,
 
             // =========================
             // 梱包
@@ -115,11 +185,21 @@ export const useFetchPosts = () => {
             // 備考
             remark: data.remark || "",
 
+            // =========================
+            // 日別実績
+            // =========================
+            manufacturingLogs,
+
+            cleaningLogs,
+
+            inspectionLogs,
+
+            measurementLogs,
+
+            packagingLogs,
+
             // 状態
             status,
-
-            // 並び替え用
-            firstDate: data.firstDate || data.createdAt || "",
 
             // 論理削除
             delete: data.delete || false,

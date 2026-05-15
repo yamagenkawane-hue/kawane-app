@@ -111,6 +111,17 @@ const Create = () => {
         // 備考
         remark,
 
+        // 日別実績
+        manufacturingLogs: [],
+
+        cleaningLogs: [],
+
+        inspectionLogs: [],
+
+        measurementLogs: [],
+
+        packagingLogs: [],
+
         // 論理削除
         delete: false,
 

@@ -1,90 +1,81 @@
 export type StatusType =
   | "未着手"
   | "製造中"
+  | "製造完了"
   | "洗浄中"
+  | "洗浄完了"
   | "検査中"
+  | "検査完了"
   | "測量中"
+  | "測量完了"
   | "梱包中"
-  | "出荷完了";
+  | "梱包完了"
+  | "出荷OK";
+
+export type DailyProgress = {
+  date: string;
+
+  amount: number;
+};
+
+export type ProductionLog = {
+  date: string;
+
+  amount: number;
+};
 
 export type Post = {
   id: string;
 
-  // 注番
   orderNo: string;
 
-  // 製品情報
   productCode: string;
-
   productName: string;
 
-  // 客先
   customerName: string;
 
-  // =========================
-  // 受注
-  // =========================
-
-  // 受注数量
   orderAmount: number;
 
-  // 注残
-  remainingAmount: number;
-
-  // =========================
-  // 製造
-  // =========================
   manufacturingDate: string;
-
   manufacturingAmount: number;
 
-  // =========================
-  // 洗浄
-  // =========================
   cleaningDate: string;
-
   cleaningAmount: number;
 
-  // =========================
-  // 検査
-  // =========================
   inspectionDate: string;
-
   inspectionAmount: number;
 
-  // =========================
-  // 測量
-  // =========================
   measurementDate: string;
-
   measurementAmount: number;
 
-  // =========================
-  // 梱包
-  // =========================
   packagingDate: string;
-
   packagingAmount: number;
 
-  // 納期
+  remainingAmount: number;
+
   deliveryDate: string;
 
-  // 備考
   remark: string;
 
-  // 状態
   status: StatusType;
 
-  // 論理削除
+  // 日別実績
+  manufacturingLogs: ProductionLog[];
+
+  cleaningLogs: ProductionLog[];
+
+  inspectionLogs: ProductionLog[];
+
+  measurementLogs: ProductionLog[];
+
+  packagingLogs: ProductionLog[];
+
   delete?: boolean;
 
-  // 作成情報
   createdBy: string;
-
   updatedBy: string;
 
   createdAt: string;
-
   updatedAt: string;
 };
 

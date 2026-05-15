@@ -1,17 +1,9 @@
-/* =========================
-   テーブル全体
-========================= */
-
 .listTitle {
   width: 100%;
   border-collapse: collapse;
   background-color: white;
   table-layout: auto;
 }
-
-/* =========================
-   1段目ヘッダー
-========================= */
 
 .mainHeader th {
   background-color: #1565c0;
@@ -24,10 +16,6 @@
   white-space: nowrap;
 }
 
-/* =========================
-   2段目ヘッダー
-========================= */
-
 .subHeader th {
   background-color: #42a5f5;
   color: white;
@@ -39,10 +27,6 @@
   white-space: nowrap;
 }
 
-/* =========================
-   工程ごとの区切り線
-========================= */
-
 .subHeader th:nth-child(2),
 .subHeader th:nth-child(4),
 .subHeader th:nth-child(6),
@@ -50,10 +34,6 @@
 .subHeader th:nth-child(10) {
   border-right: 3px solid #555;
 }
-
-/* =========================
-   メインヘッダー区切り
-========================= */
 
 .mainHeader th {
   border-right: 2px solid #666;

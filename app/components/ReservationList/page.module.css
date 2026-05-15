@@ -1,54 +1,404 @@
-/* 編集ボタン */
-.editButton {
+/* =========================
+   テーブル全体
+========================= */
+
+.listTitle {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background-color: white;
+}
+
+/* =========================
+   ヘッダー
+========================= */
+
+.headerTop th {
+  background-color: #1565c0;
+  color: white;
+  padding: 12px 8px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: bold;
+  border: 1px solid #777;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.headerBottom th {
+  background-color: #42a5f5;
+  color: white;
+  padding: 8px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: bold;
+  border: 1px solid #777;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* 工程ごとの区切り */
+
+.headerBottom th:nth-child(3),
+.headerBottom th:nth-child(6),
+.headerBottom th:nth-child(9),
+.headerBottom th:nth-child(12),
+.headerBottom th:nth-child(15) {
+  border-right: 3px solid #555;
+}
+
+/* =========================
+   行データ
+========================= */
+
+.reservationText td {
+  border-right: 1px solid #999;
+  border-bottom: 3px solid #444;
+  text-align: center;
+  vertical-align: top;
+  padding: 0;
+  font-size: 14px;
+}
+
+/* =========================
+   列幅
+========================= */
+
+.orderHeader {
+  min-width: 120px;
+}
+
+.productHeader {
+  min-width: 180px;
+}
+
+.customerHeader {
+  min-width: 180px;
+}
+
+.processHeader {
+  min-width: 120px;
+}
+
+.remainingHeader {
+  min-width: 90px;
+}
+
+.progressHeader {
+  min-width: 130px;
+}
+
+.statusHeader {
+  min-width: 100px;
+}
+
+.delayHeader {
+  min-width: 80px;
+}
+
+.deliveryHeader {
+  min-width: 120px;
+}
+
+.remarkHeader {
+  min-width: 200px;
+}
+
+.buttonHeader {
+  min-width: 140px;
+}
+
+/* =========================
+   工程背景色
+========================= */
+
+/* 製造 */
+
+.manufacturingCell {
+  background-color: #bbdefb;
+}
+
+.manufacturingAmountCell {
+  background-color: #e3f2fd;
+}
+
+.averageCell {
+  background-color: #f5f5f5;
+}
+
+/* 洗浄 */
+
+.cleaningCell {
+  background-color: #b2ebf2;
+}
+
+.cleaningAmountCell {
+  background-color: #e0f7fa;
+}
+
+.cleaningAverageCell {
+  background-color: #e0f7fa;
+}
+
+/* 検査 */
+
+.inspectionCell {
+  background-color: #ffe0b2;
+}
+
+.inspectionAmountCell {
+  background-color: #fff3e0;
+}
+
+.inspectionAverageCell {
+  background-color: #fff3e0;
+}
+
+/* 測量 */
+
+.measurementCell {
+  background-color: #e1bee7;
+}
+
+.measurementAmountCell {
+  background-color: #f3e5f5;
+}
+
+.measurementAverageCell {
+  background-color: #f3e5f5;
+}
+
+/* 梱包 */
+
+.packagingCell {
+  background-color: #c8e6c9;
+}
+
+.packagingAmountCell {
+  background-color: #e8f5e9;
+}
+
+.packagingAverageCell {
+  background-color: #e8f5e9;
+}
+
+/* =========================
+   工程区切り線
+========================= */
+
+.averageCell,
+.cleaningAverageCell,
+.inspectionAverageCell,
+.measurementAverageCell,
+.packagingAverageCell {
+  border-right: 3px solid #666 !important;
+}
+
+/* =========================
+   セル共通
+========================= */
+
+.manufacturingCell,
+.manufacturingAmountCell,
+.averageCell,
+.cleaningCell,
+.cleaningAmountCell,
+.cleaningAverageCell,
+.inspectionCell,
+.inspectionAmountCell,
+.inspectionAverageCell,
+.measurementCell,
+.measurementAmountCell,
+.measurementAverageCell,
+.packagingCell,
+.packagingAmountCell,
+.packagingAverageCell {
+  padding: 0 !important;
+  vertical-align: top;
+}
+
+/* =========================
+   ログ表示
+========================= */
+
+.logRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  height: 48px;
+
+  border-bottom: 1px solid #d0d0d0;
+
+  text-align: center;
+
+  white-space: nowrap;
+
+  padding: 0;
+
+  margin: 0;
+
+  line-height: 1;
+
+  box-sizing: border-box;
+}
+
+/* =========================
+   工程共通レイアウト
+========================= */
+
+.processCell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* =========================
+   日付セル
+========================= */
+
+.processRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  height: 48px;
+
+  border-bottom: 1px solid #d0d0d0;
+
+  text-align: center;
+
+  padding: 0;
+
+  margin: 0;
+
+  line-height: 1;
+
+  box-sizing: border-box;
+
+  background: white;
+}
+
+/* =========================
+   数量セル
+========================= */
+
+.processAmountRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  height: 48px;
+
+  border-bottom: 1px solid #d0d0d0;
+
+  text-align: center;
+
+  font-weight: bold;
+
+  padding: 0;
+
+  margin: 0;
+
+  line-height: 1;
+
+  box-sizing: border-box;
+}
+
+/* =========================
+   平均セル
+========================= */
+
+.averageRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  height: 48px;
+
+  border-bottom: 1px solid #d0d0d0;
+
+  text-align: center;
+
+  font-weight: bold;
+
+  padding: 0;
+
+  margin: 0;
+
+  line-height: 1;
+
+  box-sizing: border-box;
+}
+
+/* 製造 */
+
+.averageCell .averageRow {
+  background: #f5f5f5;
+  color: #1565c0;
+}
+
+/* 洗浄 */
+
+.cleaningAverageCell .averageRow {
+  background: #e0f7fa;
+  color: #00838f;
+}
+
+/* 検査 */
+
+.inspectionAverageCell .averageRow {
+  background: #fff3e0;
+  color: #ef6c00;
+}
+
+/* 測量 */
+
+.measurementAverageCell .averageRow {
+  background: #f3e5f5;
+  color: #8e24aa;
+}
+
+/* 梱包 */
+
+.packagingAverageCell .averageRow {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+/* =========================
+   入力エリア
+========================= */
+
+.logArea {
+  display: flex;
+  gap: 4px;
+  margin: 6px;
+  align-items: center;
+}
+
+.logArea input {
+  width: 100px;
+}
+
+.logArea button {
+  padding: 4px 8px;
+  border: none;
   background-color: #1976d2;
-
   color: white;
-
-  border: none;
-
-  padding: 8px 14px;
-
-  border-radius: 6px;
-
+  border-radius: 4px;
   cursor: pointer;
-
-  font-size: 13px;
-
-  margin-right: 8px;
 }
 
-.editButton:hover {
-  opacity: 0.8;
-}
+/* =========================
+   input
+========================= */
 
-/* 保存ボタン */
-.saveButton {
-  background-color: #2e7d32;
-
-  color: white;
-
-  border: none;
-
-  padding: 8px 14px;
-
-  border-radius: 6px;
-
-  cursor: pointer;
-
-  font-size: 13px;
-
-  margin-right: 8px;
-}
-
-.saveButton:hover {
-  opacity: 0.8;
-}
-
-/* input */
 .reservationText input {
   width: 100%;
+  height: 40px;
 
-  padding: 6px;
+  padding: 0 6px;
 
   border: 1px solid #ccc;
 
@@ -57,6 +407,60 @@
   font-size: 13px;
 
   box-sizing: border-box;
+
+  text-align: center;
+}
+
+/* =========================
+   編集ボタン
+========================= */
+
+.editButton {
+  background-color: #1976d2;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  margin-right: 8px;
+}
+
+.editButton:hover {
+  opacity: 0.8;
+}
+
+/* 保存ボタン */
+
+.saveButton {
+  background-color: #2e7d32;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  margin-right: 8px;
+}
+
+.saveButton:hover {
+  opacity: 0.8;
+}
+
+/* 削除ボタン */
+
+.deleteButton {
+  background-color: #d32f2f;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.deleteButton:hover {
+  opacity: 0.8;
 }
 
 /* =========================
@@ -65,17 +469,11 @@
 
 .statusBadge {
   padding: 6px 12px;
-
   border-radius: 20px;
-
   color: white;
-
   font-size: 12px;
-
   font-weight: bold;
-
   display: inline-block;
-
   min-width: 80px;
 }
 
@@ -85,65 +483,101 @@
   background-color: #9e9e9e;
 }
 
-/* 洗浄中 */
+/* 製造 */
 
-.洗浄中 {
-  background-color: #1976d2;
+.製造中 {
+  background-color: #1565c0;
 }
 
-/* 検査中 */
+.製造完了 {
+  background-color: #42a5f5;
+}
+
+/* 洗浄 */
+
+.洗浄中 {
+  background-color: #00838f;
+}
+
+.洗浄完了 {
+  background-color: #26c6da;
+}
+
+/* 検査 */
 
 .検査中 {
   background-color: #ef6c00;
 }
 
-/* 測量中 */
+.検査完了 {
+  background-color: #ffb74d;
+}
+
+/* 測量 */
 
 .測量中 {
   background-color: #8e24aa;
 }
 
-/* 梱包中 */
+.測量完了 {
+  background-color: #ba68c8;
+}
+
+/* 梱包 */
 
 .梱包中 {
   background-color: #2e7d32;
 }
 
-/* 出荷完了 */
+.梱包完了 {
+  background-color: #66bb6a;
+}
 
-.出荷完了 {
+/* 出荷 */
+
+.出荷OK {
   background-color: #d32f2f;
+}
+
+/* =========================
+   遅延
+========================= */
+
+.delayBadge {
+  background-color: #d32f2f;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.normalBadge {
+  background-color: #43a047;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
 }
 
 /* =========================
    納期警告
 ========================= */
 
-/* 納期1週間前 */
-
 .warning {
   background-color: #f9a825;
-
   color: white;
-
   padding: 6px 10px;
-
   border-radius: 8px;
-
   font-weight: bold;
 }
 
-/* 納期3日前・超過 */
-
 .danger {
   background-color: #d32f2f;
-
   color: white;
-
   padding: 6px 10px;
-
   border-radius: 8px;
-
   font-weight: bold;
 }
 
@@ -153,91 +587,132 @@
 
 .progressArea {
   min-width: 120px;
+  padding: 0 6px;
 }
 
 .progressBar {
+  position: relative;
   width: 100%;
-
-  height: 14px;
-
+  height: 20px;
   background-color: #e0e0e0;
-
   border-radius: 20px;
-
   overflow: hidden;
-
-  margin-top: 4px;
 }
 
 .progressFill {
   height: 100%;
-
-  background-color: #43a047;
-
+  background-color: #6bd46b;
   transition: 0.3s;
 }
-/* =========================
-   工程色分け
-========================= */
 
-/* 製造 */
-
-.manufacturingCell {
-  background-color: #bbdefb;
-}
-
-/* 洗浄 */
-
-.cleaningCell {
-  background-color: #b2ebf2;
-}
-
-/* 検査 */
-
-.inspectionCell {
-  background-color: #ffe0b2;
-}
-
-/* 測量 */
-
-.measurementCell {
-  background-color: #e1bee7;
-}
-
-/* 梱包 */
-
-.packagingCell {
-  background-color: #c8e6c9;
-}
-
-/* =========================
-   遅延判定
-========================= */
-
-.delayBadge {
-  background-color: #d32f2f;
-
-  color: white;
-
-  padding: 6px 12px;
-
-  border-radius: 20px;
-
+.progressText {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   font-size: 12px;
+  font-weight: bold;
+  color: black;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* =========================
+   レスポンシブ
+========================= */
+
+@media screen and (max-width: 1600px) {
+  .headerTop th,
+  .headerBottom th {
+    font-size: 12px;
+    padding: 6px;
+  }
+
+  .reservationText td {
+    font-size: 12px;
+  }
+}
+
+/* =========================
+   通常セル中央揃え
+========================= */
+
+.reservationText td {
+  vertical-align: middle;
+}
+
+/* 通常文字セル */
+
+.normalCell {
+  height: 100%;
+
+  min-height: 48px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  padding: 0 8px;
+
+  box-sizing: border-box;
+
+  text-align: center;
+}
+
+/* =========================
+   数量行
+========================= */
+
+.amountRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  height: 48px;
+
+  border-bottom: 1px solid #d0d0d0;
+
+  text-align: center;
+
+  white-space: nowrap;
+
+  padding: 0;
+
+  margin: 0;
+
+  line-height: 1;
+
+  box-sizing: border-box;
 
   font-weight: bold;
 }
 
-.normalBadge {
-  background-color: #43a047;
+/* =========================
+   平均行
+========================= */
 
-  color: white;
+.averageRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-  padding: 6px 12px;
+  height: 48px;
 
-  border-radius: 20px;
+  border-bottom: 1px solid #d0d0d0;
 
-  font-size: 12px;
+  text-align: center;
+
+  white-space: nowrap;
+
+  padding: 0;
+
+  margin: 0;
+
+  line-height: 1;
+
+  box-sizing: border-box;
 
   font-weight: bold;
 }
