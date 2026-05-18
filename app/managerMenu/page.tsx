@@ -38,8 +38,8 @@ const ManagerMenu = () => {
 
   return (
     <div className={styles.managerImg}>
-      <Link href="/" className={styles.managerLink}>
-        <button className={styles.managerPage}>トップページに戻る</button>
+      <Link href="/settings" className={styles.managerLink}>
+        <button className={styles.managerPage}>設定に戻る</button>
       </Link>
       <div className={styles.center}>
         <h1>ユーザー管理</h1>
@@ -51,52 +51,45 @@ const ManagerMenu = () => {
       </div>
       {errorMessage && <p className={styles.managerError}>{errorMessage}</p>}
       <table className={styles.userList}>
-  <thead>
-    <tr className={styles.subTitle}>
-      <th>ユーザーID</th>
-      <th>パスワード</th>
-      <th>管理者</th>
-      <th>操作</th>
-    </tr>
-  </thead>
+        <thead>
+          <tr className={styles.subTitle}>
+            <th>ユーザーID</th>
+            <th>パスワード</th>
+            <th>管理者</th>
+            <th>操作</th>
+          </tr>
+        </thead>
 
-  <tbody>
-  {data.map((user) => {
-    const isProtectedUser =
-      user.name === "admin" &&
-      user.pass === "admin1234" &&
-      user.manager === true;
+        <tbody>
+          {data.map((user) => {
+            const isProtectedUser =
+              user.name === "admin" &&
+              user.pass === "admin1234" &&
+              user.manager === true;
 
-    return (
-      <Manager
-        key={user.id}
-        user={user}
-        editingUserId={editingUserId}
-        editedUser={editedUser}
-        isProtectedUser={isProtectedUser}
-        onEdit={handleEdit}
-        onSave={handleSave}
-        onCancel={() =>
-          setEditingUserId(null)
-        }
-        onDelete={() =>
-          deleteUser(user.id)
-        }
-        onInputChange={
-          handleInputChange
-        }
-        onCheckboxChange={() =>
-          setEditedUser((prev) => ({
-            ...prev,
-            manager:
-              !prev.manager,
-          }))
-        }
-      />
-    );
-  })}
-</tbody>
-</table>
+            return (
+              <Manager
+                key={user.id}
+                user={user}
+                editingUserId={editingUserId}
+                editedUser={editedUser}
+                isProtectedUser={isProtectedUser}
+                onEdit={handleEdit}
+                onSave={handleSave}
+                onCancel={() => setEditingUserId(null)}
+                onDelete={() => deleteUser(user.id)}
+                onInputChange={handleInputChange}
+                onCheckboxChange={() =>
+                  setEditedUser((prev) => ({
+                    ...prev,
+                    manager: !prev.manager,
+                  }))
+                }
+              />
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 };

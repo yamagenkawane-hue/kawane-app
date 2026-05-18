@@ -1,0 +1,67 @@
+.container {
+  padding: 24px;
+  background: #f5f7fb;
+  min-height: 100vh;
+}
+
+.loading {
+  padding: 40px;
+}
+
+.backArea {
+  margin-bottom: 20px;
+}
+
+.backButton {
+  padding: 10px 16px;
+  background: #2563eb;
+  color: white;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+.headerCard {
+  background: white;
+  padding: 24px;
+  border-radius: 16px;
+}
+
+.title {
+  font-size: 32px;
+  margin-bottom: 24px;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.infoCard {
+  background: #f9fafb;
+  padding: 16px;
+  border-radius: 12px;
+}
+
+.label {
+  display: block;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.value {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.ganttCard {
+  margin-top: 24px;
+  background: white;
+  padding: 24px;
+  border-radius: 16px;
+}
+
+.ganttTitle {
+  margin-bottom: 24px;
+  font-size: 24px;
+}

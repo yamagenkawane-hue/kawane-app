@@ -92,14 +92,6 @@ const Signin = () => {
                 注残管理
               </Link>
             </div>
-            {/* 管理者のみ表示 */}
-            {isManagerIn && (
-              <div>
-                <Link href="/calendar" className={styles.reservationButton}>
-                  設定
-                </Link>
-              </div>
-            )}
           </div>
 
           {isManagerIn && <SigninManager />}

@@ -136,13 +136,6 @@ export type Product = {
   quantity: number;
 };
 
-export type ProcessMaster = {
-  id: string;
-  name: string;
-  days: number;
-  sort: number;
-};
-
 export type ProcessItem = {
   id: string;
   name: string;
@@ -163,4 +156,54 @@ export type CompanyCalendar = {
   name: string;
   isHoliday: boolean;
   type: string;
+};
+
+export type ProcessMaster = {
+  id: string;
+  processId: string;
+  name: string;
+  days: number;
+  sort: number;
+  enabled: boolean;
+};
+
+export type LineMaster = {
+  id: string;
+  lineName: string;
+  processId: string;
+  dailyCapacity: number;
+  operationRate: number;
+  enabled: boolean;
+};
+
+export type CapacitySetting = {
+  id: string;
+  processId: string;
+  warningThreshold: number;
+  dangerThreshold: number;
+};
+
+export type OperationRate = {
+  id: string;
+  processId: string;
+  rate: number;
+  enabled: boolean;
+};
+
+export type AISettings = {
+  id: string;
+  enabled: boolean;
+  delayPrediction: boolean;
+  autoSchedule: boolean;
+  bottleneckPrediction: boolean;
+};
+
+export type ProcessResult = {
+  id: string;
+  postId: string;
+  processId: string;
+  processName: string;
+  date: string;
+  amount: number;
+  createdAt: string;
 };

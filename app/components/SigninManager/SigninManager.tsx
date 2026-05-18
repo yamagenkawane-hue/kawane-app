@@ -8,12 +8,12 @@ const SigninManager = () => {
       <Link href="newRegistration/" className={styles.link}>
         <button className={styles.newRegistration}>新規登録</button>
       </Link>
-      <Link href="managerMenu/" className={styles.link}>
-        <button className={styles.newRegistration}> ID管理</button>
+      <Link href="/settings" className={styles.link}>
+        <button className={styles.newRegistration}> 設定</button>
       </Link>
       <Link href="create/" className={styles.link}>
-              <button className={styles.newRegistration}>製品登録</button>
-            </Link>
+        <button className={styles.newRegistration}>製品登録</button>
+      </Link>
     </div>
   );
 };

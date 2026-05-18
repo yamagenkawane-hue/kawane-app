@@ -7,6 +7,14 @@ const DAY_WIDTH = 40;
 
 export default function GanttChart({ processes, deliveryDate }: Props) {
   // =========================
+  // データなし
+  // =========================
+
+  if (processes.length === 0) {
+    return <div className={styles.empty}>データがありません</div>;
+  }
+
+  // =========================
   // 全体期間
   // =========================
 
@@ -39,13 +47,7 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
   });
 
   // =========================
-  // 納期
-  // =========================
-
-  const delivery = new Date(deliveryDate);
-
-  // =========================
-  // 今日ライン
+  // 今日
   // =========================
 
   const today = new Date();
@@ -56,16 +58,26 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
     (today.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24),
   );
 
+  // =========================
+  // 納期
+  // =========================
+
+  const delivery = new Date(deliveryDate);
+
+  const deliveryOffset = Math.floor(
+    (delivery.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24),
+  );
+
   return (
     <div className={styles.wrapper}>
-      {/* 日付ヘッダー */}
+      {/* ヘッダー */}
       <div className={styles.headerRow}>
         <div className={styles.processHeader}>工程</div>
 
         <div className={styles.dateArea}>
           {dates.map((date, index) => (
             <div
-              key={index}
+              key={`header-${date.getTime()}-${index}`}
               className={styles.dateCell}
               style={{
                 width: `${DAY_WIDTH}px`,
@@ -78,7 +90,7 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
       </div>
 
       {/* 工程行 */}
-      {processes.map((process) => {
+      {processes.map((process, processIndex) => {
         // 開始位置
         const offset =
           Math.floor(
@@ -93,17 +105,22 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
               (1000 * 60 * 60 * 24),
           ) * DAY_WIDTH;
 
+        console.log(process.name, process.progress);
+
         return (
-          <div key={process.id} className={styles.processRow}>
+          <div
+            key={`process-${process.id}-${processIndex}`}
+            className={styles.processRow}
+          >
             {/* 工程名 */}
             <div className={styles.processName}>{process.name}</div>
 
             {/* ガントエリア */}
             <div className={styles.ganttArea}>
               {/* グリッド */}
-              {dates.map((_, index) => (
+              {dates.map((date, dateIndex) => (
                 <div
-                  key={index}
+                  key={`grid-${process.id}-${date.getTime()}-${dateIndex}`}
                   className={styles.gridCell}
                   style={{
                     width: `${DAY_WIDTH}px`,
@@ -113,6 +130,7 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
 
               {/* 今日ライン */}
               <div
+                key={`today-${process.id}`}
                 className={styles.todayLine}
                 style={{
                   left: `${todayOffset * DAY_WIDTH}px`,
@@ -121,14 +139,10 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
 
               {/* 納期ライン */}
               <div
+                key={`delivery-${process.id}`}
                 className={styles.deliveryLine}
                 style={{
-                  left: `${
-                    Math.floor(
-                      (delivery.getTime() - minDate.getTime()) /
-                        (1000 * 60 * 60 * 24),
-                    ) * DAY_WIDTH
-                  }px`,
+                  left: `${deliveryOffset * DAY_WIDTH}px`,
                 }}
               />
 
@@ -137,7 +151,7 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
                 className={styles.ganttBar}
                 style={{
                   left: `${offset}px`,
-                  width: `${duration}px`,
+                  width: `${Math.max(duration, 60)}px`,
                   backgroundColor: process.isDelay ? "#ef4444" : "#22c55e",
                 }}
               >

@@ -131,8 +131,8 @@ export default function CalendarPage() {
     <div className={styles.container}>
       {/* 戻る */}
       <div className={styles.backArea}>
-        <Link href="/" className={styles.backButton}>
-          ← ホームへ戻る
+        <Link href="/settings" className={styles.backButton}>
+          ← 設定へ戻る
         </Link>
       </div>
 
