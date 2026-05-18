@@ -5,6 +5,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import styles from "./page.module.css";
 import db from "../../../lib/firebase";
 import { ReservationRowProps } from "@/app/type";
+import Link from "next/link";
 
 const ReservationList: React.FC<ReservationRowProps> = ({
   post,
@@ -601,7 +602,10 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       <td>{post.orderNo}</td>
 
       {/* 製品名 */}
-      <td className={styles.productName}>{post.productName}</td>
+
+      <td className={styles.productName}>
+        <Link href={`/progress/${post.id}`}>{post.productName}</Link>
+      </td>
 
       {/* 得意先 */}
       <td>{post.customerName}</td>

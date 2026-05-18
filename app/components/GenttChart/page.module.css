@@ -1,0 +1,93 @@
+.wrapper {
+  overflow-x: auto;
+  border: 1px solid #ddd;
+  background: #fff;
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.headerRow {
+  display: flex;
+  margin-bottom: 12px;
+}
+
+.processHeader {
+  width: 120px;
+  min-width: 120px;
+  font-weight: bold;
+}
+
+.dateArea {
+  display: flex;
+  position: relative;
+}
+
+.dateCell {
+  text-align: center;
+  font-size: 12px;
+  border-left: 1px solid #ddd;
+  padding: 4px 0;
+}
+
+.processRow {
+  display: flex;
+  margin-bottom: 12px;
+}
+
+.processName {
+  width: 120px;
+  min-width: 120px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+}
+
+.ganttArea {
+  position: relative;
+  display: flex;
+  height: 40px;
+  width: 100%;
+  min-width: max-content;
+}
+
+.gridCell {
+  border-left: 1px solid #eee;
+  border-bottom: 1px solid #eee;
+  height: 40px;
+}
+
+.ganttBar {
+  position: absolute;
+  top: 6px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  z-index: 5;
+}
+
+.progressText {
+  padding: 0 8px;
+}
+
+.todayLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #2563eb;
+  z-index: 10;
+}
+
+.deliveryLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ef4444;
+  z-index: 10;
+}

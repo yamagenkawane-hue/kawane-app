@@ -129,3 +129,38 @@ export type PostData = {
   measurementLogs?: ProcessLog[];
   packagingLogs?: ProcessLog[];
 };
+
+export type Product = {
+  productName: string;
+  customer: string;
+  quantity: number;
+};
+
+export type ProcessMaster = {
+  id: string;
+  name: string;
+  days: number;
+  sort: number;
+};
+
+export type ProcessItem = {
+  id: string;
+  name: string;
+  start: Date;
+  end: Date;
+  progress: number;
+  isDelay: boolean;
+};
+
+export type Props = {
+  processes: ProcessItem[];
+  deliveryDate: string;
+};
+
+export type CompanyCalendar = {
+  id: string;
+  date: string;
+  name: string;
+  isHoliday: boolean;
+  type: string;
+};

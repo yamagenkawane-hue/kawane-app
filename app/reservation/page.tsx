@@ -2,23 +2,14 @@
 
 import Link from "next/link";
 import styles from "./page.module.css";
-
 import React, { useState } from "react";
-
 import SearchForm from "../components/SearchForm/SearchForm";
-
 import ReservationList from "../components/ReservationList/ReservationList";
-
 import TableHeader from "../components/TableHeader/TableHeader";
-
 import Pagination from "../components/Pagination/Pagination";
-
 import DeleteIcon from "@mui/icons-material/Delete";
-
 import { useFetchPosts } from "../utills/useFetchPosts";
-
 import { usePagination } from "../utills/usePagination";
-
 import { useReservationDelete } from "../utills/useReservationDelete";
 
 const itemsPerPage = 7;

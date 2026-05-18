@@ -1,0 +1,95 @@
+.container {
+  padding: 24px;
+  background: #f8fafc;
+  min-height: 100vh;
+}
+
+.loading {
+  padding: 40px;
+  font-size: 20px;
+}
+
+.backArea {
+  margin-bottom: 24px;
+}
+
+.backButton {
+  display: inline-block;
+  padding: 10px 16px;
+  background: #2563eb;
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: bold;
+  transition: 0.2s;
+}
+
+.backButton:hover {
+  background: #1d4ed8;
+}
+
+.title {
+  font-size: 28px;
+  margin-bottom: 24px;
+  color: #0f172a;
+}
+
+.formArea {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 32px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.input {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.addButton {
+  padding: 10px 18px;
+  border: none;
+  background: #22c55e;
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.addButton:hover {
+  background: #16a34a;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.table th {
+  background: #e2e8f0;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+}
+
+.table td {
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+}
+
+.deleteButton {
+  padding: 8px 12px;
+  border: none;
+  background: #ef4444;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.deleteButton:hover {
+  background: #dc2626;
+}
