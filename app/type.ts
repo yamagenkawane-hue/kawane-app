@@ -139,10 +139,13 @@ export type Product = {
 export type ProcessItem = {
   id: string;
   name: string;
-  start: Date;
-  end: Date;
+  actualStart: Date;
+  actualEnd: Date | null;
+  predictedEnd: Date;
   progress: number;
   isDelay: boolean;
+  completedAmount: number;
+  remainingAmount: number;
 };
 
 export type Props = {

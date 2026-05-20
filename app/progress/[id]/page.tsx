@@ -4,14 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 
 import db from "@/lib/firebase";
 
@@ -25,7 +18,6 @@ import {
   ProcessItem,
   CompanyCalendar,
   LineMaster,
-  ProcessResult,
 } from "@/app/type";
 
 export default function ProgressDetail() {
@@ -52,24 +44,31 @@ export default function ProgressDetail() {
   };
 
   // =========================
-  // 休日判定
+  // YYYY-MM-DD
   // =========================
 
-  const isHoliday = (date: Date, calendarData: CompanyCalendar[]) => {
-    const week = date.getDay();
-
-    // 土日
-    if (week === 0 || week === 6) {
-      return true;
-    }
-
+  const formatDate = (date: Date) => {
     const y = date.getFullYear();
 
     const m = String(date.getMonth() + 1).padStart(2, "0");
 
     const d = String(date.getDate()).padStart(2, "0");
 
-    const dateStr = `${y}-${m}-${d}`;
+    return `${y}-${m}-${d}`;
+  };
+
+  // =========================
+  // 休日判定
+  // =========================
+
+  const isHoliday = (date: Date, calendarData: CompanyCalendar[]) => {
+    const week = date.getDay();
+
+    if (week === 0 || week === 6) {
+      return true;
+    }
+
+    const dateStr = formatDate(date);
 
     return calendarData.some((item) => item.date === dateStr && item.isHoliday);
   };
@@ -117,6 +116,32 @@ export default function ProgressDetail() {
   };
 
   // =========================
+  // 実績取得
+  // =========================
+
+  const getProcessLogs = (processId: string, currentPost: Post) => {
+    switch (processId) {
+      case "manufacturing":
+        return currentPost.manufacturingLogs || [];
+
+      case "cleaning":
+        return currentPost.cleaningLogs || [];
+
+      case "inspection":
+        return currentPost.inspectionLogs || [];
+
+      case "measurement":
+        return currentPost.measurementLogs || [];
+
+      case "packaging":
+        return currentPost.packagingLogs || [];
+
+      default:
+        return [];
+    }
+  };
+
+  // =========================
   // データ取得
   // =========================
 
@@ -153,7 +178,7 @@ export default function ProgressDetail() {
             id: doc.id,
             ...(doc.data() as Omit<ProcessMaster, "id">),
           }))
-          .filter((item) => item.enabled);
+          .filter((item) => item.enabled !== false);
 
         processData.sort((a, b) => a.sort - b.sort);
 
@@ -180,25 +205,6 @@ export default function ProgressDetail() {
         }));
 
         // =========================
-        // 工程実績
-        // =========================
-
-        const resultQuery = query(
-          collection(db, "processResults"),
-          where("postId", "==", currentPost.orderNo),
-        );
-
-        const resultSnap = await getDocs(resultQuery);
-
-        console.log("resultSnap", resultSnap.docs);
-
-        const resultData = resultSnap.docs.map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as Omit<ProcessResult, "id">),
-        }));
-
-        console.log("resultData", resultData);
-        // =========================
         // ガント生成
         // =========================
 
@@ -206,28 +212,44 @@ export default function ProgressDetail() {
 
         let currentDate = safeDate(currentPost.manufacturingDate);
 
+        const orderAmount = Number(currentPost.orderAmount || 0);
+
         processData.forEach((process) => {
           // =========================
           // ライン能力
           // =========================
 
           const line = lineData.find(
-            (item) => item.processId === process.processId && item.enabled,
+            (item) =>
+              item.processId === process.processId && item.enabled !== false,
           );
 
-          const actualCapacity = line
-            ? line.dailyCapacity * (line.operationRate / 100)
-            : 1;
+          const dailyCapacity = Number(line?.dailyCapacity || 1);
+
+          const operationRate = Number(line?.operationRate || 100);
+
+          const actualCapacity = Math.max(
+            1,
+            dailyCapacity * (operationRate / 100),
+          );
 
           // =========================
           // 工程実績
           // =========================
 
-          const processResults = resultData
-            .filter((item) => item.processId === process.processId)
-            .sort((a, b) => a.date.localeCompare(b.date));
+          const processResults = getProcessLogs(process.processId, currentPost);
 
-          console.log("process", process.processId, processResults);
+          processResults.sort((a, b) => a.date.localeCompare(b.date));
+
+          // =========================
+          // 実績数量
+          // =========================
+
+          const totalActual = processResults.reduce(
+            (sum, item) => sum + Number(item.amount || 0),
+            0,
+          );
+
           // =========================
           // 初期値
           // =========================
@@ -238,31 +260,50 @@ export default function ProgressDetail() {
 
           let progress = 0;
 
-          const orderAmount = Number(currentPost.orderAmount || 0);
-
           // =========================
           // 実績あり
           // =========================
 
           if (processResults.length > 0) {
+            // 実績開始日
             startDate = safeDate(processResults[0].date);
 
-            endDate = safeDate(processResults[processResults.length - 1].date);
-
-            const totalActual = processResults.reduce(
-              (sum, item) => sum + Number(item.amount || 0),
-              0,
-            );
-
+            // 進捗率
             progress =
               orderAmount > 0
                 ? Math.min(100, Math.floor((totalActual / orderAmount) * 100))
                 : 0;
+
+            // 実績最終日
+            const lastActualDate = safeDate(
+              processResults[processResults.length - 1].date,
+            );
+
+            // 残数量
+            const remainingAmount = Math.max(0, orderAmount - totalActual);
+
+            // 完了済み
+            if (remainingAmount <= 0) {
+              endDate = lastActualDate;
+            }
+
+            // 未完了
+            else {
+              const remainingDays = Math.max(
+                1,
+                Math.ceil(remainingAmount / actualCapacity),
+              );
+
+              endDate = addBusinessDays(
+                lastActualDate,
+                remainingDays,
+                calendarData,
+              );
+            }
           }
 
           // =========================
           // 実績なし
-          // 能力予測
           // =========================
           else {
             const requiredDays = Math.max(
@@ -294,10 +335,25 @@ export default function ProgressDetail() {
           ganttList.push({
             id: process.processId,
             name: process.name,
-            start: startDate,
-            end: endDate,
+
+            actualStart: startDate,
+
+            actualEnd:
+              progress >= 100
+                ? endDate
+                : processResults.length > 0
+                  ? safeDate(processResults[processResults.length - 1].date)
+                  : null,
+
+            predictedEnd: endDate,
+
             progress,
+
             isDelay,
+
+            completedAmount: totalActual,
+
+            remainingAmount: Math.max(0, orderAmount - totalActual),
           });
 
           // =========================
@@ -306,6 +362,8 @@ export default function ProgressDetail() {
 
           currentDate = getNextBusinessDay(endDate, calendarData);
         });
+
+        console.log("ganttList", ganttList);
 
         setGanttProcesses(ganttList);
       } catch (error) {

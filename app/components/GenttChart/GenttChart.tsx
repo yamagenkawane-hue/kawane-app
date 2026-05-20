@@ -6,37 +6,31 @@ import { Props } from "@/app/type";
 const DAY_WIDTH = 40;
 
 export default function GanttChart({ processes, deliveryDate }: Props) {
-  // =========================
-  // データなし
-  // =========================
-
   if (processes.length === 0) {
     return <div className={styles.empty}>データがありません</div>;
   }
 
   // =========================
-  // 全体期間
+  // 日付範囲
   // =========================
 
-  const startDates = processes.map((p) => p.start.getTime());
+  const allDates: number[] = [];
 
-  const endDates = processes.map((p) => p.end.getTime());
+  processes.forEach((p) => {
+    allDates.push(p.actualStart.getTime());
+    allDates.push(p.predictedEnd.getTime());
 
-  const minDate = new Date(Math.min(...startDates));
+    if (p.actualEnd) {
+      allDates.push(p.actualEnd.getTime());
+    }
+  });
 
-  const maxDate = new Date(Math.max(...endDates));
-
-  // =========================
-  // 日数
-  // =========================
+  const minDate = new Date(Math.min(...allDates));
+  const maxDate = new Date(Math.max(...allDates));
 
   const totalDays =
     Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) +
     1;
-
-  // =========================
-  // 日付配列
-  // =========================
 
   const dates = Array.from({ length: totalDays }, (_, i) => {
     const d = new Date(minDate);
@@ -79,9 +73,7 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
             <div
               key={`header-${date.getTime()}-${index}`}
               className={styles.dateCell}
-              style={{
-                width: `${DAY_WIDTH}px`,
-              }}
+              style={{ width: `${DAY_WIDTH}px` }}
             >
               {date.getMonth() + 1}/{date.getDate()}
             </div>
@@ -89,23 +81,49 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
         </div>
       </div>
 
-      {/* 工程行 */}
+      {/* 工程 */}
       {processes.map((process, processIndex) => {
-        // 開始位置
-        const offset =
+        // =========================
+        // 実績バー
+        // =========================
+
+        const actualOffset =
           Math.floor(
-            (process.start.getTime() - minDate.getTime()) /
+            (process.actualStart.getTime() - minDate.getTime()) /
               (1000 * 60 * 60 * 24),
           ) * DAY_WIDTH;
 
-        // 横幅
-        const duration =
+        const actualWidth = process.actualEnd
+          ? Math.max(
+              40,
+              (Math.ceil(
+                (process.actualEnd.getTime() - process.actualStart.getTime()) /
+                  (1000 * 60 * 60 * 24),
+              ) +
+                1) *
+                DAY_WIDTH,
+            )
+          : 0;
+
+        // =========================
+        // 予測バー
+        // =========================
+
+        const predictedOffset = process.actualEnd
+          ? Math.floor(
+              (process.actualEnd.getTime() - minDate.getTime()) /
+                (1000 * 60 * 60 * 24),
+            ) * DAY_WIDTH
+          : actualOffset;
+
+        const predictedWidth = Math.max(
+          0,
           Math.ceil(
-            (process.end.getTime() - process.start.getTime()) /
+            (process.predictedEnd.getTime() -
+              (process.actualEnd || process.actualStart).getTime()) /
               (1000 * 60 * 60 * 24),
-          ) * DAY_WIDTH;
-
-        console.log(process.name, process.progress);
+          ) * DAY_WIDTH,
+        );
 
         return (
           <div
@@ -113,50 +131,61 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
             className={styles.processRow}
           >
             {/* 工程名 */}
-            <div className={styles.processName}>{process.name}</div>
+            <div className={styles.processName}>
+              <div>{process.name}</div>
 
-            {/* ガントエリア */}
+              <div className={styles.subInfo}>{process.progress}%</div>
+            </div>
+
+            {/* ガント */}
             <div className={styles.ganttArea}>
               {/* グリッド */}
               {dates.map((date, dateIndex) => (
                 <div
                   key={`grid-${process.id}-${date.getTime()}-${dateIndex}`}
                   className={styles.gridCell}
-                  style={{
-                    width: `${DAY_WIDTH}px`,
-                  }}
+                  style={{ width: `${DAY_WIDTH}px` }}
                 />
               ))}
 
-              {/* 今日ライン */}
+              {/* 今日 */}
               <div
-                key={`today-${process.id}`}
                 className={styles.todayLine}
-                style={{
-                  left: `${todayOffset * DAY_WIDTH}px`,
-                }}
+                style={{ left: `${todayOffset * DAY_WIDTH}px` }}
               />
 
-              {/* 納期ライン */}
+              {/* 納期 */}
               <div
-                key={`delivery-${process.id}`}
                 className={styles.deliveryLine}
-                style={{
-                  left: `${deliveryOffset * DAY_WIDTH}px`,
-                }}
+                style={{ left: `${deliveryOffset * DAY_WIDTH}px` }}
               />
 
-              {/* バー */}
-              <div
-                className={styles.ganttBar}
-                style={{
-                  left: `${offset}px`,
-                  width: `${Math.max(duration, 60)}px`,
-                  backgroundColor: process.isDelay ? "#ef4444" : "#22c55e",
-                }}
-              >
-                <span className={styles.progressText}>{process.progress}%</span>
-              </div>
+              {/* 実績バー */}
+              {actualWidth > 0 && (
+                <div
+                  className={styles.actualBar}
+                  style={{
+                    left: `${actualOffset}px`,
+                    width: `${actualWidth}px`,
+                  }}
+                >
+                  実績 {process.completedAmount}
+                </div>
+              )}
+
+              {/* 予測バー */}
+              {predictedWidth > 0 && (
+                <div
+                  className={styles.predictBar}
+                  style={{
+                    left: `${predictedOffset}px`,
+                    width: `${predictedWidth}px`,
+                    backgroundColor: process.isDelay ? "#ef4444" : "#f59e0b",
+                  }}
+                >
+                  残 {process.remainingAmount}
+                </div>
+              )}
             </div>
           </div>
         );

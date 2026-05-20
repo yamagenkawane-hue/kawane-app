@@ -1,12 +1,16 @@
 "use client";
 
 import Link from "next/link";
-
-import { CalendarDays, Cpu, Factory, Gauge, Settings2 } from "lucide-react";
-
+import { CalendarDays, Cpu, Factory, Settings2, Users } from "lucide-react";
 import styles from "./page.module.css";
 
 const settingsMenus = [
+  {
+    title: "ユーザー管理",
+    text: "ユーザー編集・削除・復元を管理",
+    href: "/userManager",
+    icon: <Users size={34} />,
+  },
   {
     title: "工程マスタ",
     text: "工程順・工程日数・使用可否を管理",
@@ -20,12 +24,6 @@ const settingsMenus = [
     icon: <CalendarDays size={34} />,
   },
   {
-    title: "稼働率設定",
-    text: "工程ごとの稼働率を管理",
-    href: "/operationRate",
-    icon: <Gauge size={34} />,
-  },
-  {
     title: "ライン能力設定",
     text: "ライン別の日産能力を管理",
     href: "/lineMaster",
@@ -34,7 +32,7 @@ const settingsMenus = [
   {
     title: "AI予測設定",
     text: "遅延予測AI・負荷予測AIを設定",
-    href: "/aiSettings",
+    href: "/settings",
     icon: <Cpu size={34} />,
   },
 ];
@@ -48,7 +46,7 @@ export default function SettingsPage() {
           ← ホームへ戻る
         </Link>
         <div>
-          <p className={styles.subTitle}>Manufacturing System</p>
+          <p className={styles.subTitle}>Yamagen System</p>
 
           <h1 className={styles.title}>システム設定</h1>
         </div>
