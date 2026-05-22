@@ -1,5 +1,4 @@
-import { doc, updateDoc } from "firebase/firestore";
-import db from "../../lib/firebase";
+import supabase from "../../lib/supabase";
 import { Post } from "../type";
 
 export const useDelete = (setShouldFetch: (val: boolean) => void) => {
@@ -9,9 +8,13 @@ export const useDelete = (setShouldFetch: (val: boolean) => void) => {
 
     if (postToDelete && postToDelete.id) {
       try {
-        const postRef = doc(db, "posts", postToDelete.id);
+        const { error } = await supabase
+          .from("posts")
+          .update({ delete: true })
+          .eq("id", postToDelete.id);
 
-        await updateDoc(postRef, { delete: true });
+        if (error) throw error;
+
         console.log("データが削除フラグを立てました");
         setShouldFetch(true);
       } catch (error) {

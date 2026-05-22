@@ -1,8 +1,7 @@
 "use client";
 
-import { collection, getDocs } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
-import db from "../../lib/firebase";
+import supabase from "../../lib/supabase";
 import Link from "next/link";
 import styles from "./page.module.css";
 import { User } from "../type";
@@ -16,51 +15,38 @@ const ManagerDelete = () => {
     useHandleUserAction(setShouldFetch);
   const { allDelete, errorMessage: allDeleteErrorMessage } = useAllDelete(
     posts,
-    setShouldFetch
+    setShouldFetch,
   );
 
   useEffect(() => {
-  const fetchData = async () => {
-    if (!shouldFetch) return;
+    const fetchData = async () => {
+      if (!shouldFetch) return;
 
-    try {
-      const postData = collection(
-        db,
-        "user"
-      );
+      try {
+        const { data, error } = await supabase
+          .from("user")
+          .select("*")
+          .eq("delete", true);
 
-      const querySnapshot =
-        await getDocs(postData);
+        if (error) throw error;
 
-      const postsArray =
-        querySnapshot.docs.map((doc) => {
-          const data = doc.data();
+        const postsArray: User[] = (data || []).map((row) => ({
+          id: row.id,
+          name: row.name,
+          pass: row.pass,
+          manager: row.manager,
+          delete: row.delete,
+        }));
 
-          return {
-            ...data,
-            id: doc.id,
-          } as User;
-        });
+        setPosts(postsArray);
+        setShouldFetch(false);
+      } catch (error) {
+        console.error("Error fetching posts:", error);
+      }
+    };
 
-      const filteredPosts =
-        postsArray.filter(
-          (post) => post.delete
-        );
-
-      setPosts(filteredPosts);
-
-      // fetch完了後に更新
-      setShouldFetch(false);
-    } catch (error) {
-      console.error(
-        "Error fetching posts:",
-        error
-      );
-    }
-  };
-
-  fetchData();
-}, [shouldFetch]);
+    fetchData();
+  }, [shouldFetch]);
 
   return (
     <div className={styles.managerImg}>
@@ -94,7 +80,8 @@ const ManagerDelete = () => {
           {posts.map((post) => (
             <tr key={post.id} className={styles.managerDeleteText}>
               <td>{post.name}</td>
-              <td>{post.pass}</td> <td>{post.manager ? "はい" : "いいえ"}</td>{" "}
+              <td>{post.pass}</td>
+              <td>{post.manager ? "はい" : "いいえ"}</td>
               <td className={styles.restore}>
                 <button
                   className={styles.restoreButton}

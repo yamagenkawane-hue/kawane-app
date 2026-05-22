@@ -53,6 +53,18 @@ export type Post = {
   updatedBy: string;
   createdAt: string;
   updatedAt: string;
+  days: Day[];
+};
+
+// Day型（予約・実績の1日分データ）
+export type Day = {
+  date: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  realStartTime?: string;
+  realEndTime?: string;
+  remark?: string;
 };
 
 export type User = {

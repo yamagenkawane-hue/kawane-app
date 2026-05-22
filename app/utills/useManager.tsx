@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, doc, getDocs, updateDoc } from "firebase/firestore";
-import db from "../../lib/firebase";
+import supabase from "../../lib/supabase";
 import { User } from "../type";
 
 export const useManager = () => {
@@ -9,16 +8,28 @@ export const useManager = () => {
 
   useEffect(() => {
     const fetchAllData = async () => {
-      const querySnapshot = await getDocs(collection(db, "user"));
-      const dataArray = querySnapshot.docs
-        .map((doc) => {
-          const userData = doc.data() as User;
-          const { id, ...rest } = userData;
-          return { id: doc.id, ...rest };
-        })
-        .filter((user) => !user.delete);
-      setData(dataArray);
+      try {
+        const { data: rows, error } = await supabase
+          .from("user")
+          .select("*")
+          .eq("delete", false);
+
+        if (error) throw error;
+
+        const dataArray: User[] = (rows || []).map((row) => ({
+          id: row.id,
+          name: row.name,
+          pass: row.pass,
+          manager: row.manager,
+          delete: row.delete,
+        }));
+
+        setData(dataArray);
+      } catch (error) {
+        console.error("データ取得エラー", error);
+      }
     };
+
     fetchAllData();
   }, []);
 
@@ -27,12 +38,24 @@ export const useManager = () => {
       setErrorMessage("ユーザーIDとパスワードは必須です。");
       return false;
     }
+
     try {
-      await updateDoc(doc(db, "user", userId), { ...editedUser });
+      const { error } = await supabase
+        .from("user")
+        .update({
+          name: editedUser.name,
+          pass: editedUser.pass,
+          manager: editedUser.manager,
+          delete: editedUser.delete,
+        })
+        .eq("id", userId);
+
+      if (error) throw error;
+
       setData((prev) =>
         prev.map((user) =>
-          user.id === userId ? { ...user, ...editedUser } : user
-        )
+          user.id === userId ? { ...user, ...editedUser } : user,
+        ),
       );
       setErrorMessage("");
       return true;
@@ -45,7 +68,13 @@ export const useManager = () => {
   const deleteUser = async (userId: string) => {
     if (confirm("本当に削除してもよろしいですか？")) {
       try {
-        await updateDoc(doc(db, "user", userId), { delete: true });
+        const { error } = await supabase
+          .from("user")
+          .update({ delete: true })
+          .eq("id", userId);
+
+        if (error) throw error;
+
         setData((prev) => prev.filter((user) => user.id !== userId));
       } catch (error) {
         console.error("削除中にエラーが発生しました: ", error);

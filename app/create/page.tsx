@@ -1,42 +1,22 @@
 "use client";
 
 import React, { useState } from "react";
-
-import { addDoc, collection } from "firebase/firestore";
-
 import Link from "next/link";
-
-import db from "../../lib/firebase";
-
+import supabase from "../../lib/supabase";
 import styles from "./page.module.css";
 
 const Create = () => {
-  // 注番
   const [orderNo, setOrderNo] = useState("");
-
-  // 製品コード
   const [productCode, setProductCode] = useState("");
-
-  // 製品名
   const [productName, setProductName] = useState("");
-
-  // 客先名
   const [customerName, setCustomerName] = useState("");
-
-  // 受注数量
   const [orderAmount, setOrderAmount] = useState<number | "">("");
-
-  // 納期
   const [deliveryDate, setDeliveryDate] = useState("");
-
-  // 備考
   const [remark, setRemark] = useState("");
 
-  // 登録
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 必須チェック
     if (
       !orderNo ||
       !productCode ||
@@ -46,114 +26,57 @@ const Create = () => {
       orderAmount === ""
     ) {
       alert("必須項目を入力してください");
-
       return;
     }
 
-    try {
-      const now = new Date().toISOString();
+    const now = new Date().toISOString();
 
-      await addDoc(collection(db, "posts"), {
-        // 注番
-        orderNo,
+    const { error } = await supabase.from("posts").insert({
+      order_no: orderNo,
+      product_code: productCode,
+      product_name: productName,
+      customer_name: customerName,
+      order_amount: Number(orderAmount),
+      manufacturing_date: null,
+      cleaning_date: null,
+      inspection_date: null,
+      measurement_date: null,
+      packaging_date: null,
+      delivery_date: deliveryDate,
+      remark,
+      status: "未着手",
+      manufacturing_logs: [],
+      cleaning_logs: [],
+      inspection_logs: [],
+      measurement_logs: [],
+      packaging_logs: [],
+      delete: false,
+      created_at: now,
+      updated_at: now,
+    });
 
-        // 製品情報
-        productCode,
-        productName,
-
-        // 客先
-        customerName,
-
-        // =========================
-        // 受注数量
-        // =========================
-        orderAmount: Number(orderAmount),
-
-        // =========================
-        // 製造
-        // =========================
-        manufacturingDate: "",
-        manufacturingAmount: 0,
-
-        // =========================
-        // 洗浄
-        // =========================
-        cleaningDate: "",
-        cleaningAmount: 0,
-
-        // =========================
-        // 検査
-        // =========================
-        inspectionDate: "",
-        inspectionAmount: 0,
-
-        // =========================
-        // 測量
-        // =========================
-        measurementDate: "",
-        measurementAmount: 0,
-
-        // =========================
-        // 梱包
-        // =========================
-        packagingDate: "",
-        packagingAmount: 0,
-
-        // 注残
-        remainingAmount: Number(orderAmount),
-
-        // 状態
-        status: "未着手",
-
-        // 納期
-        deliveryDate,
-
-        // 備考
-        remark,
-
-        // 日別実績
-        manufacturingLogs: [],
-
-        cleaningLogs: [],
-
-        inspectionLogs: [],
-
-        measurementLogs: [],
-
-        packagingLogs: [],
-
-        // 論理削除
-        delete: false,
-
-        // 作成情報
-        createdBy: "admin",
-        updatedBy: "admin",
-
-        createdAt: now,
-        updatedAt: now,
+    if (error) {
+      console.error("Supabase insert error:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
       });
-
-      alert("製品を登録しました");
-
-      // リセット
-      setOrderNo("");
-
-      setProductCode("");
-
-      setProductName("");
-
-      setCustomerName("");
-
-      setOrderAmount("");
-
-      setDeliveryDate("");
-
-      setRemark("");
-    } catch (error) {
-      console.error("登録に失敗しました", error);
-
-      alert("登録に失敗しました");
+      alert(
+        `登録に失敗しました\n\ncode: ${error.code}\nmessage: ${error.message}`,
+      );
+      return;
     }
+
+    alert("製品を登録しました");
+
+    setOrderNo("");
+    setProductCode("");
+    setProductName("");
+    setCustomerName("");
+    setOrderAmount("");
+    setDeliveryDate("");
+    setRemark("");
   };
 
   return (
@@ -172,7 +95,6 @@ const Create = () => {
         {/* 注番 */}
         <div className={styles.formGroup}>
           <label>注番</label>
-
           <input
             type="text"
             value={orderNo}
@@ -185,7 +107,6 @@ const Create = () => {
         {/* 製品コード */}
         <div className={styles.formGroup}>
           <label>製品コード</label>
-
           <input
             type="text"
             value={productCode}
@@ -198,7 +119,6 @@ const Create = () => {
         {/* 製品名 */}
         <div className={styles.formGroup}>
           <label>製品名</label>
-
           <input
             type="text"
             value={productName}
@@ -211,7 +131,6 @@ const Create = () => {
         {/* 客先名 */}
         <div className={styles.formGroup}>
           <label>客先名</label>
-
           <input
             type="text"
             value={customerName}
@@ -224,7 +143,6 @@ const Create = () => {
         {/* 受注数量 */}
         <div className={styles.formGroup}>
           <label>受注数量</label>
-
           <input
             type="number"
             value={orderAmount}
@@ -241,7 +159,6 @@ const Create = () => {
         {/* 納期 */}
         <div className={styles.formGroup}>
           <label>納期</label>
-
           <input
             type="date"
             value={deliveryDate}
@@ -253,7 +170,6 @@ const Create = () => {
         {/* 備考 */}
         <div className={styles.formGroup}>
           <label>備考</label>
-
           <textarea
             value={remark}
             onChange={(e) => setRemark(e.target.value)}

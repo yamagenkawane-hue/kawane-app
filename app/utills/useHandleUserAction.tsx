@@ -1,20 +1,25 @@
-import { deleteDoc, doc, updateDoc } from "firebase/firestore";
-import db from "../../lib/firebase";
 import { useState } from "react";
+import supabase from "../../lib/supabase";
 
 export const useHandleUserAction = (setShouldFetch: (val: boolean) => void) => {
   const [errorMessage, setErrorMessage] = useState("");
 
   const handleUserAction = async (
     userId: string,
-    action: "restore" | "delete"
+    action: "restore" | "delete",
   ) => {
     try {
-      const userDoc = doc(db, "user", userId);
       if (action === "restore") {
-        await updateDoc(userDoc, { delete: false });
+        const { error } = await supabase
+          .from("user")
+          .update({ delete: false })
+          .eq("id", userId);
+
+        if (error) throw error;
       } else {
-        await deleteDoc(userDoc);
+        const { error } = await supabase.from("user").delete().eq("id", userId);
+
+        if (error) throw error;
       }
 
       setShouldFetch(true);
@@ -22,11 +27,11 @@ export const useHandleUserAction = (setShouldFetch: (val: boolean) => void) => {
       setErrorMessage(
         action === "restore"
           ? "ユーザーの復元に失敗しました。"
-          : "ユーザーの削除に失敗しました。"
+          : "ユーザーの削除に失敗しました。",
       );
       console.error(
         `Error ${action === "restore" ? "restoring" : "deleting"} user:`,
-        error
+        error,
       );
     }
   };

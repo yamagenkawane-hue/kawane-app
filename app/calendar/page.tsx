@@ -1,104 +1,79 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-} from "firebase/firestore";
 import Link from "next/link";
-import db from "@/lib/firebase";
+import supabase from "@/lib/supabase";
 import { CompanyCalendar } from "@/app/type";
 import styles from "./page.module.css";
 
 export default function CalendarPage() {
   const [items, setItems] = useState<CompanyCalendar[]>([]);
-
   const [date, setDate] = useState("");
-
   const [name, setName] = useState("");
-
   const [loading, setLoading] = useState(true);
 
   // =========================
   // 取得
   // =========================
 
-  useEffect(() => {
-    const fetchCalendar = async () => {
-      try {
-        const snap = await getDocs(collection(db, "companyCalendar"));
-
-        const data = snap.docs.map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as Omit<CompanyCalendar, "id">),
-        }));
-
-        data.sort((a, b) => a.date.localeCompare(b.date));
-
-        setItems(data);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCalendar();
-  }, []);
-
-  // =========================
-  // 再取得
-  // =========================
-
-  const reloadCalendar = async () => {
+  const fetchCalendar = async () => {
     try {
-      const snap = await getDocs(collection(db, "companyCalendar"));
+      const { data, error } = await supabase
+        .from("company_calendar")
+        .select("*");
 
-      const data = snap.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<CompanyCalendar, "id">),
+      if (error) throw error;
+
+      const mapped: CompanyCalendar[] = (data || []).map((row) => ({
+        id: row.id,
+        date: row.date,
+        name: row.name,
+        isHoliday: row.is_holiday,
+        type: row.type,
       }));
 
-      data.sort((a, b) => a.date.localeCompare(b.date));
+      mapped.sort((a, b) => a.date.localeCompare(b.date));
 
-      setItems(data);
+      setItems(mapped);
     } catch (error) {
       console.error(error);
     }
   };
+
+  useEffect(() => {
+    const init = async () => {
+      await fetchCalendar();
+      setLoading(false);
+    };
+    init();
+  }, []);
 
   // =========================
   // 追加
   // =========================
 
   const handleAdd = async () => {
+    if (!date || !name) {
+      alert("日付と名称を入力してください");
+      return;
+    }
+
     try {
-      if (!date || !name) {
-        alert("日付と名称を入力してください");
-
-        return;
-      }
-
-      await addDoc(collection(db, "companyCalendar"), {
+      const { error } = await supabase.from("company_calendar").insert({
         date,
         name,
-        isHoliday: true,
+        is_holiday: true,
         type: "holiday",
       });
 
+      if (error) throw error;
+
       alert("追加しました");
-
       setDate("");
-
       setName("");
-
-      reloadCalendar();
+      await fetchCalendar();
     } catch (error) {
       console.error(error);
-
       alert("追加失敗");
     }
   };
@@ -108,17 +83,20 @@ export default function CalendarPage() {
   // =========================
 
   const handleDelete = async (id: string) => {
+    const ok = confirm("削除しますか？");
+    if (!ok) return;
+
     try {
-      const ok = confirm("削除しますか？");
+      const { error } = await supabase
+        .from("company_calendar")
+        .delete()
+        .eq("id", id);
 
-      if (!ok) return;
+      if (error) throw error;
 
-      await deleteDoc(doc(db, "companyCalendar", id));
-
-      reloadCalendar();
+      await fetchCalendar();
     } catch (error) {
       console.error(error);
-
       alert("削除失敗");
     }
   };
@@ -165,11 +143,8 @@ export default function CalendarPage() {
         <thead>
           <tr>
             <th>日付</th>
-
             <th>名称</th>
-
             <th>種別</th>
-
             <th>操作</th>
           </tr>
         </thead>
@@ -178,11 +153,8 @@ export default function CalendarPage() {
           {items.map((item) => (
             <tr key={item.id}>
               <td>{item.date}</td>
-
               <td>{item.name}</td>
-
               <td>{item.type}</td>
-
               <td>
                 <button
                   type="button"

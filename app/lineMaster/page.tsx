@@ -1,20 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
 import Link from "next/link";
-
-import {
-  collection,
-  addDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  doc,
-} from "firebase/firestore";
-
-import db from "@/lib/firebase";
-
+import supabase from "@/lib/supabase";
 import styles from "./page.module.css";
 
 type LineMaster = {
@@ -28,9 +16,7 @@ type LineMaster = {
 
 export default function LineMasterPage() {
   const [lines, setLines] = useState<LineMaster[]>([]);
-
   const [loading, setLoading] = useState(true);
-
   const [form, setForm] = useState({
     lineName: "",
     processId: "",
@@ -45,14 +31,20 @@ export default function LineMasterPage() {
 
   const fetchLines = async () => {
     try {
-      const snap = await getDocs(collection(db, "lineMaster"));
+      const { data, error } = await supabase.from("line_master").select("*");
 
-      const data = snap.docs.map((item) => ({
-        id: item.id,
-        ...(item.data() as Omit<LineMaster, "id">),
+      if (error) throw error;
+
+      const mapped: LineMaster[] = (data || []).map((row) => ({
+        id: row.id,
+        lineName: row.line_name,
+        processId: row.process_id,
+        dailyCapacity: row.daily_capacity,
+        operationRate: row.operation_rate,
+        enabled: row.enabled,
       }));
 
-      setLines(data);
+      setLines(mapped);
     } catch (error) {
       console.error(error);
     } finally {
@@ -62,14 +54,12 @@ export default function LineMasterPage() {
 
   // =========================
   // 初期読込
-  // React19対応
   // =========================
 
   useEffect(() => {
     const load = async () => {
       await fetchLines();
     };
-
     void load();
   }, []);
 
@@ -78,20 +68,21 @@ export default function LineMasterPage() {
   // =========================
 
   const handleAdd = async () => {
+    if (!form.lineName || !form.processId) {
+      alert("必須項目を入力してください");
+      return;
+    }
+
     try {
-      if (!form.lineName || !form.processId) {
-        alert("必須項目を入力してください");
-
-        return;
-      }
-
-      await addDoc(collection(db, "lineMaster"), {
-        lineName: form.lineName,
-        processId: form.processId,
-        dailyCapacity: Number(form.dailyCapacity),
-        operationRate: Number(form.operationRate),
+      const { error } = await supabase.from("line_master").insert({
+        line_name: form.lineName,
+        process_id: form.processId,
+        daily_capacity: Number(form.dailyCapacity),
+        operation_rate: Number(form.operationRate),
         enabled: form.enabled,
       });
+
+      if (error) throw error;
 
       setForm({
         lineName: "",
@@ -113,13 +104,18 @@ export default function LineMasterPage() {
 
   const handleUpdate = async (item: LineMaster) => {
     try {
-      await updateDoc(doc(db, "lineMaster", item.id), {
-        lineName: item.lineName,
-        processId: item.processId,
-        dailyCapacity: Number(item.dailyCapacity),
-        operationRate: Number(item.operationRate),
-        enabled: item.enabled,
-      });
+      const { error } = await supabase
+        .from("line_master")
+        .update({
+          line_name: item.lineName,
+          process_id: item.processId,
+          daily_capacity: Number(item.dailyCapacity),
+          operation_rate: Number(item.operationRate),
+          enabled: item.enabled,
+        })
+        .eq("id", item.id);
+
+      if (error) throw error;
 
       await fetchLines();
     } catch (error) {
@@ -133,23 +129,21 @@ export default function LineMasterPage() {
 
   const handleDelete = async (id: string) => {
     const ok = confirm("削除しますか？");
-
-    if (!ok) {
-      return;
-    }
+    if (!ok) return;
 
     try {
-      await deleteDoc(doc(db, "lineMaster", id));
+      const { error } = await supabase
+        .from("line_master")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
 
       await fetchLines();
     } catch (error) {
       console.error(error);
     }
   };
-
-  // =========================
-  // Loading
-  // =========================
 
   if (loading) {
     return <div className={styles.loading}>Loading...</div>;
@@ -174,35 +168,20 @@ export default function LineMasterPage() {
             type="text"
             placeholder="ライン名"
             value={form.lineName}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                lineName: e.target.value,
-              })
-            }
+            onChange={(e) => setForm({ ...form, lineName: e.target.value })}
             className={styles.input}
           />
 
           <select
             value={form.processId}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                processId: e.target.value,
-              })
-            }
+            onChange={(e) => setForm({ ...form, processId: e.target.value })}
             className={styles.select}
           >
             <option value="">工程選択</option>
-
             <option value="manufacturing">製造</option>
-
             <option value="cleaning">洗浄</option>
-
             <option value="inspection">検査</option>
-
             <option value="measurement">測量</option>
-
             <option value="packaging">梱包</option>
           </select>
 
@@ -211,10 +190,7 @@ export default function LineMasterPage() {
             placeholder="日産能力"
             value={form.dailyCapacity}
             onChange={(e) =>
-              setForm({
-                ...form,
-                dailyCapacity: Number(e.target.value),
-              })
+              setForm({ ...form, dailyCapacity: Number(e.target.value) })
             }
             className={styles.input}
           />
@@ -224,10 +200,7 @@ export default function LineMasterPage() {
             placeholder="稼働率"
             value={form.operationRate}
             onChange={(e) =>
-              setForm({
-                ...form,
-                operationRate: Number(e.target.value),
-              })
+              setForm({ ...form, operationRate: Number(e.target.value) })
             }
             className={styles.input}
           />
@@ -236,12 +209,7 @@ export default function LineMasterPage() {
             <input
               type="checkbox"
               checked={form.enabled}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  enabled: e.target.checked,
-                })
-              }
+              onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
             />
             使用
           </label>
@@ -272,18 +240,15 @@ export default function LineMasterPage() {
                 <td>
                   <input
                     value={item.lineName}
-                    onChange={(e) => {
+                    onChange={(e) =>
                       setLines((prev) =>
                         prev.map((v) =>
                           v.id === item.id
-                            ? {
-                                ...v,
-                                lineName: e.target.value,
-                              }
+                            ? { ...v, lineName: e.target.value }
                             : v,
                         ),
-                      );
-                    }}
+                      )
+                    }
                     className={styles.tableInput}
                   />
                 </td>
@@ -291,18 +256,15 @@ export default function LineMasterPage() {
                 <td>
                   <input
                     value={item.processId}
-                    onChange={(e) => {
+                    onChange={(e) =>
                       setLines((prev) =>
                         prev.map((v) =>
                           v.id === item.id
-                            ? {
-                                ...v,
-                                processId: e.target.value,
-                              }
+                            ? { ...v, processId: e.target.value }
                             : v,
                         ),
-                      );
-                    }}
+                      )
+                    }
                     className={styles.tableInput}
                   />
                 </td>
@@ -311,18 +273,15 @@ export default function LineMasterPage() {
                   <input
                     type="number"
                     value={item.dailyCapacity}
-                    onChange={(e) => {
+                    onChange={(e) =>
                       setLines((prev) =>
                         prev.map((v) =>
                           v.id === item.id
-                            ? {
-                                ...v,
-                                dailyCapacity: Number(e.target.value),
-                              }
+                            ? { ...v, dailyCapacity: Number(e.target.value) }
                             : v,
                         ),
-                      );
-                    }}
+                      )
+                    }
                     className={styles.tableInput}
                   />
                 </td>
@@ -331,18 +290,15 @@ export default function LineMasterPage() {
                   <input
                     type="number"
                     value={item.operationRate}
-                    onChange={(e) => {
+                    onChange={(e) =>
                       setLines((prev) =>
                         prev.map((v) =>
                           v.id === item.id
-                            ? {
-                                ...v,
-                                operationRate: Number(e.target.value),
-                              }
+                            ? { ...v, operationRate: Number(e.target.value) }
                             : v,
                         ),
-                      );
-                    }}
+                      )
+                    }
                     className={styles.tableInput}
                   />
                 </td>
@@ -351,18 +307,15 @@ export default function LineMasterPage() {
                   <input
                     type="checkbox"
                     checked={item.enabled}
-                    onChange={(e) => {
+                    onChange={(e) =>
                       setLines((prev) =>
                         prev.map((v) =>
                           v.id === item.id
-                            ? {
-                                ...v,
-                                enabled: e.target.checked,
-                              }
+                            ? { ...v, enabled: e.target.checked }
                             : v,
                         ),
-                      );
-                    }}
+                      )
+                    }
                   />
                 </td>
 

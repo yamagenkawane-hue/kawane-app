@@ -1,6 +1,5 @@
-import { addDoc, collection } from "firebase/firestore";
-import { useEffect, useState } from "react";
-import db from "../../lib/firebase";
+import { useState } from "react";
+import supabase from "../../lib/supabase";
 
 export const useNewRegistration = () => {
   const [userName, setUserName] = useState("");
@@ -26,13 +25,14 @@ export const useNewRegistration = () => {
     (
       field: "userName" | "passWord",
       setter: React.Dispatch<React.SetStateAction<string>>,
-      validator: (value: string) => string
+      validator: (value: string) => string,
     ) =>
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
       setter(value);
       setErrors((prev) => ({ ...prev, [field]: validator(value) }));
     };
+
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
 
@@ -45,12 +45,15 @@ export const useNewRegistration = () => {
     }
 
     try {
-      await addDoc(collection(db, "user"), {
+      const { error } = await supabase.from("user").insert({
         name: userName,
         pass: passWord,
         manager: false,
         delete: false,
       });
+
+      if (error) throw error;
+
       setUserName("");
       setPassWord("");
       setErrors({ userName: "", passWord: "" });

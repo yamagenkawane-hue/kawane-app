@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Post } from "../type";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import db from "../../lib/firebase";
+import supabase from "../../lib/supabase";
 
 export const useUsersEditPost = (
   filteredPosts: Post[],
-  setShouldFetch: (val: boolean) => void
+  setShouldFetch: (val: boolean) => void,
 ) => {
   const [editData, setEditData] = useState({
     date: "",
@@ -31,37 +30,45 @@ export const useUsersEditPost = (
   };
 
   const handleSave = async () => {
-    if (editingRow) {
-      const postToUpdate = filteredPosts[editingRow.postIndex];
-      const postRef = doc(db, "posts", postToUpdate.id);
+    if (!editingRow) return;
 
-      try {
-        const docSnap = await getDoc(postRef);
+    const postToUpdate = filteredPosts[editingRow.postIndex];
 
-        if (docSnap.exists()) {
-          const days = docSnap.data().days || [];
+    try {
+      // 現在のdaysを取得
+      const { data, error: fetchError } = await supabase
+        .from("posts")
+        .select("days")
+        .eq("id", postToUpdate.id)
+        .single();
 
-          days[editingRow.dayIndex] = {
-            ...days[editingRow.dayIndex],
-            date: editData.date,
-            startTime: editData.startTime,
-            endTime: editData.endTime,
-            remark: editData.remark,
-          };
+      if (fetchError) throw fetchError;
 
-          await updateDoc(postRef, { days });
-          console.log("データが正常に更新されました");
+      const days = data?.days || [];
 
-          setEditingRow(null);
-          setShouldFetch(true);
-        } else {
-          console.error("ドキュメントが存在しません");
-        }
-      } catch (error) {
-        console.error("データの更新に失敗しました", error);
-      }
+      days[editingRow.dayIndex] = {
+        ...days[editingRow.dayIndex],
+        date: editData.date,
+        startTime: editData.startTime,
+        endTime: editData.endTime,
+        remark: editData.remark,
+      };
+
+      const { error: updateError } = await supabase
+        .from("posts")
+        .update({ days })
+        .eq("id", postToUpdate.id);
+
+      if (updateError) throw updateError;
+
+      console.log("データが正常に更新されました");
+      setEditingRow(null);
+      setShouldFetch(true);
+    } catch (error) {
+      console.error("データの更新に失敗しました", error);
     }
   };
+
   return {
     editingRow,
     editData,

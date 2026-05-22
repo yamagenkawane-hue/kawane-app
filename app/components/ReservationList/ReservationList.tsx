@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { doc, updateDoc } from "firebase/firestore";
 import styles from "./page.module.css";
-import db from "../../../lib/firebase";
+import supabase from "../../../lib/supabase";
 import { ReservationRowProps } from "@/app/type";
 import Link from "next/link";
 
@@ -11,115 +10,80 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   post,
   handleDelete,
 }) => {
-  // 編集状態
   const [isEdit, setIsEdit] = useState(false);
 
+  // =========================
   // 製造ログ
+  // =========================
   const [manufacturingLogDate, setManufacturingLogDate] = useState("");
-
   const [manufacturingLogAmount, setManufacturingLogAmount] = useState<
     number | ""
   >("");
+  const manufacturingLogs = post.manufacturingLogs || [];
 
   // =========================
   // 洗浄ログ
   // =========================
-
   const [cleaningLogDate, setCleaningLogDate] = useState("");
-
   const [cleaningLogAmount, setCleaningLogAmount] = useState<number | "">("");
-
   const cleaningLogs = post.cleaningLogs || [];
 
   // =========================
   // 検査ログ
   // =========================
-
   const [inspectionLogDate, setInspectionLogDate] = useState("");
-
   const [inspectionLogAmount, setInspectionLogAmount] = useState<number | "">(
     "",
   );
-
   const inspectionLogs = post.inspectionLogs || [];
 
   // =========================
   // 測量ログ
   // =========================
-
   const [measurementLogDate, setMeasurementLogDate] = useState("");
-
   const [measurementLogAmount, setMeasurementLogAmount] = useState<number | "">(
     "",
   );
-
   const measurementLogs = post.measurementLogs || [];
 
   // =========================
   // 梱包ログ
   // =========================
-
   const [packagingLogDate, setPackagingLogDate] = useState("");
-
   const [packagingLogAmount, setPackagingLogAmount] = useState<number | "">("");
-
   const packagingLogs = post.packagingLogs || [];
-
-  // =========================
-  // 製造ログ
-  // =========================
-  const manufacturingLogs = post.manufacturingLogs || [];
 
   // =========================
   // 製造ログ追加
   // =========================
   const handleAddManufacturingLog = async () => {
+    if (!manufacturingLogDate || manufacturingLogAmount === "") {
+      alert("日付と数量を入力してください");
+      return;
+    }
+
     try {
-      if (!manufacturingLogDate || manufacturingLogAmount === "") {
-        alert("日付と数量を入力してください");
-
-        return;
-      }
-
-      // 既存ログ
-      const logs = post.manufacturingLogs || [];
-
-      // 新規ログ
       const newLogs = [
-        ...logs,
-        {
-          date: manufacturingLogDate,
-          amount: Number(manufacturingLogAmount),
-        },
+        ...manufacturingLogs,
+        { date: manufacturingLogDate, amount: Number(manufacturingLogAmount) },
       ];
 
-      // 合計
-      const totalManufacturingAmount = newLogs.reduce(
-        (sum, log) => sum + log.amount,
-        0,
-      );
+      const { error } = await supabase
+        .from("posts")
+        .update({
+          manufacturing_logs: newLogs,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", post.id);
 
-      // 更新
-      await updateDoc(doc(db, "posts", post.id), {
-        manufacturingLogs: newLogs,
-
-        manufacturingAmount: totalManufacturingAmount,
-
-        updatedAt: new Date().toISOString(),
-
-        updatedBy: "admin",
-      });
+      if (error) throw error;
 
       alert("製造実績を追加しました");
-
       setManufacturingLogDate("");
-
       setManufacturingLogAmount("");
-
       window.location.reload();
     } catch (error) {
       console.error(error);
-
       alert("追加に失敗しました");
     }
   };
@@ -127,38 +91,31 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   // =========================
   // 洗浄ログ追加
   // =========================
-
   const handleAddCleaningLog = async () => {
+    if (!cleaningLogDate || cleaningLogAmount === "") {
+      alert("日付と数量を入力してください");
+      return;
+    }
+
     try {
-      if (!cleaningLogDate || cleaningLogAmount === "") {
-        alert("日付と数量を入力してください");
-        return;
-      }
-
-      const logs = post.cleaningLogs || [];
-
       const newLogs = [
-        ...logs,
-        {
-          date: cleaningLogDate,
-          amount: Number(cleaningLogAmount),
-        },
+        ...cleaningLogs,
+        { date: cleaningLogDate, amount: Number(cleaningLogAmount) },
       ];
 
-      const total = newLogs.reduce((sum, log) => sum + log.amount, 0);
+      const { error } = await supabase
+        .from("posts")
+        .update({
+          cleaning_logs: newLogs,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", post.id);
 
-      await updateDoc(doc(db, "posts", post.id), {
-        cleaningLogs: newLogs,
-        cleaningAmount: total,
-        updatedAt: new Date().toISOString(),
-        updatedBy: "admin",
-      });
+      if (error) throw error;
 
       alert("洗浄実績を追加しました");
-
       setCleaningLogDate("");
       setCleaningLogAmount("");
-
       window.location.reload();
     } catch (error) {
       console.error(error);
@@ -169,38 +126,31 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   // =========================
   // 検査ログ追加
   // =========================
-
   const handleAddInspectionLog = async () => {
+    if (!inspectionLogDate || inspectionLogAmount === "") {
+      alert("日付と数量を入力してください");
+      return;
+    }
+
     try {
-      if (!inspectionLogDate || inspectionLogAmount === "") {
-        alert("日付と数量を入力してください");
-        return;
-      }
-
-      const logs = post.inspectionLogs || [];
-
       const newLogs = [
-        ...logs,
-        {
-          date: inspectionLogDate,
-          amount: Number(inspectionLogAmount),
-        },
+        ...inspectionLogs,
+        { date: inspectionLogDate, amount: Number(inspectionLogAmount) },
       ];
 
-      const total = newLogs.reduce((sum, log) => sum + log.amount, 0);
+      const { error } = await supabase
+        .from("posts")
+        .update({
+          inspection_logs: newLogs,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", post.id);
 
-      await updateDoc(doc(db, "posts", post.id), {
-        inspectionLogs: newLogs,
-        inspectionAmount: total,
-        updatedAt: new Date().toISOString(),
-        updatedBy: "admin",
-      });
+      if (error) throw error;
 
       alert("検査実績を追加しました");
-
       setInspectionLogDate("");
       setInspectionLogAmount("");
-
       window.location.reload();
     } catch (error) {
       console.error(error);
@@ -211,38 +161,31 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   // =========================
   // 測量ログ追加
   // =========================
-
   const handleAddMeasurementLog = async () => {
+    if (!measurementLogDate || measurementLogAmount === "") {
+      alert("日付と数量を入力してください");
+      return;
+    }
+
     try {
-      if (!measurementLogDate || measurementLogAmount === "") {
-        alert("日付と数量を入力してください");
-        return;
-      }
-
-      const logs = post.measurementLogs || [];
-
       const newLogs = [
-        ...logs,
-        {
-          date: measurementLogDate,
-          amount: Number(measurementLogAmount),
-        },
+        ...measurementLogs,
+        { date: measurementLogDate, amount: Number(measurementLogAmount) },
       ];
 
-      const total = newLogs.reduce((sum, log) => sum + log.amount, 0);
+      const { error } = await supabase
+        .from("posts")
+        .update({
+          measurement_logs: newLogs,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", post.id);
 
-      await updateDoc(doc(db, "posts", post.id), {
-        measurementLogs: newLogs,
-        measurementAmount: total,
-        updatedAt: new Date().toISOString(),
-        updatedBy: "admin",
-      });
+      if (error) throw error;
 
       alert("測量実績を追加しました");
-
       setMeasurementLogDate("");
       setMeasurementLogAmount("");
-
       window.location.reload();
     } catch (error) {
       console.error(error);
@@ -253,38 +196,31 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   // =========================
   // 梱包ログ追加
   // =========================
-
   const handleAddPackagingLog = async () => {
+    if (!packagingLogDate || packagingLogAmount === "") {
+      alert("日付と数量を入力してください");
+      return;
+    }
+
     try {
-      if (!packagingLogDate || packagingLogAmount === "") {
-        alert("日付と数量を入力してください");
-        return;
-      }
-
-      const logs = post.packagingLogs || [];
-
       const newLogs = [
-        ...logs,
-        {
-          date: packagingLogDate,
-          amount: Number(packagingLogAmount),
-        },
+        ...packagingLogs,
+        { date: packagingLogDate, amount: Number(packagingLogAmount) },
       ];
 
-      const total = newLogs.reduce((sum, log) => sum + log.amount, 0);
+      const { error } = await supabase
+        .from("posts")
+        .update({
+          packaging_logs: newLogs,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", post.id);
 
-      await updateDoc(doc(db, "posts", post.id), {
-        packagingLogs: newLogs,
-        packagingAmount: total,
-        updatedAt: new Date().toISOString(),
-        updatedBy: "admin",
-      });
+      if (error) throw error;
 
       alert("梱包実績を追加しました");
-
       setPackagingLogDate("");
       setPackagingLogAmount("");
-
       window.location.reload();
     } catch (error) {
       console.error(error);
@@ -292,121 +228,53 @@ const ReservationList: React.FC<ReservationRowProps> = ({
     }
   };
 
+  // =========================
+  // 保存
+  // =========================
   const handleSave = async () => {
     try {
-      // =========================
-      // ログ合計
-      // =========================
-
       const manufacturing = manufacturingLogs.reduce(
         (sum, log) => sum + log.amount,
         0,
       );
-
       const cleaning = cleaningLogs.reduce((sum, log) => sum + log.amount, 0);
-
       const inspection = inspectionLogs.reduce(
         (sum, log) => sum + log.amount,
         0,
       );
-
       const measurement = measurementLogs.reduce(
         (sum, log) => sum + log.amount,
         0,
       );
-
       const packaging = packagingLogs.reduce((sum, log) => sum + log.amount, 0);
 
-      // 注残
-      const remainingAmount = post.orderAmount - packaging;
-
-      // =========================
       // 状態判定
-      // =========================
-
       let status = "未着手";
+      if (manufacturing > 0) status = "製造中";
+      if (manufacturing >= post.orderAmount) status = "製造完了";
+      if (cleaning > 0) status = "洗浄中";
+      if (cleaning >= post.orderAmount) status = "洗浄完了";
+      if (inspection > 0) status = "検査中";
+      if (inspection >= post.orderAmount) status = "検査完了";
+      if (measurement > 0) status = "測量中";
+      if (measurement >= post.orderAmount) status = "測量完了";
+      if (packaging > 0) status = "梱包中";
+      if (packaging >= post.orderAmount) status = "出荷OK";
 
-      // 製造
-      if (manufacturing > 0) {
-        status = "製造中";
-      }
+      const { error } = await supabase
+        .from("posts")
+        .update({
+          status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", post.id);
 
-      if (manufacturing >= post.orderAmount) {
-        status = "製造完了";
-      }
-
-      // 洗浄
-      if (cleaning > 0) {
-        status = "洗浄中";
-      }
-
-      if (cleaning >= post.orderAmount) {
-        status = "洗浄完了";
-      }
-
-      // 検査
-      if (inspection > 0) {
-        status = "検査中";
-      }
-
-      if (inspection >= post.orderAmount) {
-        status = "検査完了";
-      }
-
-      // 測量
-      if (measurement > 0) {
-        status = "測量中";
-      }
-
-      if (measurement >= post.orderAmount) {
-        status = "測量完了";
-      }
-
-      // 梱包
-      if (packaging > 0) {
-        status = "梱包中";
-      }
-
-      if (packaging >= post.orderAmount) {
-        status = "出荷OK";
-      }
-
-      // =========================
-      // Firestore更新
-      // =========================
-
-      await updateDoc(doc(db, "posts", post.id), {
-        // 製造
-        manufacturingAmount: manufacturing,
-
-        // 洗浄
-        cleaningAmount: cleaning,
-
-        // 検査
-        inspectionAmount: inspection,
-
-        // 測量
-        measurementAmount: measurement,
-
-        // 梱包
-        packagingAmount: packaging,
-
-        // 共通
-        remainingAmount,
-
-        status,
-
-        updatedAt: new Date().toISOString(),
-
-        updatedBy: "admin",
-      });
+      if (error) throw error;
 
       alert("更新しました");
-
       setIsEdit(false);
     } catch (error) {
       console.error(error);
-
       alert("更新に失敗しました");
     }
   };
@@ -414,121 +282,39 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   // =========================
   // 工程進捗
   // =========================
-
   const manufacturing = manufacturingLogs.reduce(
     (sum, log) => sum + log.amount,
     0,
   );
-
   const cleaning = cleaningLogs.reduce((sum, log) => sum + log.amount, 0);
-
   const inspection = inspectionLogs.reduce((sum, log) => sum + log.amount, 0);
-
   const measurement = measurementLogs.reduce((sum, log) => sum + log.amount, 0);
-
   const packaging = packagingLogs.reduce((sum, log) => sum + log.amount, 0);
 
   let processProgress = 0;
+  if (manufacturing > 0)
+    processProgress += manufacturing >= post.orderAmount ? 20 : 10;
+  if (cleaning > 0) processProgress += cleaning >= post.orderAmount ? 20 : 10;
+  if (inspection > 0)
+    processProgress += inspection >= post.orderAmount ? 20 : 10;
+  if (measurement > 0)
+    processProgress += measurement >= post.orderAmount ? 20 : 10;
+  if (packaging > 0) processProgress += packaging >= post.orderAmount ? 20 : 10;
 
-  // 製造
-  if (manufacturing > 0) {
-    if (manufacturing >= post.orderAmount) {
-      processProgress += 20;
-    } else {
-      processProgress += 10;
-    }
-  }
-
-  // 洗浄
-  if (cleaning > 0) {
-    if (cleaning >= post.orderAmount) {
-      processProgress += 20;
-    } else {
-      processProgress += 10;
-    }
-  }
-
-  // 検査
-  if (inspection > 0) {
-    if (inspection >= post.orderAmount) {
-      processProgress += 20;
-    } else {
-      processProgress += 10;
-    }
-  }
-
-  // 測量
-  if (measurement > 0) {
-    if (measurement >= post.orderAmount) {
-      processProgress += 20;
-    } else {
-      processProgress += 10;
-    }
-  }
-
-  // 梱包
-  if (packaging > 0) {
-    if (packaging >= post.orderAmount) {
-      processProgress += 20;
-    } else {
-      processProgress += 10;
-    }
-  }
-
-  // =========================
   // 状態表示用
-  // =========================
-
   let status = "未着手";
+  if (manufacturing > 0) status = "製造中";
+  if (manufacturing >= post.orderAmount) status = "製造完了";
+  if (cleaning > 0) status = "洗浄中";
+  if (cleaning >= post.orderAmount) status = "洗浄完了";
+  if (inspection > 0) status = "検査中";
+  if (inspection >= post.orderAmount) status = "検査完了";
+  if (measurement > 0) status = "測量中";
+  if (measurement >= post.orderAmount) status = "測量完了";
+  if (packaging > 0) status = "梱包中";
+  if (packaging >= post.orderAmount) status = "出荷OK";
 
-  // 製造
-  if (manufacturing > 0) {
-    status = "製造中";
-  }
-
-  if (manufacturing >= post.orderAmount) {
-    status = "製造完了";
-  }
-
-  // 洗浄
-  if (cleaning > 0) {
-    status = "洗浄中";
-  }
-
-  if (cleaning >= post.orderAmount) {
-    status = "洗浄完了";
-  }
-
-  // 検査
-  if (inspection > 0) {
-    status = "検査中";
-  }
-
-  if (inspection >= post.orderAmount) {
-    status = "検査完了";
-  }
-
-  // 測量
-  if (measurement > 0) {
-    status = "測量中";
-  }
-
-  if (measurement >= post.orderAmount) {
-    status = "測量完了";
-  }
-
-  // 梱包
-  if (packaging > 0) {
-    status = "梱包中";
-  }
-
-  if (packaging >= post.orderAmount) {
-    status = "出荷OK";
-  }
-
-  // =========================
   // 数量進捗
-  // =========================
   const quantityProgress =
     post.orderAmount > 0 ? Math.floor((packaging / post.orderAmount) * 100) : 0;
 
@@ -545,54 +331,27 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       : quantityProgress >= 40
         ? "#eab308"
         : "#ef4444";
-  // =========================
+
   // 遅延判定
-  // =========================
   const today = new Date();
-
   today.setHours(0, 0, 0, 0);
-
   const delivery = new Date(post.deliveryDate);
-
   delivery.setHours(0, 0, 0, 0);
-
   const diffDays = Math.ceil(
     (delivery.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
   );
-
   const isDelay = diffDays <= 1 && processProgress < 80 && status !== "出荷OK";
 
-  // =========================
   // 納期警告
-  // =========================
   const deliveryClass = (() => {
-    const today = new Date();
-
-    today.setHours(0, 0, 0, 0);
-
-    const delivery = new Date(post.deliveryDate);
-
-    delivery.setHours(0, 0, 0, 0);
-
-    const diff = Math.ceil(
-      (delivery.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
-    );
-
-    // 納期超過
-    if (diff < 0) {
-      return styles.danger;
-    }
-
-    // 3日以内
-    if (diff <= 3) {
-      return styles.danger;
-    }
-
-    // 7日以内
-    if (diff <= 7) {
-      return styles.warning;
-    }
-
+    const t = new Date();
+    t.setHours(0, 0, 0, 0);
+    const d = new Date(post.deliveryDate);
+    d.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((d.getTime() - t.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff < 0) return styles.danger;
+    if (diff <= 3) return styles.danger;
+    if (diff <= 7) return styles.warning;
     return "";
   })();
 
@@ -602,7 +361,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       <td>{post.orderNo}</td>
 
       {/* 製品名 */}
-
       <td className={styles.productName}>
         <Link href={`/progress/${post.id}`}>{post.productName}</Link>
       </td>
@@ -622,7 +380,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
               value={manufacturingLogDate}
               onChange={(e) => setManufacturingLogDate(e.target.value)}
             />
-
             <input
               type="number"
               placeholder="数量"
@@ -633,13 +390,11 @@ const ReservationList: React.FC<ReservationRowProps> = ({
                 )
               }
             />
-
             <button type="button" onClick={handleAddManufacturingLog}>
               追加
             </button>
           </div>
         )}
-
         {manufacturingLogs.length > 0 ? (
           manufacturingLogs.map((log, index) => (
             <div key={index} className={styles.logRow}>
@@ -668,11 +423,9 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       <td className={styles.averageCell}>
         {manufacturingLogs.length > 0 ? (
           manufacturingLogs.map((log, index) => {
-            const total = manufacturingLogs
+            const cumulative = manufacturingLogs
               .slice(0, index + 1)
               .reduce((sum, item) => sum + item.amount, 0);
-
-            const cumulative = total;
             return (
               <div key={index} className={styles.averageRow}>
                 {cumulative}
@@ -684,10 +437,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* =========================
-   洗浄
-========================= */}
-
       {/* 洗浄 日付 */}
       <td className={styles.cleaningCell}>
         {isEdit && (
@@ -697,7 +446,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
               value={cleaningLogDate}
               onChange={(e) => setCleaningLogDate(e.target.value)}
             />
-
             <input
               type="number"
               placeholder="数量"
@@ -708,13 +456,11 @@ const ReservationList: React.FC<ReservationRowProps> = ({
                 )
               }
             />
-
             <button type="button" onClick={handleAddCleaningLog}>
               追加
             </button>
           </div>
         )}
-
         {cleaningLogs.length > 0 ? (
           cleaningLogs.map((log, index) => (
             <div key={index} className={styles.logRow}>
@@ -743,12 +489,9 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       <td className={styles.cleaningAverageCell}>
         {cleaningLogs.length > 0 ? (
           cleaningLogs.map((log, index) => {
-            const total = cleaningLogs
+            const cumulative = cleaningLogs
               .slice(0, index + 1)
               .reduce((sum, item) => sum + item.amount, 0);
-
-            const cumulative = total;
-
             return (
               <div key={index} className={styles.averageRow}>
                 {cumulative}
@@ -760,10 +503,7 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* =========================
-   検査
-========================= */}
-
+      {/* 検査 日付 */}
       <td className={styles.inspectionCell}>
         {isEdit && (
           <div className={styles.logArea}>
@@ -772,7 +512,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
               value={inspectionLogDate}
               onChange={(e) => setInspectionLogDate(e.target.value)}
             />
-
             <input
               type="number"
               placeholder="数量"
@@ -783,13 +522,11 @@ const ReservationList: React.FC<ReservationRowProps> = ({
                 )
               }
             />
-
             <button type="button" onClick={handleAddInspectionLog}>
               追加
             </button>
           </div>
         )}
-
         {inspectionLogs.length > 0 ? (
           inspectionLogs.map((log, index) => (
             <div key={index} className={styles.logRow}>
@@ -801,6 +538,7 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
+      {/* 検査 数量 */}
       <td className={styles.inspectionAmountCell}>
         {inspectionLogs.length > 0 ? (
           inspectionLogs.map((log, index) => (
@@ -813,15 +551,13 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
+      {/* 検査 累計 */}
       <td className={styles.inspectionAverageCell}>
         {inspectionLogs.length > 0 ? (
           inspectionLogs.map((log, index) => {
-            const total = inspectionLogs
+            const cumulative = inspectionLogs
               .slice(0, index + 1)
               .reduce((sum, item) => sum + item.amount, 0);
-
-            const cumulative = total;
-
             return (
               <div key={index} className={styles.averageRow}>
                 {cumulative}
@@ -833,10 +569,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* =========================
-   測量
-========================= */}
-
       {/* 測量 日付 */}
       <td className={styles.measurementCell}>
         {isEdit && (
@@ -846,7 +578,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
               value={measurementLogDate}
               onChange={(e) => setMeasurementLogDate(e.target.value)}
             />
-
             <input
               type="number"
               placeholder="数量"
@@ -857,13 +588,11 @@ const ReservationList: React.FC<ReservationRowProps> = ({
                 )
               }
             />
-
             <button type="button" onClick={handleAddMeasurementLog}>
               追加
             </button>
           </div>
         )}
-
         {measurementLogs.length > 0 ? (
           measurementLogs.map((log, index) => (
             <div key={index} className={styles.logRow}>
@@ -892,12 +621,9 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       <td className={styles.measurementAverageCell}>
         {measurementLogs.length > 0 ? (
           measurementLogs.map((log, index) => {
-            const total = measurementLogs
+            const cumulative = measurementLogs
               .slice(0, index + 1)
               .reduce((sum, item) => sum + item.amount, 0);
-
-            const cumulative = total;
-
             return (
               <div key={index} className={styles.averageRow}>
                 {cumulative}
@@ -909,10 +635,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* =========================
-   梱包
-========================= */}
-
       {/* 梱包 日付 */}
       <td className={styles.packagingCell}>
         {isEdit && (
@@ -922,7 +644,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
               value={packagingLogDate}
               onChange={(e) => setPackagingLogDate(e.target.value)}
             />
-
             <input
               type="number"
               placeholder="数量"
@@ -933,13 +654,11 @@ const ReservationList: React.FC<ReservationRowProps> = ({
                 )
               }
             />
-
             <button type="button" onClick={handleAddPackagingLog}>
               追加
             </button>
           </div>
         )}
-
         {packagingLogs.length > 0 ? (
           packagingLogs.map((log, index) => (
             <div key={index} className={styles.logRow}>
@@ -968,12 +687,9 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       <td className={styles.packagingAverageCell}>
         {packagingLogs.length > 0 ? (
           packagingLogs.map((log, index) => {
-            const total = packagingLogs
+            const cumulative = packagingLogs
               .slice(0, index + 1)
               .reduce((sum, item) => sum + item.amount, 0);
-
-            const cumulative = total;
-
             return (
               <div key={index} className={styles.averageRow}>
                 {cumulative}
@@ -999,7 +715,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
                 backgroundColor: processProgressColor,
               }}
             />
-
             <span className={styles.progressText}>{processProgress}%</span>
           </div>
         </div>
@@ -1016,7 +731,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
                 backgroundColor: quantityProgressColor,
               }}
             />
-
             <span className={styles.progressText}>{quantityProgress}%</span>
           </div>
         </div>
@@ -1057,7 +771,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
             編集
           </button>
         )}
-
         <button className={styles.deleteButton} onClick={handleDelete}>
           削除
         </button>

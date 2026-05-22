@@ -1,6 +1,5 @@
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import supabase from "../../lib/supabase";
 import { Day } from "../type";
-import db from "../../lib/firebase";
 
 type UseSaveEditProps = {
   editData: Day | null;
@@ -26,15 +25,27 @@ export const useChildSave = ({
     const { postId, dayIndex } = editingRow;
 
     try {
-      const postRef = doc(db, "posts", postId);
-      const docSnap = await getDoc(postRef);
-      if (docSnap.exists()) {
-        const days = docSnap.data().days || [];
-        days[dayIndex] = { ...days[dayIndex], ...editData };
-        await updateDoc(postRef, { days });
-        setEditingRow(null);
-        setShouldFetch(true);
-      }
+      // 現在のdaysを取得
+      const { data, error: fetchError } = await supabase
+        .from("posts")
+        .select("days")
+        .eq("id", postId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const days = data?.days || [];
+      days[dayIndex] = { ...days[dayIndex], ...editData };
+
+      const { error: updateError } = await supabase
+        .from("posts")
+        .update({ days })
+        .eq("id", postId);
+
+      if (updateError) throw updateError;
+
+      setEditingRow(null);
+      setShouldFetch(true);
     } catch (error) {
       console.error("データの更新に失敗しました", error);
     }

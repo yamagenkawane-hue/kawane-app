@@ -1,36 +1,18 @@
 "use client";
 
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  updateDoc,
-} from "firebase/firestore";
-
 import { useEffect, useState, useCallback } from "react";
-
 import Link from "next/link";
-
 import { Pencil, Trash2, RotateCcw, User, Shield } from "lucide-react";
-
-import db from "@/lib/firebase";
-
+import supabase from "@/lib/supabase";
 import styles from "./page.module.css";
-
 import { User as UserType } from "../type";
 
 export default function UserManagerPage() {
   const [users, setUsers] = useState<UserType[]>([]);
-
   const [trashUsers, setTrashUsers] = useState<UserType[]>([]);
-
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
-
   const [editName, setEditName] = useState("");
-
   const [editPass, setEditPass] = useState("");
-
   const [loading, setLoading] = useState(true);
 
   // =========================
@@ -41,20 +23,20 @@ export default function UserManagerPage() {
     try {
       setLoading(true);
 
-      const snap = await getDocs(collection(db, "user"));
+      const { data, error } = await supabase.from("user").select("*");
 
-      const data = snap.docs.map((doc) => ({
-        ...(doc.data() as Omit<UserType, "id">),
-        id: doc.id,
+      if (error) throw error;
+
+      const mapped: UserType[] = (data || []).map((row) => ({
+        id: row.id,
+        name: row.name,
+        pass: row.pass,
+        manager: row.manager,
+        delete: row.delete,
       }));
 
-      const activeUsers = data.filter((item) => !item.delete);
-
-      const deletedUsers = data.filter((item) => item.delete);
-
-      setUsers(activeUsers);
-
-      setTrashUsers(deletedUsers);
+      setUsers(mapped.filter((item) => !item.delete));
+      setTrashUsers(mapped.filter((item) => item.delete));
     } catch (error) {
       console.error("ユーザー取得エラー", error);
     } finally {
@@ -70,7 +52,6 @@ export default function UserManagerPage() {
     const init = async () => {
       await fetchUsers();
     };
-
     init();
   }, [fetchUsers]);
 
@@ -80,9 +61,7 @@ export default function UserManagerPage() {
 
   const startEdit = (user: UserType) => {
     setEditingUser(user);
-
     setEditName(user.name);
-
     setEditPass(user.pass);
   };
 
@@ -94,15 +73,15 @@ export default function UserManagerPage() {
     if (!editingUser) return;
 
     try {
-      await updateDoc(doc(db, "user", editingUser.id), {
-        name: editName,
-        pass: editPass,
-      });
+      const { error } = await supabase
+        .from("user")
+        .update({ name: editName, pass: editPass })
+        .eq("id", editingUser.id);
+
+      if (error) throw error;
 
       setEditingUser(null);
-
       setEditName("");
-
       setEditPass("");
 
       await fetchUsers();
@@ -117,9 +96,12 @@ export default function UserManagerPage() {
 
   const moveTrash = async (id: string) => {
     try {
-      await updateDoc(doc(db, "user", id), {
-        delete: true,
-      });
+      const { error } = await supabase
+        .from("user")
+        .update({ delete: true })
+        .eq("id", id);
+
+      if (error) throw error;
 
       await fetchUsers();
     } catch (error) {
@@ -133,9 +115,12 @@ export default function UserManagerPage() {
 
   const restoreUser = async (id: string) => {
     try {
-      await updateDoc(doc(db, "user", id), {
-        delete: false,
-      });
+      const { error } = await supabase
+        .from("user")
+        .update({ delete: false })
+        .eq("id", id);
+
+      if (error) throw error;
 
       await fetchUsers();
     } catch (error) {
@@ -151,11 +136,12 @@ export default function UserManagerPage() {
     const confirmDelete = window.confirm(
       "完全削除しますか？\nこの操作は元に戻せません。",
     );
-
     if (!confirmDelete) return;
 
     try {
-      await deleteDoc(doc(db, "user", id));
+      const { error } = await supabase.from("user").delete().eq("id", id);
+
+      if (error) throw error;
 
       await fetchUsers();
     } catch (error) {
@@ -173,7 +159,6 @@ export default function UserManagerPage() {
 
         <div>
           <p className={styles.subTitle}>Yamagen System</p>
-
           <h1 className={styles.title}>ユーザー管理</h1>
         </div>
       </div>
@@ -196,9 +181,7 @@ export default function UserManagerPage() {
 
                   <div className={styles.cardBody}>
                     <h3>{user.name}</h3>
-
                     <p>パスワード :{user.pass}</p>
-
                     <p>権限 :{user.manager ? "管理者" : "一般"}</p>
                   </div>
 
@@ -235,7 +218,6 @@ export default function UserManagerPage() {
 
                   <div className={styles.cardBody}>
                     <h3>{user.name}</h3>
-
                     <p>パスワード :{user.pass}</p>
                   </div>
 
@@ -290,9 +272,7 @@ export default function UserManagerPage() {
                 className={styles.cancelButton}
                 onClick={() => {
                   setEditingUser(null);
-
                   setEditName("");
-
                   setEditPass("");
                 }}
               >

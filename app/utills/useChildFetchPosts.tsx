@@ -1,26 +1,53 @@
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import db from "../../lib/firebase";
+import supabase from "../../lib/supabase";
 import { Post } from "../type";
 
 export const useChildFetchPosts = (
   shouldFetch: boolean,
-  setShouldFetch: React.Dispatch<React.SetStateAction<boolean>>
+  setShouldFetch: React.Dispatch<React.SetStateAction<boolean>>,
 ) => {
   const [posts, setPosts] = useState<Post[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
-      const postData = collection(db, "posts");
-      const q = query(postData, orderBy("firstDate", "asc"));
-      const querySnapshot = await getDocs(q);
+      try {
+        const { data, error } = await supabase
+          .from("posts")
+          .select("*")
+          .order("first_date", { ascending: true });
 
-      const postsArray = querySnapshot.docs.map((doc) => {
-        const data = doc.data();
-        return { ...data, id: doc.id };
-      });
-      setPosts(postsArray as Post[]);
-      setShouldFetch(false);
+        if (error) throw error;
+
+        const postsArray = (data || []).map((row) => ({
+          ...row,
+          id: row.id,
+          orderNo: row.order_no || "",
+          productCode: row.product_code || "",
+          productName: row.product_name || "",
+          customerName: row.customer_name || "",
+          orderAmount: row.order_amount || 0,
+          manufacturingDate: row.manufacturing_date || "",
+          cleaningDate: row.cleaning_date || "",
+          inspectionDate: row.inspection_date || "",
+          measurementDate: row.measurement_date || "",
+          packagingDate: row.packaging_date || "",
+          deliveryDate: row.delivery_date || "",
+          manufacturingLogs: row.manufacturing_logs || [],
+          cleaningLogs: row.cleaning_logs || [],
+          inspectionLogs: row.inspection_logs || [],
+          measurementLogs: row.measurement_logs || [],
+          packagingLogs: row.packaging_logs || [],
+          createdBy: row.created_by || "",
+          updatedBy: row.updated_by || "",
+          createdAt: row.created_at || "",
+          updatedAt: row.updated_at || "",
+        }));
+
+        setPosts(postsArray as Post[]);
+        setShouldFetch(false);
+      } catch (error) {
+        console.error("データ取得エラー", error);
+      }
     };
 
     if (shouldFetch) {

@@ -377,8 +377,12 @@
   align-items: center;
 }
 
-.logArea input {
-  width: 100px;
+.logArea input[type="date"] {
+  width: 130px;
+}
+
+.logArea input[type="number"] {
+  width: 90px;
 }
 
 .logArea button {

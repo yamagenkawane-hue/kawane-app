@@ -1,12 +1,11 @@
-import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useState } from "react";
-import db from "../../lib/firebase";
+import supabase from "../../lib/supabase";
 import { Post } from "../type";
 
-//export const useReservationEdit = (posts: any[], setShouldFetch: any) => {
-  export const useReservationEdit = (posts: Post[], setShouldFetch: React.Dispatch<
-  React.SetStateAction<boolean>
->) => {
+export const useReservationEdit = (
+  posts: Post[],
+  setShouldFetch: React.Dispatch<React.SetStateAction<boolean>>,
+) => {
   const [editStartTime, setEditStartTime] = useState("");
   const [editEndTime, setEditEndTime] = useState("");
   const [editingRow, setEditingRow] = useState<{
@@ -29,23 +28,37 @@ import { Post } from "../type";
   const handleSave = async () => {
     if (!editingRow || editEndTime <= editStartTime)
       return alert("開始時間以降の時間に設定してください");
+
     const { postId, dayIndex } = editingRow;
+
     try {
-      const postRef = doc(db, "posts", postId);
-      const docSnap = await getDoc(postRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        const days = data.days || [];
-        if (dayIndex >= 0 && dayIndex < days.length) {
-          days[dayIndex] = {
-            ...days[dayIndex],
-            realStartTime: editStartTime,
-            realEndTime: editEndTime,
-          };
-          await updateDoc(postRef, { days });
-          setEditingRow(null);
-          setShouldFetch(true);
-        }
+      // 現在のdaysを取得
+      const { data, error: fetchError } = await supabase
+        .from("posts")
+        .select("days")
+        .eq("id", postId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const days = data?.days || [];
+
+      if (dayIndex >= 0 && dayIndex < days.length) {
+        days[dayIndex] = {
+          ...days[dayIndex],
+          realStartTime: editStartTime,
+          realEndTime: editEndTime,
+        };
+
+        const { error: updateError } = await supabase
+          .from("posts")
+          .update({ days })
+          .eq("id", postId);
+
+        if (updateError) throw updateError;
+
+        setEditingRow(null);
+        setShouldFetch(true);
       }
     } catch (error) {
       console.error("データの更新に失敗しました", error);

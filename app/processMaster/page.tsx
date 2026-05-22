@@ -1,33 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState, startTransition } from "react";
-
 import Link from "next/link";
-
-import {
-  collection,
-  addDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  doc,
-} from "firebase/firestore";
-
-import db from "@/lib/firebase";
+import supabase from "@/lib/supabase";
 import { ProcessMaster } from "@/app/type";
 import styles from "./page.module.css";
 
 export default function ProcessMasterPage() {
   const [processes, setProcesses] = useState<ProcessMaster[]>([]);
-
   const [processId, setProcessId] = useState("");
-
   const [name, setName] = useState("");
-
   const [days, setDays] = useState(1);
-
   const [sort, setSort] = useState(1);
-
   const [loading, setLoading] = useState(false);
 
   // =========================
@@ -36,22 +20,24 @@ export default function ProcessMasterPage() {
 
   const fetchProcesses = useCallback(async () => {
     try {
-      startTransition(() => {
-        setLoading(true);
-      });
+      startTransition(() => setLoading(true));
 
-      const snapshot = await getDocs(collection(db, "processMaster"));
+      const { data, error } = await supabase.from("process_master").select("*");
 
-      const data = snapshot.docs.map((item) => ({
-        id: item.id,
-        ...(item.data() as Omit<ProcessMaster, "id">),
+      if (error) throw error;
+
+      const mapped: ProcessMaster[] = (data || []).map((row) => ({
+        id: row.id,
+        processId: row.process_id,
+        name: row.name,
+        days: row.days,
+        sort: row.sort,
+        enabled: row.enabled,
       }));
 
-      data.sort((a, b) => a.sort - b.sort);
+      mapped.sort((a, b) => a.sort - b.sort);
 
-      startTransition(() => {
-        setProcesses(data);
-      });
+      startTransition(() => setProcesses(mapped));
     } catch (error) {
       console.error(error);
     } finally {
@@ -63,9 +49,9 @@ export default function ProcessMasterPage() {
     const timer = setTimeout(() => {
       fetchProcesses();
     }, 0);
-
     return () => clearTimeout(timer);
   }, [fetchProcesses]);
+
   // =========================
   // 追加
   // =========================
@@ -73,27 +59,25 @@ export default function ProcessMasterPage() {
   const handleAdd = async () => {
     if (!processId || !name) {
       alert("入力してください");
-
       return;
     }
 
     try {
       setLoading(true);
 
-      await addDoc(collection(db, "processMaster"), {
-        processId,
+      const { error } = await supabase.from("process_master").insert({
+        process_id: processId,
         name,
         days,
         sort,
         enabled: true,
       });
 
+      if (error) throw error;
+
       setProcessId("");
-
       setName("");
-
       setDays(1);
-
       setSort(1);
 
       await fetchProcesses();
@@ -114,14 +98,7 @@ export default function ProcessMasterPage() {
     value: string | number | boolean,
   ) => {
     setProcesses((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              [field]: value,
-            }
-          : item,
-      ),
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)),
     );
   };
 
@@ -133,13 +110,18 @@ export default function ProcessMasterPage() {
     try {
       setLoading(true);
 
-      await updateDoc(doc(db, "processMaster", process.id), {
-        processId: process.processId,
-        name: process.name,
-        days: process.days,
-        sort: process.sort,
-        enabled: process.enabled,
-      });
+      const { error } = await supabase
+        .from("process_master")
+        .update({
+          process_id: process.processId,
+          name: process.name,
+          days: process.days,
+          sort: process.sort,
+          enabled: process.enabled,
+        })
+        .eq("id", process.id);
+
+      if (error) throw error;
 
       alert("保存しました");
     } catch (error) {
@@ -155,17 +137,17 @@ export default function ProcessMasterPage() {
 
   const handleToggle = async (process: ProcessMaster) => {
     try {
-      await updateDoc(doc(db, "processMaster", process.id), {
-        enabled: !process.enabled,
-      });
+      const { error } = await supabase
+        .from("process_master")
+        .update({ enabled: !process.enabled })
+        .eq("id", process.id);
+
+      if (error) throw error;
 
       setProcesses((prev) =>
         prev.map((item) =>
           item.id === process.id
-            ? {
-                ...item,
-                enabled: !process.enabled,
-              }
+            ? { ...item, enabled: !process.enabled }
             : item,
         ),
       );
@@ -180,15 +162,17 @@ export default function ProcessMasterPage() {
 
   const handleDelete = async (id: string) => {
     const result = confirm("削除しますか？");
-
-    if (!result) {
-      return;
-    }
+    if (!result) return;
 
     try {
       setLoading(true);
 
-      await deleteDoc(doc(db, "processMaster", id));
+      const { error } = await supabase
+        .from("process_master")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
 
       await fetchProcesses();
     } catch (error) {
@@ -256,15 +240,10 @@ export default function ProcessMasterPage() {
         <thead>
           <tr>
             <th>工程ID</th>
-
             <th>工程名</th>
-
             <th>日数</th>
-
             <th>順番</th>
-
             <th>状態</th>
-
             <th>操作</th>
           </tr>
         </thead>
@@ -272,7 +251,6 @@ export default function ProcessMasterPage() {
         <tbody>
           {processes.map((process) => (
             <tr key={process.id}>
-              {/* 工程ID */}
               <td>
                 <input
                   value={process.processId}
@@ -283,7 +261,6 @@ export default function ProcessMasterPage() {
                 />
               </td>
 
-              {/* 工程名 */}
               <td>
                 <input
                   value={process.name}
@@ -294,7 +271,6 @@ export default function ProcessMasterPage() {
                 />
               </td>
 
-              {/* 日数 */}
               <td>
                 <input
                   type="number"
@@ -306,7 +282,6 @@ export default function ProcessMasterPage() {
                 />
               </td>
 
-              {/* 順番 */}
               <td>
                 <input
                   type="number"
@@ -318,7 +293,6 @@ export default function ProcessMasterPage() {
                 />
               </td>
 
-              {/* ON/OFF */}
               <td>
                 <button
                   onClick={() => handleToggle(process)}
@@ -332,7 +306,6 @@ export default function ProcessMasterPage() {
                 </button>
               </td>
 
-              {/* 操作 */}
               <td className={styles.actionArea}>
                 <button
                   onClick={() => handleSave(process)}

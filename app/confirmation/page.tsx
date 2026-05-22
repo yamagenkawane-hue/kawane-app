@@ -10,36 +10,32 @@ import { usePagination } from "../utills/usePagination";
 import ConfirmationTable from "../components/ConfirmationTable/ConfirmationTable";
 import ManagerSearchForm from "../components/ManagerSearchForm/ManagerSearchForm";
 import ManagerReservationList from "../components/ManagerReservationList/ManagerReservationList";
-import { deleteDoc, doc } from "firebase/firestore";
-import db from "../../lib/firebase";
+import supabase from "../../lib/supabase";
 
 const itemsPerPage = 15;
 
 const Confirmation = () => {
   const { posts, setShouldFetch } = useFetchPosts();
   const [search, setSearch] = useTodayDate();
-  const { paginatedPosts, currentPage, setCurrentPage } =
-    usePagination(
-      posts
-        .map((post) =>
-          search
-            ? {
-                ...post,
-                days: post.days.filter((day) =>
-                  day.date.startsWith(search)
-                ),
-              }
-            : post
-        )
-        .filter((post) => post && !post.delete && post.days.length > 0)
-        .sort(
-          (a, b) =>
-            new Date(a.days[0]?.date).getTime() -
-              new Date(b.days[0]?.date).getTime() ||
-            a.days[0]?.name.localeCompare(b.days[0]?.name)
-        ),
-      itemsPerPage
-    );
+  const { paginatedPosts, currentPage, setCurrentPage } = usePagination(
+    posts
+      .map((post) =>
+        search
+          ? {
+              ...post,
+              days: post.days.filter((day) => day.date.startsWith(search)),
+            }
+          : post,
+      )
+      .filter((post) => post && !post.delete && post.days.length > 0)
+      .sort(
+        (a, b) =>
+          new Date(a.days[0]?.date).getTime() -
+            new Date(b.days[0]?.date).getTime() ||
+          a.days[0]?.name.localeCompare(b.days[0]?.name),
+      ),
+    itemsPerPage,
+  );
 
   const filteredPosts = posts
     .map((post) =>
@@ -48,60 +44,67 @@ const Confirmation = () => {
             ...post,
             days: post.days.filter((day) => day.date.startsWith(search)),
           }
-        : post
+        : post,
     )
     .filter((post) => post && !post.delete && post.days.length > 0)
     .sort(
       (a, b) =>
         new Date(a.days[0]?.date).getTime() -
           new Date(b.days[0]?.date).getTime() ||
-        a.days[0]?.name.localeCompare(b.days[0]?.name)
+        a.days[0]?.name.localeCompare(b.days[0]?.name),
     );
 
-    const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
-  
-    const toggleSelect = (index: number) => {
-      setSelectedIndexes((prev) =>
-        prev.includes(index)
-          ? prev.filter((i) => i !== index)
-          : [...prev, index]
-      );
-    };
-  
-    const handleBulkDelete = async () => {
-        if (window.confirm("本当に選択した予約を削除しますか？")) {
-          const deleteTargets = selectedIndexes.map((index) => filteredPosts[index]);
-      
-          await Promise.all(
-            deleteTargets.map((post) => deleteDoc(doc(db, "posts", post.id)))
-          );
-      
-          setSelectedIndexes([]); 
-          setShouldFetch(true); 
-        }
-      };
-  
-    const isAllSelected = paginatedPosts.every((_, i) =>
-      selectedIndexes.includes((currentPage - 1) * itemsPerPage + i)
+  const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
+
+  const toggleSelect = (index: number) => {
+    setSelectedIndexes((prev) =>
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index],
     );
-  
-    const handleToggleAll = () => {
-      if (isAllSelected) {
-        setSelectedIndexes((prev) =>
-          prev.filter(
-            (i) =>
-              !paginatedPosts
-                .map((_, idx) => (currentPage - 1) * itemsPerPage + idx)
-                .includes(i)
-          )
-        );
-      } else {
-        const newIndexes = paginatedPosts.map(
-          (_, idx) => (currentPage - 1) * itemsPerPage + idx
-        );
-        setSelectedIndexes((prev) => Array.from(new Set([...prev, ...newIndexes])));
+  };
+
+  const handleBulkDelete = async () => {
+    if (window.confirm("本当に選択した予約を削除しますか？")) {
+      const deleteTargets = selectedIndexes.map(
+        (index) => filteredPosts[index],
+      );
+
+      const ids = deleteTargets.map((post) => post.id);
+
+      const { error } = await supabase.from("posts").delete().in("id", ids);
+
+      if (error) {
+        console.error("一括削除エラー", error);
+        return;
       }
-    };
+
+      setSelectedIndexes([]);
+      setShouldFetch(true);
+    }
+  };
+
+  const isAllSelected = paginatedPosts.every((_, i) =>
+    selectedIndexes.includes((currentPage - 1) * itemsPerPage + i),
+  );
+
+  const handleToggleAll = () => {
+    if (isAllSelected) {
+      setSelectedIndexes((prev) =>
+        prev.filter(
+          (i) =>
+            !paginatedPosts
+              .map((_, idx) => (currentPage - 1) * itemsPerPage + idx)
+              .includes(i),
+        ),
+      );
+    } else {
+      const newIndexes = paginatedPosts.map(
+        (_, idx) => (currentPage - 1) * itemsPerPage + idx,
+      );
+      setSelectedIndexes((prev) =>
+        Array.from(new Set([...prev, ...newIndexes])),
+      );
+    }
+  };
 
   return (
     <>
@@ -129,7 +132,7 @@ const Confirmation = () => {
               post={post}
               postIndex={(currentPage - 1) * itemsPerPage + index}
               isSelected={selectedIndexes.includes(
-                (currentPage - 1) * itemsPerPage + index
+                (currentPage - 1) * itemsPerPage + index,
               )}
               toggleSelect={toggleSelect}
             />

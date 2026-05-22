@@ -1,21 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-
-import db, { auth } from "../../../lib/firebase";
-
+import supabase from "../../../lib/supabase";
 import styles from "./page.module.css";
-
 import Link from "next/link";
-
-import { collection, getDocs } from "firebase/firestore";
-
 import { ClipboardList, PackageSearch, LogOut } from "lucide-react";
-
 import SigninManager from "../SigninManager/SigninManager";
-
 import LoginForm from "../LoginForm/LoginForm";
-
 import { User } from "@/app/type";
 
 const menus = [
@@ -39,7 +30,6 @@ const Signin = () => {
     if (typeof window === "undefined") {
       return false;
     }
-
     return !!localStorage.getItem("loggedInUser");
   });
 
@@ -47,47 +37,40 @@ const Signin = () => {
     if (typeof window === "undefined") {
       return false;
     }
-
     return localStorage.getItem("isManagerIn") === "true";
   });
 
-  // Firestore取得のみ
+  // Supabaseからユーザー取得
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const userData = collection(db, "user");
+        const { data, error } = await supabase.from("user").select("*");
 
-        const querySnapshot = await getDocs(userData);
+        if (error) throw error;
 
-        const usersArray = querySnapshot.docs.map((doc) => {
-          const data = doc.data() as User;
-
-          return {
-            ...data,
-            id: doc.id,
-          };
-        });
+        const usersArray: User[] = (data || []).map((row) => ({
+          id: row.id,
+          name: row.name,
+          pass: row.pass,
+          manager: row.manager,
+          delete: row.delete,
+        }));
 
         setPosts(usersArray);
       } catch (error) {
-        console.error("Firestore取得エラー:", error);
+        console.error("ユーザー取得エラー:", error);
       }
     };
 
     fetchData();
   }, []);
 
-  // サインアウト
+  // サインアウト（localStorageをクリア）
   const handleSignoutClick = async () => {
     try {
-      await auth.signOut();
-
       localStorage.removeItem("loggedInUser");
-
       localStorage.removeItem("isManagerIn");
-
       setIsLoggedIn(false);
-
       setIsManagerIn(false);
     } catch (error) {
       console.error("サインアウトエラー:", error);
@@ -97,7 +80,6 @@ const Signin = () => {
   // ログイン成功時
   const handleLoginSuccess = (isManager: boolean) => {
     setIsLoggedIn(true);
-
     setIsManagerIn(isManager);
   };
 

@@ -1,14 +1,9 @@
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
-
 import { useEffect, useState } from "react";
-
-import db from "../../lib/firebase";
-
+import supabase from "../../lib/supabase";
 import { Post } from "../type";
 
 export const useFetchPosts = () => {
   const [posts, setPosts] = useState<Post[]>([]);
-
   const [shouldFetch, setShouldFetch] = useState(true);
 
   useEffect(() => {
@@ -16,89 +11,51 @@ export const useFetchPosts = () => {
       if (!shouldFetch) return;
 
       try {
-        // posts コレクション
-        const postData = collection(db, "posts");
+        const { data, error } = await supabase
+          .from("posts")
+          .select("*")
+          .order("created_at", { ascending: true });
 
-        // 作成日順
-        const q = query(postData, orderBy("createdAt", "asc"));
+        if (error) throw error;
 
-        // Firestore取得
-        const querySnapshot = await getDocs(q);
-
-        // データ変換
-        const postsArray: Post[] = querySnapshot.docs.map((doc) => {
-          const data = doc.data();
-
+        const postsArray: Post[] = (data || []).map((row) => {
           // =========================
           // 日別実績
           // =========================
-          const manufacturingLogs = data.manufacturingLogs || [];
-
-          const cleaningLogs = data.cleaningLogs || [];
-
-          const inspectionLogs = data.inspectionLogs || [];
-
-          const measurementLogs = data.measurementLogs || [];
-
-          const packagingLogs = data.packagingLogs || [];
+          const manufacturingLogs = row.manufacturing_logs || [];
+          const cleaningLogs = row.cleaning_logs || [];
+          const inspectionLogs = row.inspection_logs || [];
+          const measurementLogs = row.measurement_logs || [];
+          const packagingLogs = row.packaging_logs || [];
 
           // =========================
           // 合計数量
           // =========================
           const manufacturingAmount = manufacturingLogs.reduce(
-            (
-              sum: number,
-              log: {
-                amount: number;
-              },
-            ) => sum + log.amount,
+            (sum: number, log: { amount: number }) => sum + log.amount,
             0,
           );
-
           const cleaningAmount = cleaningLogs.reduce(
-            (
-              sum: number,
-              log: {
-                amount: number;
-              },
-            ) => sum + log.amount,
+            (sum: number, log: { amount: number }) => sum + log.amount,
             0,
           );
-
           const inspectionAmount = inspectionLogs.reduce(
-            (
-              sum: number,
-              log: {
-                amount: number;
-              },
-            ) => sum + log.amount,
+            (sum: number, log: { amount: number }) => sum + log.amount,
             0,
           );
-
           const measurementAmount = measurementLogs.reduce(
-            (
-              sum: number,
-              log: {
-                amount: number;
-              },
-            ) => sum + log.amount,
+            (sum: number, log: { amount: number }) => sum + log.amount,
             0,
           );
-
           const packagingAmount = packagingLogs.reduce(
-            (
-              sum: number,
-              log: {
-                amount: number;
-              },
-            ) => sum + log.amount,
+            (sum: number, log: { amount: number }) => sum + log.amount,
             0,
           );
 
           // =========================
           // 受注数量
           // =========================
-          const orderAmount = data.orderAmount || 0;
+          const orderAmount = row.order_amount || 0;
 
           // =========================
           // 注残
@@ -109,7 +66,6 @@ export const useFetchPosts = () => {
           // 状態
           // =========================
           let status: Post["status"] = "未着手";
-
           if (packagingAmount >= orderAmount && orderAmount > 0) {
             status = "出荷OK";
           } else if (packagingAmount > 0) {
@@ -125,99 +81,41 @@ export const useFetchPosts = () => {
           }
 
           return {
-            id: doc.id,
-
-            // 注番
-            orderNo: data.orderNo || "",
-
-            // 製品情報
-            productCode: data.productCode || "",
-
-            productName: data.productName || "",
-
-            // 客先
-            customerName: data.customerName || "",
-
-            // 受注数量
+            id: row.id,
+            orderNo: row.order_no || "",
+            productCode: row.product_code || "",
+            productName: row.product_name || "",
+            customerName: row.customer_name || "",
             orderAmount,
-
-            // =========================
-            // 製造
-            // =========================
-            manufacturingDate: data.manufacturingDate || "",
-
+            manufacturingDate: row.manufacturing_date || "",
             manufacturingAmount,
-
-            // =========================
-            // 洗浄
-            // =========================
-            cleaningDate: data.cleaningDate || "",
-
+            cleaningDate: row.cleaning_date || "",
             cleaningAmount,
-
-            // =========================
-            // 検査
-            // =========================
-            inspectionDate: data.inspectionDate || "",
-
+            inspectionDate: row.inspection_date || "",
             inspectionAmount,
-
-            // =========================
-            // 測量
-            // =========================
-            measurementDate: data.measurementDate || "",
-
+            measurementDate: row.measurement_date || "",
             measurementAmount,
-
-            // =========================
-            // 梱包
-            // =========================
-            packagingDate: data.packagingDate || "",
-
+            packagingDate: row.packaging_date || "",
             packagingAmount,
-
-            // 注残
             remainingAmount,
-
-            // 納期
-            deliveryDate: data.deliveryDate || "",
-
-            // 備考
-            remark: data.remark || "",
-
-            // =========================
-            // 日別実績
-            // =========================
+            deliveryDate: row.delivery_date || "",
+            remark: row.remark || "",
             manufacturingLogs,
-
             cleaningLogs,
-
             inspectionLogs,
-
             measurementLogs,
-
             packagingLogs,
-
-            // 状態
             status,
-
-            // 論理削除
-            delete: data.delete || false,
-
-            // 作成情報
-            createdBy: data.createdBy || "",
-
-            updatedBy: data.updatedBy || "",
-
-            createdAt: data.createdAt || "",
-
-            updatedAt: data.updatedAt || "",
+            delete: row.delete || false,
+            createdBy: row.created_by || "",
+            updatedBy: row.updated_by || "",
+            createdAt: row.created_at || "",
+            updatedAt: row.updated_at || "",
+            days: row.days || [],
           };
         });
 
         setPosts(postsArray);
-
-        // 更新停止
         setShouldFetch(false);
       } catch (error) {
         console.error("データ取得エラー", error);
