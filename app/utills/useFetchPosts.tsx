@@ -71,7 +71,7 @@ export const useFetchPosts = () => {
           } else if (packagingAmount > 0) {
             status = "梱包中";
           } else if (measurementAmount > 0) {
-            status = "測量中";
+            status = "計量中";
           } else if (inspectionAmount > 0) {
             status = "検査中";
           } else if (cleaningAmount > 0) {
