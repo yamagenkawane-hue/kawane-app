@@ -40,12 +40,37 @@ export default function ManufacturingPage() {
   };
 
   useEffect(() => {
-    void fetchSchedules();
-  }, []);
+    const loadSchedules = async () => {
+      const { data, error } = await supabase
+        .from("production_schedules")
+        .select("*")
+        .order("created_at", {
+          ascending: false,
+        });
 
-  useEffect(() => {
-    setLotNo(selected?.lotNo || "");
-  }, [selected?.lotNo]);
+      if (error) {
+        alert("生産予定の取得に失敗しました");
+        return;
+      }
+
+      const mappedSchedules: ProductionSchedule[] = (data || []).map((row) => ({
+        id: row.id,
+        customerName: row.customer_name || "",
+        productName: row.product_name || "",
+        pressNumber: row.press_number || "",
+        lotNo: row.lot_no || "",
+        planAmount: row.plan_amount || 0,
+        pressCompletedAmount: row.press_completed_amount || 0,
+        pressCompletedDate: row.press_completed_date || "",
+        createdAt: row.created_at || "",
+        updatedAt: row.updated_at || "",
+      }));
+
+      setSchedules(mappedSchedules);
+    };
+
+    void loadSchedules();
+  }, []);
 
   const handleConfirm = async () => {
     if (!selected || finalQuantity === "") {
@@ -120,7 +145,15 @@ export default function ManufacturingPage() {
           <select
             className={styles.select}
             value={scheduleId}
-            onChange={(e) => setScheduleId(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+
+              setScheduleId(value);
+
+              const schedule = schedules.find((item) => item.id === value);
+
+              setLotNo(schedule?.lotNo || "");
+            }}
           >
             <option value="">製造する予定を選択</option>
             {schedules.map((schedule) => (

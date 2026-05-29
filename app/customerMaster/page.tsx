@@ -40,7 +40,38 @@ export default function CustomerMasterPage() {
   };
 
   useEffect(() => {
-    void fetchItems();
+    const loadItems = async () => {
+      try {
+        setLoading(true);
+
+        const { data, error } = await supabase
+          .from("customer_master")
+          .select("*")
+          .order("customer_name", {
+            ascending: true,
+          });
+
+        if (error) {
+          throw error;
+        }
+
+        const mappedItems: CustomerMaster[] = (data || []).map((row) => ({
+          id: row.id,
+          customerName: row.customer_name || "",
+          shippingOffsetDays: row.shipping_offset_days || 0,
+          note: row.note || "",
+        }));
+
+        setItems(mappedItems);
+      } catch (error) {
+        console.error(error);
+        alert("得意先マスタの取得に失敗しました");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadItems();
   }, []);
 
   const handleAdd = async () => {
@@ -172,7 +203,9 @@ export default function CustomerMasterPage() {
                   <input
                     className={styles.tableInput}
                     value={item.note}
-                    onChange={(e) => updateItem(item.id, "note", e.target.value)}
+                    onChange={(e) =>
+                      updateItem(item.id, "note", e.target.value)
+                    }
                   />
                 </td>
                 <td className={styles.actionArea}>

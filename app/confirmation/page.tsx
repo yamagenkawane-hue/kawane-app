@@ -9,7 +9,7 @@ import { useTodayDate } from "../utills/useTodayDate";
 import { usePagination } from "../utills/usePagination";
 import ConfirmationTable from "../components/ConfirmationTable/ConfirmationTable";
 import ManagerSearchForm from "../components/ManagerSearchForm/ManagerSearchForm";
-import ManagerReservationList from "../components/ManagerReservationList/ManagerReservationList";
+// import ManagerReservationList from "../components/ManagerReservationList/ManagerReservationList";
 import supabase from "../../lib/supabase";
 
 const itemsPerPage = 15;
@@ -125,7 +125,7 @@ const Confirmation = () => {
           handleToggleAll={handleToggleAll}
           isAllSelected={isAllSelected}
         />
-        <tbody>
+        {/* <tbody>
           {paginatedPosts.map((post, index) => (
             <ManagerReservationList
               key={index}
@@ -137,7 +137,7 @@ const Confirmation = () => {
               toggleSelect={toggleSelect}
             />
           ))}
-        </tbody>
+        </tbody> */}
       </table>
       <div className={styles.reservationPagination}>
         <Pagination

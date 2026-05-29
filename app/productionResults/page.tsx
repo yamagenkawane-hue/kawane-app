@@ -123,7 +123,106 @@ export default function ProductionResultsPage() {
   };
 
   useEffect(() => {
-    void fetchData();
+    const loadData = async () => {
+      try {
+        setLoading(true);
+
+        const [scheduleResult, processResult, postResult, resultResult] =
+          await Promise.all([
+            supabase
+              .from("production_schedules")
+              .select("*")
+              .order("created_at", {
+                ascending: false,
+              }),
+
+            supabase.from("process_master").select("*"),
+
+            supabase.from("posts").select("*"),
+
+            supabase
+              .from("production_results")
+              .select("*")
+              .order("created_at", {
+                ascending: false,
+              })
+              .limit(30),
+          ]);
+
+        if (scheduleResult.error) throw scheduleResult.error;
+
+        if (processResult.error) throw processResult.error;
+
+        if (postResult.error) throw postResult.error;
+
+        if (resultResult.error) throw resultResult.error;
+
+        const mappedSchedules: ProductionSchedule[] = (
+          scheduleResult.data || []
+        ).map((row) => ({
+          id: row.id,
+          customerName: row.customer_name || "",
+          productName: row.product_name || "",
+          pressNumber: row.press_number || "",
+          lotNo: row.lot_no || "",
+          planAmount: row.plan_amount || 0,
+          pressCompletedAmount: row.press_completed_amount || 0,
+          pressCompletedDate: row.press_completed_date || "",
+          createdAt: row.created_at || "",
+          updatedAt: row.updated_at || "",
+        }));
+
+        const processList: ProcessMaster[] = (processResult.data || [])
+          .map((row) => ({
+            id: row.id,
+            processId: row.process_id,
+            name: row.name,
+            days: row.days,
+            sort: row.sort,
+            enabled: row.enabled,
+            outsourcing: row.outsourcing || false,
+          }))
+          .filter((item) => item.enabled !== false)
+          .sort((a, b) => a.sort - b.sort);
+
+        const mappedPosts: PostData[] = (postResult.data || []).map((row) => ({
+          id: row.id,
+          orderNo: row.order_no || "",
+          lotNo: row.lot_no || "",
+          productName: row.product_name || "",
+          customerName: row.customer_name || "",
+          orderAmount: row.order_amount || 0,
+          remainingAmount: row.remaining_amount || 0,
+          status: row.status || "",
+          deliveryDate: row.delivery_date || "",
+        }));
+
+        const mappedResults: ProcessResult[] = (resultResult.data || []).map(
+          (row) => ({
+            id: row.id,
+            postId: row.post_id || "",
+            scheduleId: row.schedule_id || "",
+            processId: row.process_id,
+            processName: row.process_name || "",
+            date: row.date,
+            amount: row.amount,
+            createdAt: row.created_at || "",
+          }),
+        );
+
+        setSchedules(mappedSchedules);
+        setProcesses(processList);
+        setPosts(mappedPosts);
+        setResults(mappedResults);
+      } catch (error) {
+        console.error(error);
+        alert("現場実績データの取得に失敗しました");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadData();
   }, []);
 
   const findRelatedPostId = () => {
@@ -177,8 +276,7 @@ export default function ProductionResultsPage() {
           .from("production_schedules")
           .update({
             press_completed_amount:
-              Number(selectedSchedule.pressCompletedAmount || 0) +
-              resultAmount,
+              Number(selectedSchedule.pressCompletedAmount || 0) + resultAmount,
             press_completed_date: date,
             updated_at: now,
           })

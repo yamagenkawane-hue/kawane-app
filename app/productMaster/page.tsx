@@ -36,7 +36,29 @@ export default function ProductMasterPage() {
   };
 
   useEffect(() => {
-    void fetchItems();
+    const loadItems = async () => {
+      const { data, error } = await supabase
+        .from("product_master")
+        .select("*")
+        .order("product_code", { ascending: true });
+
+      if (error) {
+        alert("製品マスタの取得に失敗しました");
+        return;
+      }
+
+      const mappedItems: ProductMaster[] = (data || []).map((row) => ({
+        id: row.id,
+        productCode: row.product_code || "",
+        productName: row.product_name || "",
+        standard: row.standard || "",
+        unit: row.unit || "",
+      }));
+
+      setItems(mappedItems);
+    };
+
+    void loadItems();
   }, []);
 
   const handleAdd = async () => {
@@ -132,19 +154,19 @@ export default function ProductMasterPage() {
           <tbody>
             {items.map((item) => (
               <tr key={item.id}>
-                {(["productCode", "productName", "standard", "unit"] as const).map(
-                  (field) => (
-                    <td key={field}>
-                      <input
-                        className={styles.tableInput}
-                        value={item[field]}
-                        onChange={(e) =>
-                          updateItem(item.id, field, e.target.value)
-                        }
-                      />
-                    </td>
-                  ),
-                )}
+                {(
+                  ["productCode", "productName", "standard", "unit"] as const
+                ).map((field) => (
+                  <td key={field}>
+                    <input
+                      className={styles.tableInput}
+                      value={item[field]}
+                      onChange={(e) =>
+                        updateItem(item.id, field, e.target.value)
+                      }
+                    />
+                  </td>
+                ))}
                 <td className={styles.actionArea}>
                   <button
                     className={styles.saveButton}

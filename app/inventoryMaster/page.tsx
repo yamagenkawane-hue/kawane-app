@@ -37,7 +37,32 @@ export default function InventoryMasterPage() {
   };
 
   useEffect(() => {
-    void fetchItems();
+    const loadItems = async () => {
+      const { data, error } = await supabase
+        .from("inventory_items")
+        .select("*")
+        .order("updated_at", {
+          ascending: false,
+        });
+
+      if (error) {
+        alert("在庫マスタの取得に失敗しました");
+        return;
+      }
+
+      const mappedItems: InventoryItem[] = (data || []).map((row) => ({
+        id: row.id,
+        productCode: row.product_code || "",
+        productName: row.product_name || "",
+        lotNo: row.lot_no || "",
+        currentStock: row.current_stock || 0,
+        updatedAt: row.updated_at || "",
+      }));
+
+      setItems(mappedItems);
+    };
+
+    void loadItems();
   }, []);
 
   const handleAdd = async () => {
@@ -172,7 +197,11 @@ export default function InventoryMasterPage() {
                     type="number"
                     value={item.currentStock}
                     onChange={(e) =>
-                      updateItem(item.id, "currentStock", Number(e.target.value))
+                      updateItem(
+                        item.id,
+                        "currentStock",
+                        Number(e.target.value),
+                      )
                     }
                   />
                 </td>

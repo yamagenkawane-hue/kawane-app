@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import supabase from "@/lib/supabase";
-import { PostData, ProductionSchedule } from "@/app/type";
+import { PostData, ProductionSchedule, PostRow } from "@/app/type";
 import styles from "./page.module.css";
 
 const emptyForm = {
@@ -29,7 +29,7 @@ export default function ProductionSchedulesPage() {
     return `${y}-${m}-${d}`;
   };
 
-  const isTodayInProductionPeriod = (row: any) => {
+  const isTodayInProductionPeriod = (row: PostRow) => {
     const today = formatDate(new Date());
     const startDate =
       row.manufacturing_date ||
@@ -121,7 +121,88 @@ export default function ProductionSchedulesPage() {
   };
 
   useEffect(() => {
-    void fetchSchedules();
+    const loadSchedules = async () => {
+      try {
+        setLoading(true);
+
+        const { data, error } = await supabase
+          .from("production_schedules")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        const { data: orderRows, error: orderError } = await supabase
+          .from("posts")
+          .select("*")
+          .order("delivery_date", { ascending: true });
+
+        if (orderError) throw orderError;
+
+        const mappedSchedules: ProductionSchedule[] = (data || []).map(
+          (row) => ({
+            id: row.id,
+            customerName: row.customer_name || "",
+            productName: row.product_name || "",
+            pressNumber: row.press_number || "",
+            lotNo: row.lot_no || "",
+            planAmount: row.plan_amount || 0,
+            pressCompletedAmount: row.press_completed_amount || 0,
+            pressCompletedDate: row.press_completed_date || "",
+            createdAt: row.created_at || "",
+            updatedAt: row.updated_at || "",
+          }),
+        );
+
+        const mappedOrders: PostData[] = (orderRows || [])
+          .filter((row) => {
+            const packagingAmount = (row.packaging_logs || []).reduce(
+              (sum: number, log: { amount: number }) => sum + log.amount,
+              0,
+            );
+
+            const orderAmount = Number(row.order_amount || 0);
+
+            return (
+              row.delete !== true &&
+              orderAmount - packagingAmount > 0 &&
+              isTodayInProductionPeriod(row)
+            );
+          })
+          .map((row) => {
+            const packagingAmount = (row.packaging_logs || []).reduce(
+              (sum: number, log: { amount: number }) => sum + log.amount,
+              0,
+            );
+
+            return {
+              id: row.id,
+              orderNo: row.order_no || "",
+              lotNo: row.lot_no || "",
+              productName: row.product_name || "",
+              customerName: row.customer_name || "",
+              orderAmount: row.order_amount || 0,
+              remainingAmount: Number(row.order_amount || 0) - packagingAmount,
+              status: row.status || "",
+              deliveryDate: row.delivery_date || "",
+              completionScheduledDate:
+                row.completion_scheduled_date || row.delivery_date || "",
+              remark: row.remark || "",
+              packagingAmount,
+            };
+          });
+
+        setSchedules(mappedSchedules);
+        setOrderSchedules(mappedOrders);
+      } catch (error) {
+        console.error(error);
+        alert("生産予定の取得に失敗しました");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadSchedules();
   }, []);
 
   const handleAdd = async () => {
@@ -234,9 +315,7 @@ export default function ProductionSchedulesPage() {
             className={styles.input}
             placeholder="取引先"
             value={form.customerName}
-            onChange={(e) =>
-              setForm({ ...form, customerName: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, customerName: e.target.value })}
           />
           <input
             className={styles.input}

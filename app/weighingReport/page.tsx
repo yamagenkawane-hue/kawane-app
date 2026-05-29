@@ -9,35 +9,39 @@ import styles from "../masterCommon.module.css";
 export default function WeighingReportPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [keyword, setKeyword] = useState("");
+
   const weighingDate = new Date().toLocaleString("ja-JP");
 
-  const fetchItems = async () => {
-    const { data, error } = await supabase
-      .from("inventory_items")
-      .select("*")
-      .order("updated_at", { ascending: false });
-    if (error) {
-      alert("在庫データの取得に失敗しました");
-      return;
-    }
-    setItems(
-      (data || []).map((row) => ({
+  useEffect(() => {
+    const loadItems = async () => {
+      const { data, error } = await supabase
+        .from("inventory_items")
+        .select("*")
+        .order("updated_at", { ascending: false });
+
+      if (error) {
+        alert("在庫データの取得に失敗しました");
+        return;
+      }
+
+      const mappedItems: InventoryItem[] = (data || []).map((row) => ({
         id: row.id,
         productCode: row.product_code || "",
         productName: row.product_name || "",
         lotNo: row.lot_no || "",
         currentStock: row.current_stock || 0,
         updatedAt: row.updated_at || "",
-      })),
-    );
-  };
+      }));
 
-  useEffect(() => {
-    void fetchItems();
+      setItems(mappedItems);
+    };
+
+    void loadItems();
   }, []);
 
   const visibleItems = useMemo(() => {
     const lower = keyword.toLowerCase();
+
     return items.filter(
       (item) =>
         !keyword ||
@@ -49,6 +53,7 @@ export default function WeighingReportPage() {
 
   const downloadCsv = () => {
     const header = ["製品コード", "製品名", "数量", "ロット番号", "計量日"];
+
     const rows = visibleItems.map((item) => [
       item.productCode,
       item.productName,
@@ -56,17 +61,25 @@ export default function WeighingReportPage() {
       item.lotNo,
       weighingDate,
     ]);
+
     const csv = [header, ...rows]
-      .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
+      .map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
+      )
       .join("\n");
+
     const blob = new Blob([`\uFEFF${csv}`], {
       type: "text/csv;charset=utf-8;",
     });
+
     const url = URL.createObjectURL(blob);
+
     const a = document.createElement("a");
     a.href = url;
     a.download = `weighing-report-${new Date().toISOString().slice(0, 10)}.csv`;
+
     a.click();
+
     URL.revokeObjectURL(url);
   };
 
@@ -76,6 +89,7 @@ export default function WeighingReportPage() {
         <Link href="/" className={styles.backButton}>
           ← トップへ戻る
         </Link>
+
         <h1 className={styles.title}>計量表出力</h1>
       </div>
 
@@ -87,12 +101,15 @@ export default function WeighingReportPage() {
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
           />
+
           <input className={styles.input} value={weighingDate} readOnly />
         </div>
+
         <div className={styles.buttonRow}>
           <button className={styles.printButton} onClick={() => window.print()}>
             印刷
           </button>
+
           <button className={styles.csvButton} onClick={downloadCsv}>
             CSV出力
           </button>
@@ -110,6 +127,7 @@ export default function WeighingReportPage() {
               <th>計量日</th>
             </tr>
           </thead>
+
           <tbody>
             {visibleItems.map((item) => (
               <tr key={item.id}>

@@ -1,11 +1,6 @@
 .managerImg {
   display: flex;
   flex-direction: column;
-  /* background-image: linear-gradient(
-      rgba(255, 255, 255, 0.6),
-      rgba(255, 255, 255, 0.6)
-    ),
-    url("/images/星.png"); */
   background-position: center;
   background-size: 40%;
   height: 100vh;
@@ -25,9 +20,12 @@
   border-radius: 10px;
   background-color: #c6eaf7;
   background-size: 10px 10px;
-  background-image: radial-gradient(#7ee7fa 15%, transparent 20%),
+  background-image:
+    radial-gradient(#7ee7fa 15%, transparent 20%),
     radial-gradient(#5cd3fa 15%, transparent 20%);
-  background-position: 0 0, 15px 15px;
+  background-position:
+    0 0,
+    15px 15px;
   margin: 5px auto 30px;
   justify-content: center;
   align-items: center;

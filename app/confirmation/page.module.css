@@ -1,11 +1,6 @@
 .reservationImg {
   display: flex;
   flex-direction: column;
-  background-image: linear-gradient(
-      rgba(255, 255, 255, 0.4),
-      rgba(255, 255, 255, 0.4)
-    ),
-    url("/images/音符.png");
   background-position: center -90px;
   background-size: 40%;
 }
@@ -42,9 +37,12 @@
   border-radius: 10px;
   background-color: #e4f5fb;
   background-size: 10px 10px;
-  background-image: radial-gradient(#a6ebf7 15%, transparent 20%),
+  background-image:
+    radial-gradient(#a6ebf7 15%, transparent 20%),
     radial-gradient(#85ddfa 15%, transparent 20%);
-  background-position: 0 0, 15px 15px;
+  background-position:
+    0 0,
+    15px 15px;
   margin: 5px auto 30px;
   justify-content: center;
   align-items: center;

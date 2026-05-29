@@ -72,7 +72,41 @@ export default function LotsPage() {
   };
 
   useEffect(() => {
-    void fetchLots();
+    const loadLots = async () => {
+      try {
+        setLoading(true);
+
+        const { data, error } = await supabase
+          .from("lots")
+          .select("*")
+          .order("created_at", {
+            ascending: false,
+          });
+
+        if (error) throw error;
+
+        const mappedLots: Lot[] = (data || []).map((row) => ({
+          id: row.id,
+          lotNo: row.lot_no || "",
+          lotType: row.lot_type || "normal",
+          productName: row.product_name || "",
+          customerName: row.customer_name || "",
+          quantity: row.quantity || 0,
+          status: row.status || "",
+          createdAt: row.created_at || "",
+          updatedAt: row.updated_at || "",
+        }));
+
+        setLots(mappedLots);
+      } catch (error) {
+        console.error(error);
+        alert("ロット情報の取得に失敗しました");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadLots();
   }, []);
 
   const handleAdd = async () => {

@@ -49,7 +49,8 @@ export default function ShippingPage() {
 
     const shippedMap = (shipmentResult.data || []).reduce(
       (acc: Record<string, number>, row) => {
-        acc[row.post_id] = (acc[row.post_id] || 0) + Number(row.shipped_amount || 0);
+        acc[row.post_id] =
+          (acc[row.post_id] || 0) + Number(row.shipped_amount || 0);
         return acc;
       },
       {},
@@ -60,7 +61,8 @@ export default function ShippingPage() {
         .filter((row) => row.delete !== true)
         .map((row) => {
           const packagingAmount = (row.packaging_logs || []).reduce(
-            (sum: number, log: { amount: number }) => sum + Number(log.amount || 0),
+            (sum: number, log: { amount: number }) =>
+              sum + Number(log.amount || 0),
             0,
           );
           const customer = customerList.find(
@@ -96,7 +98,82 @@ export default function ShippingPage() {
   };
 
   useEffect(() => {
-    void fetchData();
+    const loadData = async () => {
+      const [postResult, customerResult, shipmentResult] = await Promise.all([
+        supabase.from("posts").select("*").order("delivery_date"),
+        supabase.from("customer_master").select("*"),
+        supabase.from("shipment_records").select("*"),
+      ]);
+
+      if (postResult.error) {
+        alert("注残データの取得に失敗しました");
+        return;
+      }
+
+      const customerList: CustomerMaster[] = (customerResult.data || []).map(
+        (row) => ({
+          id: row.id,
+          customerName: row.customer_name || "",
+          shippingOffsetDays: row.shipping_offset_days || 0,
+          note: row.note || "",
+        }),
+      );
+
+      const shippedMap = (shipmentResult.data || []).reduce(
+        (acc: Record<string, number>, row) => {
+          acc[row.post_id] =
+            (acc[row.post_id] || 0) + Number(row.shipped_amount || 0);
+
+          return acc;
+        },
+        {},
+      );
+
+      const mappedPosts: ShippingPost[] = (postResult.data || [])
+        .filter((row) => row.delete !== true)
+        .map((row) => {
+          const packagingAmount = (row.packaging_logs || []).reduce(
+            (sum: number, log: { amount: number }) =>
+              sum + Number(log.amount || 0),
+            0,
+          );
+
+          const customer = customerList.find(
+            (item) => item.customerName === row.customer_name,
+          );
+
+          const scheduledDate = addDays(
+            row.delivery_date,
+            -Number(customer?.shippingOffsetDays || 0),
+          );
+
+          return {
+            id: row.id,
+            orderNo: row.order_no || "",
+            lotNo: row.lot_no || "",
+            productCode: row.product_code || "",
+            productName: row.product_name || "",
+            customerName: row.customer_name || "",
+            orderAmount: row.order_amount || 0,
+            remainingAmount:
+              Number(row.order_amount || 0) - Number(shippedMap[row.id] || 0),
+            status: row.status || "",
+            deliveryDate: row.delivery_date || "",
+            completionScheduledDate:
+              row.completion_scheduled_date || row.delivery_date || "",
+            packagingAmount,
+            shippedAmount: Number(shippedMap[row.id] || 0),
+            scheduledDate,
+          };
+        })
+        .filter((post) => post.remainingAmount > 0)
+        .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
+
+      setCustomers(customerList);
+      setPosts(mappedPosts);
+    };
+
+    void loadData();
   }, []);
 
   const visiblePosts = useMemo(
@@ -180,7 +257,10 @@ export default function ShippingPage() {
           <button className={styles.printButton} onClick={() => window.print()}>
             出荷リスト印刷
           </button>
-          <button className={styles.saveButton} onClick={() => setTargetDate("")}>
+          <button
+            className={styles.saveButton}
+            onClick={() => setTargetDate("")}
+          >
             全件表示
           </button>
         </div>

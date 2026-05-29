@@ -298,3 +298,10 @@ export type ShipmentRecord = {
   shippedAmount: number;
   carryoverAmount: number;
 };
+
+export type PostRow = {
+  manufacturing_date?: string;
+  created_at?: string;
+  delivery_date?: string;
+  completion_scheduled_date?: string;
+};

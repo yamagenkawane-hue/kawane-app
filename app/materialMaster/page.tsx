@@ -36,7 +36,31 @@ export default function MaterialMasterPage() {
   };
 
   useEffect(() => {
-    void fetchItems();
+    const loadItems = async () => {
+      const { data, error } = await supabase
+        .from("material_master")
+        .select("*")
+        .order("material_code", {
+          ascending: true,
+        });
+
+      if (error) {
+        alert("材料マスタの取得に失敗しました");
+        return;
+      }
+
+      const mappedItems: MaterialMaster[] = (data || []).map((row) => ({
+        id: row.id,
+        materialCode: row.material_code || "",
+        materialName: row.material_name || "",
+        supplierName: row.supplier_name || "",
+        unit: row.unit || "",
+      }));
+
+      setItems(mappedItems);
+    };
+
+    void loadItems();
   }, []);
 
   const handleAdd = async () => {
@@ -50,7 +74,12 @@ export default function MaterialMasterPage() {
       supplier_name: form.supplierName,
       unit: form.unit,
     });
-    setForm({ materialCode: "", materialName: "", supplierName: "", unit: "kg" });
+    setForm({
+      materialCode: "",
+      materialName: "",
+      supplierName: "",
+      unit: "kg",
+    });
     await fetchItems();
   };
 
@@ -132,19 +161,24 @@ export default function MaterialMasterPage() {
           <tbody>
             {items.map((item) => (
               <tr key={item.id}>
-                {(["materialCode", "materialName", "supplierName", "unit"] as const).map(
-                  (field) => (
-                    <td key={field}>
-                      <input
-                        className={styles.tableInput}
-                        value={item[field]}
-                        onChange={(e) =>
-                          updateItem(item.id, field, e.target.value)
-                        }
-                      />
-                    </td>
-                  ),
-                )}
+                {(
+                  [
+                    "materialCode",
+                    "materialName",
+                    "supplierName",
+                    "unit",
+                  ] as const
+                ).map((field) => (
+                  <td key={field}>
+                    <input
+                      className={styles.tableInput}
+                      value={item[field]}
+                      onChange={(e) =>
+                        updateItem(item.id, field, e.target.value)
+                      }
+                    />
+                  </td>
+                ))}
                 <td className={styles.actionArea}>
                   <button
                     className={styles.saveButton}
