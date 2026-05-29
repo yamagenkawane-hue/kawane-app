@@ -360,6 +360,9 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       {/* 注番 */}
       <td>{post.orderNo}</td>
 
+      {/* ロットNo */}
+      <td>{post.lotNo || "-"}</td>
+
       {/* 製品名 */}
       <td className={styles.productName}>
         <Link href={`/progress/${post.id}`}>{post.productName}</Link>

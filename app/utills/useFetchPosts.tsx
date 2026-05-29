@@ -83,6 +83,7 @@ export const useFetchPosts = () => {
           return {
             id: row.id,
             orderNo: row.order_no || "",
+            lotNo: row.lot_no || "",
             productCode: row.product_code || "",
             productName: row.product_name || "",
             customerName: row.customer_name || "",
@@ -99,6 +100,8 @@ export const useFetchPosts = () => {
             packagingAmount,
             remainingAmount,
             deliveryDate: row.delivery_date || "",
+            completionScheduledDate:
+              row.completion_scheduled_date || row.delivery_date || "",
             remark: row.remark || "",
             manufacturingLogs,
             cleaningLogs,

@@ -1,10 +1,19 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useSyncExternalStore, useState } from "react";
 import supabase from "../../../lib/supabase";
 import styles from "./page.module.css";
 import Link from "next/link";
-import { ClipboardList, PackageSearch, LogOut } from "lucide-react";
+import {
+  CalendarCheck,
+  ClipboardList,
+  ClipboardPen,
+  Factory,
+  PackageSearch,
+  LogOut,
+  Scale,
+  Truck,
+} from "lucide-react";
 import SigninManager from "../SigninManager/SigninManager";
 import LoginForm from "../LoginForm/LoginForm";
 import { User } from "@/app/type";
@@ -20,25 +29,67 @@ const menus = [
     href: "/orders",
     icon: <PackageSearch size={30} />,
   },
+  {
+    title: "生産予定",
+    href: "/productionSchedules",
+    icon: <CalendarCheck size={30} />,
+  },
+  {
+    title: "現場実績登録",
+    href: "/productionResults",
+    icon: <ClipboardPen size={30} />,
+  },
+  {
+    title: "製造管理",
+    href: "/manufacturing",
+    icon: <Factory size={30} />,
+  },
+  {
+    title: "出荷管理",
+    href: "/shipping",
+    icon: <Truck size={30} />,
+  },
+  {
+    title: "計量表出力",
+    href: "/weighingReport",
+    icon: <Scale size={30} />,
+  },
 ];
+
+function subscribe(callback: () => void) {
+  window.addEventListener("storage", callback);
+  return () => window.removeEventListener("storage", callback);
+}
+
+function getLoggedInUser() {
+  return localStorage.getItem("loggedInUser");
+}
+
+function getManagerIn() {
+  return localStorage.getItem("isManagerIn");
+}
+
+function getServerSnapshot() {
+  return null;
+}
 
 const Signin = () => {
   const [posts, setPosts] = useState<User[]>([]);
 
-  // 初期値で localStorage を読む
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-    return !!localStorage.getItem("loggedInUser");
-  });
+  const loggedInUser = useSyncExternalStore(
+    subscribe,
+    getLoggedInUser,
+    getServerSnapshot,
+  );
 
-  const [isManagerIn, setIsManagerIn] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-    return localStorage.getItem("isManagerIn") === "true";
-  });
+  const managerInValue = useSyncExternalStore(
+    subscribe,
+    getManagerIn,
+    getServerSnapshot,
+  );
+
+  const isLoggedIn = loggedInUser !== null;
+  const isManagerIn = managerInValue === "true";
 
   // Supabaseからユーザー取得
   useEffect(() => {
@@ -65,13 +116,12 @@ const Signin = () => {
     fetchData();
   }, []);
 
-  // サインアウト（localStorageをクリア）
+  // サインアウト（localStorageをクリアしてstorageイベントを発火）
   const handleSignoutClick = async () => {
     try {
       localStorage.removeItem("loggedInUser");
       localStorage.removeItem("isManagerIn");
-      setIsLoggedIn(false);
-      setIsManagerIn(false);
+      window.dispatchEvent(new StorageEvent("storage"));
     } catch (error) {
       console.error("サインアウトエラー:", error);
     }
@@ -79,8 +129,9 @@ const Signin = () => {
 
   // ログイン成功時
   const handleLoginSuccess = (isManager: boolean) => {
-    setIsLoggedIn(true);
-    setIsManagerIn(isManager);
+    localStorage.setItem("loggedInUser", "true");
+    localStorage.setItem("isManagerIn", String(isManager));
+    window.dispatchEvent(new StorageEvent("storage"));
   };
 
   return (

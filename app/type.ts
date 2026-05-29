@@ -25,6 +25,7 @@ export type ProductionLog = {
 export type Post = {
   id: string;
   orderNo: string;
+  lotNo?: string;
   productCode: string;
   productName: string;
   customerName: string;
@@ -41,6 +42,7 @@ export type Post = {
   packagingAmount: number;
   remainingAmount: number;
   deliveryDate: string;
+  completionScheduledDate?: string;
   remark: string;
   status: StatusType;
   manufacturingLogs: ProductionLog[];
@@ -123,12 +125,14 @@ export type ProcessLog = {
 export type PostData = {
   id: string;
   orderNo: string;
+  lotNo?: string;
   productName: string;
   customerName: string;
   orderAmount: number;
   remainingAmount: number;
   status: string;
   deliveryDate: string;
+  completionScheduledDate?: string;
   remark?: string;
   manufacturingAmount?: number;
   cleaningAmount?: number;
@@ -180,6 +184,7 @@ export type ProcessMaster = {
   days: number;
   sort: number;
   enabled: boolean;
+  outsourcing?: boolean;
 };
 
 export type LineMaster = {
@@ -216,9 +221,80 @@ export type AISettings = {
 export type ProcessResult = {
   id: string;
   postId: string;
+  scheduleId?: string;
   processId: string;
   processName: string;
   date: string;
   amount: number;
   createdAt: string;
+};
+
+export type ProductionSchedule = {
+  id: string;
+  customerName: string;
+  productName: string;
+  pressNumber: string;
+  lotNo: string;
+  planAmount: number;
+  pressCompletedAmount: number;
+  pressCompletedDate: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Lot = {
+  id: string;
+  lotNo: string;
+  lotType: "normal" | "trial" | "advance";
+  productName: string;
+  customerName: string;
+  quantity: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CustomerMaster = {
+  id: string;
+  customerName: string;
+  shippingOffsetDays: number;
+  note: string;
+};
+
+export type ProductMaster = {
+  id: string;
+  productCode: string;
+  productName: string;
+  standard: string;
+  unit: string;
+};
+
+export type MaterialMaster = {
+  id: string;
+  materialCode: string;
+  materialName: string;
+  supplierName: string;
+  unit: string;
+};
+
+export type InventoryItem = {
+  id: string;
+  productCode: string;
+  productName: string;
+  lotNo: string;
+  currentStock: number;
+  updatedAt: string;
+};
+
+export type ShipmentRecord = {
+  id: string;
+  postId: string;
+  productCode: string;
+  productName: string;
+  lotNo: string;
+  customerName: string;
+  scheduledDate: string;
+  shippedDate: string;
+  shippedAmount: number;
+  carryoverAmount: number;
 };

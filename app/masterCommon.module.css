@@ -1,0 +1,189 @@
+.container {
+  min-height: 100vh;
+  padding: 36px;
+  background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+}
+
+.headerArea {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.backButton {
+  color: #2563eb;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.title {
+  color: #111827;
+  font-size: 34px;
+  font-weight: 900;
+}
+
+.formCard,
+.tableCard,
+.summaryCard {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 24px;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
+  padding: 24px;
+}
+
+.formCard {
+  margin-bottom: 24px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.input,
+.select,
+.tableInput {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+}
+
+.addButton,
+.saveButton,
+.deleteButton,
+.printButton,
+.csvButton {
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 10px 16px;
+}
+
+.addButton,
+.printButton {
+  background: #2563eb;
+}
+
+.csvButton {
+  background: #7c3aed;
+}
+
+.saveButton {
+  background: #16a34a;
+}
+
+.deleteButton {
+  background: #dc2626;
+}
+
+.buttonRow,
+.actionArea {
+  display: flex;
+  gap: 8px;
+}
+
+.buttonRow {
+  margin-top: 16px;
+}
+
+.loading {
+  margin-bottom: 16px;
+  color: #475569;
+  font-weight: 700;
+}
+
+.tableCard {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+}
+
+.table th {
+  background: #1f2937;
+  color: #fff;
+  padding: 12px;
+  white-space: nowrap;
+}
+
+.table td {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 10px;
+}
+
+.badge {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 10px;
+  white-space: nowrap;
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.summaryCard {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.summaryCard span {
+  color: #64748b;
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.summaryCard strong {
+  color: #111827;
+  font-size: 20px;
+}
+
+@media print {
+  .headerArea,
+  .formCard,
+  .buttonRow,
+  .actionArea {
+    display: none;
+  }
+
+  .container {
+    background: #fff;
+    padding: 0;
+  }
+
+  .tableCard {
+    box-shadow: none;
+    border: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .container {
+    padding: 20px;
+  }
+
+  .headerArea {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .formGrid,
+  .summaryCard {
+    grid-template-columns: 1fr;
+  }
+}

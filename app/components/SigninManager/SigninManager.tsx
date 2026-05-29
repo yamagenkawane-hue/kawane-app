@@ -2,7 +2,7 @@ import React from "react";
 
 import Link from "next/link";
 
-import { UserPlus, Settings, PackagePlus } from "lucide-react";
+import { UserPlus, Settings, PackagePlus, Tags } from "lucide-react";
 
 import styles from "./page.module.css";
 
@@ -21,6 +21,11 @@ const menus = [
     title: "製品登録",
     href: "/create",
     icon: <PackagePlus size={28} />,
+  },
+  {
+    title: "ロット管理",
+    href: "/lots",
+    icon: <Tags size={28} />,
   },
 ];
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import supabase from "@/lib/supabase";
+import { ProcessMaster } from "@/app/type";
 import styles from "./page.module.css";
 
 type LineMaster = {
@@ -16,6 +17,7 @@ type LineMaster = {
 
 export default function LineMasterPage() {
   const [lines, setLines] = useState<LineMaster[]>([]);
+  const [processes, setProcesses] = useState<ProcessMaster[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
     lineName: "",
@@ -45,6 +47,27 @@ export default function LineMasterPage() {
       }));
 
       setLines(mapped);
+
+      const { data: processRows, error: processError } = await supabase
+        .from("process_master")
+        .select("*");
+
+      if (processError) throw processError;
+
+      setProcesses(
+        (processRows || [])
+          .map((row) => ({
+            id: row.id,
+            processId: row.process_id,
+            name: row.name,
+            days: row.days,
+            sort: row.sort,
+            enabled: row.enabled,
+            outsourcing: row.outsourcing || false,
+          }))
+          .filter((item) => item.enabled !== false)
+          .sort((a, b) => a.sort - b.sort),
+      );
     } catch (error) {
       console.error(error);
     } finally {
@@ -178,11 +201,12 @@ export default function LineMasterPage() {
             className={styles.select}
           >
             <option value="">工程選択</option>
-            <option value="manufacturing">製造</option>
-            <option value="cleaning">洗浄</option>
-            <option value="inspection">検査</option>
-            <option value="measurement">測量</option>
-            <option value="packaging">梱包</option>
+            {processes.map((process) => (
+              <option key={process.id} value={process.processId}>
+                {process.name}
+                {process.outsourcing ? "（外注）" : ""}
+              </option>
+            ))}
           </select>
 
           <input

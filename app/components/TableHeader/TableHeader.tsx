@@ -11,6 +11,10 @@ const TableHeader = () => {
           注番
         </th>
 
+        <th rowSpan={2} className={styles.orderHeader}>
+          ロットNo
+        </th>
+
         <th rowSpan={2} className={styles.productHeader}>
           製品名
         </th>

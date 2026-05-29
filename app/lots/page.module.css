@@ -1,0 +1,147 @@
+.container {
+  min-height: 100vh;
+  padding: 36px;
+  background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+}
+
+.headerArea {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.backButton {
+  color: #2563eb;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.title {
+  color: #111827;
+  font-size: 34px;
+  font-weight: 900;
+}
+
+.formCard,
+.tableCard {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 24px;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
+  padding: 24px;
+}
+
+.formCard {
+  display: grid;
+  grid-template-columns: 180px 140px repeat(4, minmax(140px, 1fr)) 100px;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.lotPreview {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+
+.lotPreview span {
+  display: block;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.lotPreview strong {
+  color: #1d4ed8;
+  font-size: 20px;
+}
+
+.input,
+.select,
+.tableInput {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+}
+
+.addButton,
+.saveButton,
+.deleteButton {
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 10px 16px;
+}
+
+.addButton {
+  background: #2563eb;
+}
+
+.saveButton {
+  background: #16a34a;
+}
+
+.deleteButton {
+  background: #dc2626;
+}
+
+.loading {
+  margin-bottom: 16px;
+  color: #475569;
+  font-weight: 700;
+}
+
+.tableCard {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+}
+
+.table th {
+  background: #1f2937;
+  color: #fff;
+  padding: 12px;
+  white-space: nowrap;
+}
+
+.table td {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 10px;
+}
+
+.actionArea {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 1200px) {
+  .formCard {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .container {
+    padding: 20px;
+  }
+
+  .headerArea {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .formCard {
+    grid-template-columns: 1fr;
+  }
+}

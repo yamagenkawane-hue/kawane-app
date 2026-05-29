@@ -7,10 +7,12 @@ import styles from "./page.module.css";
 
 const Create = () => {
   const [orderNo, setOrderNo] = useState("");
+  const [lotNo, setLotNo] = useState("");
   const [productCode, setProductCode] = useState("");
   const [productName, setProductName] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [orderAmount, setOrderAmount] = useState<number | "">("");
+  const [completionScheduledDate, setCompletionScheduledDate] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
   const [remark, setRemark] = useState("");
 
@@ -22,6 +24,7 @@ const Create = () => {
       !productCode ||
       !productName ||
       !customerName ||
+      !completionScheduledDate ||
       !deliveryDate ||
       orderAmount === ""
     ) {
@@ -33,10 +36,12 @@ const Create = () => {
 
     const { error } = await supabase.from("posts").insert({
       order_no: orderNo,
+      lot_no: lotNo,
       product_code: productCode,
       product_name: productName,
       customer_name: customerName,
       order_amount: Number(orderAmount),
+      completion_scheduled_date: completionScheduledDate,
       manufacturing_date: null,
       cleaning_date: null,
       inspection_date: null,
@@ -71,10 +76,12 @@ const Create = () => {
     alert("製品を登録しました");
 
     setOrderNo("");
+    setLotNo("");
     setProductCode("");
     setProductName("");
     setCustomerName("");
     setOrderAmount("");
+    setCompletionScheduledDate("");
     setDeliveryDate("");
     setRemark("");
   };
@@ -101,6 +108,17 @@ const Create = () => {
             onChange={(e) => setOrderNo(e.target.value)}
             placeholder="J250001"
             required
+          />
+        </div>
+
+        {/* 製品コード */}
+        <div className={styles.formGroup}>
+          <label>ロットNo</label>
+          <input
+            type="text"
+            value={lotNo}
+            onChange={(e) => setLotNo(e.target.value)}
+            placeholder="0001 / T-0001 / S-0001"
           />
         </div>
 
@@ -152,6 +170,17 @@ const Create = () => {
               )
             }
             placeholder="1000"
+            required
+          />
+        </div>
+
+        {/* 完了予定日 */}
+        <div className={styles.formGroup}>
+          <label>完了予定日</label>
+          <input
+            type="date"
+            value={completionScheduledDate}
+            onChange={(e) => setCompletionScheduledDate(e.target.value)}
             required
           />
         </div>

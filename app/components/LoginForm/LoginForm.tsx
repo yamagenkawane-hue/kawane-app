@@ -1,11 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-
 import { LockKeyhole, User, LogIn } from "lucide-react";
-
 import styles from "./page.module.css";
-
 import { LoginFormProps } from "@/app/type";
 
 const LoginForm: React.FC<LoginFormProps> = ({ posts, onLoginSuccess }) => {

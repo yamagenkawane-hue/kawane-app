@@ -12,6 +12,7 @@ export default function ProcessMasterPage() {
   const [name, setName] = useState("");
   const [days, setDays] = useState(1);
   const [sort, setSort] = useState(1);
+  const [outsourcing, setOutsourcing] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // =========================
@@ -33,6 +34,7 @@ export default function ProcessMasterPage() {
         days: row.days,
         sort: row.sort,
         enabled: row.enabled,
+        outsourcing: row.outsourcing || false,
       }));
 
       mapped.sort((a, b) => a.sort - b.sort);
@@ -71,6 +73,7 @@ export default function ProcessMasterPage() {
         days,
         sort,
         enabled: true,
+        outsourcing,
       });
 
       if (error) throw error;
@@ -79,6 +82,7 @@ export default function ProcessMasterPage() {
       setName("");
       setDays(1);
       setSort(1);
+      setOutsourcing(false);
 
       await fetchProcesses();
     } catch (error) {
@@ -118,6 +122,7 @@ export default function ProcessMasterPage() {
           days: process.days,
           sort: process.sort,
           enabled: process.enabled,
+          outsourcing: process.outsourcing || false,
         })
         .eq("id", process.id);
 
@@ -227,6 +232,15 @@ export default function ProcessMasterPage() {
           className={styles.numberInput}
         />
 
+        <label className={styles.checkbox}>
+          <input
+            type="checkbox"
+            checked={outsourcing}
+            onChange={(e) => setOutsourcing(e.target.checked)}
+          />
+          外注工程
+        </label>
+
         <button onClick={handleAdd} className={styles.addButton}>
           追加
         </button>
@@ -243,6 +257,7 @@ export default function ProcessMasterPage() {
             <th>工程名</th>
             <th>日数</th>
             <th>順番</th>
+            <th>外注</th>
             <th>状態</th>
             <th>操作</th>
           </tr>
@@ -290,6 +305,16 @@ export default function ProcessMasterPage() {
                     handleChange(process.id, "sort", Number(e.target.value))
                   }
                   className={styles.numberInput}
+                />
+              </td>
+
+              <td>
+                <input
+                  type="checkbox"
+                  checked={process.outsourcing || false}
+                  onChange={(e) =>
+                    handleChange(process.id, "outsourcing", e.target.checked)
+                  }
                 />
               </td>
 

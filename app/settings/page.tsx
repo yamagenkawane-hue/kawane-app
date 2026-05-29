@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, Cpu, Factory, Settings2, Users } from "lucide-react";
+import {
+  CalendarDays,
+  Cpu,
+  Database,
+  Factory,
+  Package,
+  Settings2,
+  Users,
+} from "lucide-react";
 import styles from "./page.module.css";
 
 const settingsMenus = [
@@ -28,6 +36,30 @@ const settingsMenus = [
     text: "ライン別の日産能力を管理",
     href: "/lineMaster",
     icon: <Factory size={34} />,
+  },
+  {
+    title: "得意先マスタ",
+    text: "得意先別の出荷日自動設定ルールを管理",
+    href: "/customerMaster",
+    icon: <Users size={34} />,
+  },
+  {
+    title: "製品マスタ",
+    text: "製品コード・製品名・規格などを管理",
+    href: "/productMaster",
+    icon: <Package size={34} />,
+  },
+  {
+    title: "材料マスタ",
+    text: "製造で使用する材料情報を管理",
+    href: "/materialMaster",
+    icon: <Settings2 size={34} />,
+  },
+  {
+    title: "在庫マスタ",
+    text: "現在庫数と入出庫連携用の在庫情報を管理",
+    href: "/inventoryMaster",
+    icon: <Database size={34} />,
   },
   {
     title: "AI予測設定",

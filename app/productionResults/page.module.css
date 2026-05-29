@@ -1,0 +1,137 @@
+.container {
+  min-height: 100vh;
+  padding: 36px;
+  background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+}
+
+.headerArea {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.backButton {
+  color: #2563eb;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.title {
+  color: #111827;
+  font-size: 34px;
+  font-weight: 900;
+}
+
+.formCard,
+.summaryCard,
+.tableCard {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 24px;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
+}
+
+.formCard {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 160px 140px 130px;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding: 24px;
+}
+
+.select,
+.input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 11px 12px;
+  background: #fff;
+}
+
+.submitButton {
+  border: none;
+  border-radius: 10px;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.summaryCard {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 18px 24px;
+}
+
+.summaryCard span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.summaryCard strong {
+  color: #111827;
+  font-size: 18px;
+}
+
+.loading {
+  margin-bottom: 16px;
+  color: #475569;
+  font-weight: 700;
+}
+
+.tableCard {
+  overflow-x: auto;
+  padding: 24px;
+}
+
+.table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.table th {
+  background: #1f2937;
+  color: #fff;
+  padding: 12px;
+  white-space: nowrap;
+}
+
+.table td {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 12px;
+}
+
+@media (max-width: 1100px) {
+  .formCard,
+  .summaryCard {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .container {
+    padding: 20px;
+  }
+
+  .headerArea {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .formCard,
+  .summaryCard {
+    grid-template-columns: 1fr;
+  }
+
+  .submitButton {
+    padding: 12px;
+  }
+}

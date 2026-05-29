@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Pencil, Trash2, RotateCcw, User, Shield } from "lucide-react";
+import { Pencil, Trash2, RotateCcw, User, Shield, Lock } from "lucide-react"; // Lock追加
 import supabase from "@/lib/supabase";
 import styles from "./page.module.css";
 import { User as UserType } from "../type";
@@ -14,6 +14,13 @@ export default function UserManagerPage() {
   const [editName, setEditName] = useState("");
   const [editPass, setEditPass] = useState("");
   const [loading, setLoading] = useState(true);
+
+  // =========================
+  // Lock判定
+  // =========================
+
+  const isLocked = (user: UserType) =>
+    user.name === "admin" && user.pass === "admin1234";
 
   // =========================
   // Fetch
@@ -60,6 +67,7 @@ export default function UserManagerPage() {
   // =========================
 
   const startEdit = (user: UserType) => {
+    if (isLocked(user)) return; // ロック時は何もしない
     setEditingUser(user);
     setEditName(user.name);
     setEditPass(user.pass);
@@ -94,12 +102,14 @@ export default function UserManagerPage() {
   // Move Trash
   // =========================
 
-  const moveTrash = async (id: string) => {
+  const moveTrash = async (user: UserType) => {
+    // 引数をUserTypeに変更
+    if (isLocked(user)) return; // ロック時は何もしない
     try {
       const { error } = await supabase
         .from("user")
         .update({ delete: true })
-        .eq("id", id);
+        .eq("id", user.id);
 
       if (error) throw error;
 
@@ -176,26 +186,55 @@ export default function UserManagerPage() {
               {users.map((user) => (
                 <div key={user.id} className={styles.card}>
                   <div className={styles.iconArea}>
-                    {user.manager ? <Shield size={32} /> : <User size={32} />}
+                    {isLocked(user) ? (
+                      <Lock size={32} /> // ロックユーザーはLockアイコンを表示
+                    ) : user.manager ? (
+                      <Shield size={32} />
+                    ) : (
+                      <User size={32} />
+                    )}
                   </div>
 
                   <div className={styles.cardBody}>
                     <h3>{user.name}</h3>
                     <p>パスワード :{user.pass}</p>
                     <p>権限 :{user.manager ? "管理者" : "一般"}</p>
+                    {isLocked(user) && (
+                      <p style={{ color: "gray", fontSize: "0.8rem" }}>
+                        🔒 このユーザーは編集・削除できません
+                      </p>
+                    )}
                   </div>
 
                   <div className={styles.actions}>
                     <button
                       className={styles.editButton}
                       onClick={() => startEdit(user)}
+                      disabled={isLocked(user)}
+                      title={
+                        isLocked(user) ? "このユーザーは編集できません" : "編集"
+                      }
+                      style={
+                        isLocked(user)
+                          ? { opacity: 0.3, cursor: "not-allowed" }
+                          : {}
+                      }
                     >
                       <Pencil size={18} />
                     </button>
 
                     <button
                       className={styles.deleteButton}
-                      onClick={() => moveTrash(user.id)}
+                      onClick={() => moveTrash(user)}
+                      disabled={isLocked(user)}
+                      title={
+                        isLocked(user) ? "このユーザーは削除できません" : "削除"
+                      }
+                      style={
+                        isLocked(user)
+                          ? { opacity: 0.3, cursor: "not-allowed" }
+                          : {}
+                      }
                     >
                       <Trash2 size={18} />
                     </button>

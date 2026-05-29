@@ -12,6 +12,7 @@ import {
   ProcessItem,
   CompanyCalendar,
   LineMaster,
+  ProcessResult,
 } from "@/app/type";
 
 export default function ProgressDetail() {
@@ -88,21 +89,41 @@ export default function ProgressDetail() {
   // 実績取得
   // =========================
 
-  const getProcessLogs = (processId: string, currentPost: Post) => {
+  const getProcessLogs = (
+    processId: string,
+    currentPost: Post,
+    resultData: ProcessResult[],
+  ) => {
+    const resultLogs = resultData
+      .filter((result) => result.processId === processId)
+      .map((result) => ({
+        date: result.date,
+        amount: result.amount,
+      }));
+
+    let postLogs: { date: string; amount: number }[] = [];
+
     switch (processId) {
       case "manufacturing":
-        return currentPost.manufacturingLogs || [];
+        postLogs = currentPost.manufacturingLogs || [];
+        break;
       case "cleaning":
-        return currentPost.cleaningLogs || [];
+        postLogs = currentPost.cleaningLogs || [];
+        break;
       case "inspection":
-        return currentPost.inspectionLogs || [];
+        postLogs = currentPost.inspectionLogs || [];
+        break;
       case "measurement":
-        return currentPost.measurementLogs || [];
+        postLogs = currentPost.measurementLogs || [];
+        break;
       case "packaging":
-        return currentPost.packagingLogs || [];
+        postLogs = currentPost.packagingLogs || [];
+        break;
       default:
-        return [];
+        postLogs = [];
     }
+
+    return [...postLogs, ...resultLogs];
   };
 
   // =========================
@@ -130,6 +151,7 @@ export default function ProgressDetail() {
           id: postRow.id,
           orderNo: postRow.order_no || "",
           productCode: postRow.product_code || "",
+          lotNo: postRow.lot_no || "",
           productName: postRow.product_name || "",
           customerName: postRow.customer_name || "",
           orderAmount: postRow.order_amount || 0,
@@ -180,6 +202,7 @@ export default function ProgressDetail() {
             days: row.days,
             sort: row.sort,
             enabled: row.enabled,
+            outsourcing: row.outsourcing || false,
           }))
           .filter((item) => item.enabled !== false);
 
@@ -225,6 +248,30 @@ export default function ProgressDetail() {
         }));
 
         // =========================
+        // 現場実績
+        // =========================
+
+        let resultData: ProcessResult[] = [];
+
+        const { data: resultRows, error: resultError } = await supabase
+          .from("production_results")
+          .select("*")
+          .eq("post_id", id);
+
+        if (!resultError) {
+          resultData = (resultRows || []).map((row) => ({
+            id: row.id,
+            postId: row.post_id,
+            scheduleId: row.schedule_id || "",
+            processId: row.process_id,
+            processName: row.process_name || "",
+            date: row.date,
+            amount: row.amount,
+            createdAt: row.created_at || "",
+          }));
+        }
+
+        // =========================
         // ガント生成
         // =========================
 
@@ -245,7 +292,11 @@ export default function ProgressDetail() {
             dailyCapacity * (operationRate / 100),
           );
 
-          const processResults = getProcessLogs(process.processId, currentPost);
+          const processResults = getProcessLogs(
+            process.processId,
+            currentPost,
+            resultData,
+          );
           processResults.sort((a, b) => a.date.localeCompare(b.date));
 
           const totalActual = processResults.reduce(
