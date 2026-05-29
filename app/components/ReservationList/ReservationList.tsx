@@ -11,54 +11,31 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   handleDelete,
 }) => {
   const [isEdit, setIsEdit] = useState(false);
-
-  // =========================
-  // 製造ログ
-  // =========================
   const [manufacturingLogDate, setManufacturingLogDate] = useState("");
   const [manufacturingLogAmount, setManufacturingLogAmount] = useState<
     number | ""
   >("");
   const manufacturingLogs = post.manufacturingLogs || [];
-
-  // =========================
-  // 洗浄ログ
-  // =========================
   const [cleaningLogDate, setCleaningLogDate] = useState("");
   const [cleaningLogAmount, setCleaningLogAmount] = useState<number | "">("");
   const cleaningLogs = post.cleaningLogs || [];
-
-  // =========================
-  // 検査ログ
-  // =========================
   const [inspectionLogDate, setInspectionLogDate] = useState("");
   const [inspectionLogAmount, setInspectionLogAmount] = useState<number | "">(
     "",
   );
   const inspectionLogs = post.inspectionLogs || [];
-
-  // =========================
-  // 測量ログ
-  // =========================
   const [measurementLogDate, setMeasurementLogDate] = useState("");
   const [measurementLogAmount, setMeasurementLogAmount] = useState<number | "">(
     "",
   );
   const measurementLogs = post.measurementLogs || [];
-
-  // =========================
-  // 梱包ログ
-  // =========================
   const [packagingLogDate, setPackagingLogDate] = useState("");
   const [packagingLogAmount, setPackagingLogAmount] = useState<number | "">("");
   const packagingLogs = post.packagingLogs || [];
 
-  // =========================
-  // 製造ログ追加
-  // =========================
   const handleAddManufacturingLog = async () => {
     if (!manufacturingLogDate || manufacturingLogAmount === "") {
-      alert("日付と数量を入力してください");
+      alert("ロットと数量を入力してください");
       return;
     }
 
@@ -88,12 +65,9 @@ const ReservationList: React.FC<ReservationRowProps> = ({
     }
   };
 
-  // =========================
-  // 洗浄ログ追加
-  // =========================
   const handleAddCleaningLog = async () => {
     if (!cleaningLogDate || cleaningLogAmount === "") {
-      alert("日付と数量を入力してください");
+      alert("ロットと数量を入力してください");
       return;
     }
 
@@ -123,12 +97,9 @@ const ReservationList: React.FC<ReservationRowProps> = ({
     }
   };
 
-  // =========================
-  // 検査ログ追加
-  // =========================
   const handleAddInspectionLog = async () => {
     if (!inspectionLogDate || inspectionLogAmount === "") {
-      alert("日付と数量を入力してください");
+      alert("ロットと数量を入力してください");
       return;
     }
 
@@ -158,12 +129,9 @@ const ReservationList: React.FC<ReservationRowProps> = ({
     }
   };
 
-  // =========================
-  // 測量ログ追加
-  // =========================
   const handleAddMeasurementLog = async () => {
     if (!measurementLogDate || measurementLogAmount === "") {
-      alert("日付と数量を入力してください");
+      alert("ロットと数量を入力してください");
       return;
     }
 
@@ -193,12 +161,9 @@ const ReservationList: React.FC<ReservationRowProps> = ({
     }
   };
 
-  // =========================
-  // 梱包ログ追加
-  // =========================
   const handleAddPackagingLog = async () => {
     if (!packagingLogDate || packagingLogAmount === "") {
-      alert("日付と数量を入力してください");
+      alert("ロットと数量を入力してください");
       return;
     }
 
@@ -228,9 +193,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
     }
   };
 
-  // =========================
-  // 保存
-  // =========================
   const handleSave = async () => {
     try {
       const manufacturing = manufacturingLogs.reduce(
@@ -248,7 +210,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       );
       const packaging = packagingLogs.reduce((sum, log) => sum + log.amount, 0);
 
-      // 状態判定
       let status = "未着手";
       if (manufacturing > 0) status = "製造中";
       if (manufacturing >= post.orderAmount) status = "製造完了";
@@ -279,9 +240,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
     }
   };
 
-  // =========================
-  // 工程進捗
-  // =========================
   const manufacturing = manufacturingLogs.reduce(
     (sum, log) => sum + log.amount,
     0,
@@ -301,7 +259,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
     processProgress += measurement >= post.orderAmount ? 20 : 10;
   if (packaging > 0) processProgress += packaging >= post.orderAmount ? 20 : 10;
 
-  // 状態表示用
   let status = "未着手";
   if (manufacturing > 0) status = "製造中";
   if (manufacturing >= post.orderAmount) status = "製造完了";
@@ -314,7 +271,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   if (packaging > 0) status = "梱包中";
   if (packaging >= post.orderAmount) status = "出荷OK";
 
-  // 数量進捗
   const quantityProgress =
     post.orderAmount > 0 ? Math.floor((packaging / post.orderAmount) * 100) : 0;
 
@@ -332,7 +288,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         ? "#eab308"
         : "#ef4444";
 
-  // 遅延判定
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const delivery = new Date(post.deliveryDate);
@@ -342,7 +297,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   );
   const isDelay = diffDays <= 1 && processProgress < 80 && status !== "出荷OK";
 
-  // 納期警告
   const deliveryClass = (() => {
     const t = new Date();
     t.setHours(0, 0, 0, 0);
@@ -357,24 +311,13 @@ const ReservationList: React.FC<ReservationRowProps> = ({
 
   return (
     <tr className={`${styles.reservationText} ${styles.reservationRow}`}>
-      {/* 注番 */}
       <td>{post.orderNo}</td>
-
-      {/* ロットNo */}
       <td>{post.lotNo || "-"}</td>
-
-      {/* 製品名 */}
       <td className={styles.productName}>
         <Link href={`/progress/${post.id}`}>{post.productName}</Link>
       </td>
-
-      {/* 得意先 */}
       <td>{post.customerName}</td>
-
-      {/* 受注数量 */}
       <td>{post.orderAmount}</td>
-
-      {/* 製造 日付 */}
       <td className={styles.manufacturingCell}>
         {isEdit && (
           <div className={styles.logArea}>
@@ -409,7 +352,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* 製造 数量 */}
       <td className={styles.manufacturingAmountCell}>
         {manufacturingLogs.length > 0 ? (
           manufacturingLogs.map((log, index) => (
@@ -422,7 +364,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* 製造 累計 */}
       <td className={styles.averageCell}>
         {manufacturingLogs.length > 0 ? (
           manufacturingLogs.map((log, index) => {
@@ -440,7 +381,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* 洗浄 日付 */}
       <td className={styles.cleaningCell}>
         {isEdit && (
           <div className={styles.logArea}>
@@ -475,7 +415,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* 洗浄 数量 */}
       <td className={styles.cleaningAmountCell}>
         {cleaningLogs.length > 0 ? (
           cleaningLogs.map((log, index) => (
@@ -488,7 +427,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* 洗浄 累計 */}
       <td className={styles.cleaningAverageCell}>
         {cleaningLogs.length > 0 ? (
           cleaningLogs.map((log, index) => {
@@ -506,7 +444,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* 検査 日付 */}
       <td className={styles.inspectionCell}>
         {isEdit && (
           <div className={styles.logArea}>
@@ -541,7 +478,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* 検査 数量 */}
       <td className={styles.inspectionAmountCell}>
         {inspectionLogs.length > 0 ? (
           inspectionLogs.map((log, index) => (
@@ -554,7 +490,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* 検査 累計 */}
       <td className={styles.inspectionAverageCell}>
         {inspectionLogs.length > 0 ? (
           inspectionLogs.map((log, index) => {
@@ -572,7 +507,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* 測量 日付 */}
       <td className={styles.measurementCell}>
         {isEdit && (
           <div className={styles.logArea}>
@@ -607,7 +541,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* 測量 数量 */}
       <td className={styles.measurementAmountCell}>
         {measurementLogs.length > 0 ? (
           measurementLogs.map((log, index) => (
@@ -620,7 +553,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* 測量 累計 */}
       <td className={styles.measurementAverageCell}>
         {measurementLogs.length > 0 ? (
           measurementLogs.map((log, index) => {
@@ -638,7 +570,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* 梱包 日付 */}
       <td className={styles.packagingCell}>
         {isEdit && (
           <div className={styles.logArea}>
@@ -673,7 +604,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* 梱包 数量 */}
       <td className={styles.packagingAmountCell}>
         {packagingLogs.length > 0 ? (
           packagingLogs.map((log, index) => (
@@ -686,7 +616,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* 梱包 累計 */}
       <td className={styles.packagingAverageCell}>
         {packagingLogs.length > 0 ? (
           packagingLogs.map((log, index) => {
@@ -704,10 +633,8 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* 注残 */}
       <td>{post.orderAmount - Number(packaging)}</td>
 
-      {/* 工程進捗 */}
       <td>
         <div className={styles.progressArea}>
           <div className={styles.progressBar}>
@@ -723,7 +650,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         </div>
       </td>
 
-      {/* 数量進捗 */}
       <td>
         <div className={styles.progressArea}>
           <div className={styles.progressBar}>
@@ -739,14 +665,12 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         </div>
       </td>
 
-      {/* 状態 */}
       <td>
         <span className={`${styles.statusBadge} ${styles[status]}`}>
           {status}
         </span>
       </td>
 
-      {/* 遅延 */}
       <td>
         {isDelay ? (
           <span className={styles.delayBadge}>遅延</span>
@@ -755,15 +679,12 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      {/* 納期 */}
       <td>
         <span className={deliveryClass}>{post.deliveryDate}</span>
       </td>
 
-      {/* 備考 */}
       <td>{post.remark}</td>
 
-      {/* 操作 */}
       <td>
         {isEdit ? (
           <button className={styles.saveButton} onClick={handleSave}>

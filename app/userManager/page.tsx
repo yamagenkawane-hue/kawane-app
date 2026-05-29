@@ -15,12 +15,14 @@ export default function UserManagerPage() {
   const [editPass, setEditPass] = useState("");
   const [loading, setLoading] = useState(true);
 
+  const managerName = process.env.NEXT_PUBLIC_MANAGER_ID;
+  const managerPass = process.env.NEXT_PUBLIC_MANAGER_PASSWORD;
   // =========================
   // Lock判定
   // =========================
 
   const isLocked = (user: UserType) =>
-    user.name === "admin" && user.pass === "admin1234";
+    user.name === managerName && user.pass === managerPass;
 
   // =========================
   // Fetch

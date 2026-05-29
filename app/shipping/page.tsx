@@ -241,6 +241,7 @@ export default function ShippingPage() {
         <Link href="/" className={styles.backButton}>
           ← トップへ戻る
         </Link>
+
         <h1 className={styles.title}>出荷管理</h1>
       </div>
 
@@ -253,10 +254,12 @@ export default function ShippingPage() {
             onChange={(e) => setTargetDate(e.target.value)}
           />
         </div>
+
         <div className={styles.buttonRow}>
           <button className={styles.printButton} onClick={() => window.print()}>
             出荷リスト印刷
           </button>
+
           <button
             className={styles.saveButton}
             onClick={() => setTargetDate("")}
@@ -275,13 +278,13 @@ export default function ShippingPage() {
               <th>注番</th>
               <th>製品名</th>
               <th>ロットNo</th>
+              <th>納期</th>
               <th>受注数</th>
-              <th>出荷済</th>
-              <th>出荷残</th>
-              <th>出荷数</th>
+              <th>出荷数入力</th>
               <th>操作</th>
             </tr>
           </thead>
+
           <tbody>
             {visiblePosts.map((post) => (
               <tr key={post.id}>
@@ -290,9 +293,9 @@ export default function ShippingPage() {
                 <td>{post.orderNo}</td>
                 <td>{post.productName}</td>
                 <td>{post.lotNo || "-"}</td>
+                <td>{post.deliveryDate}</td>
                 <td>{post.orderAmount}</td>
-                <td>{post.shippedAmount}</td>
-                <td>{post.remainingAmount}</td>
+
                 <td>
                   <input
                     className={styles.tableInput}
@@ -306,6 +309,7 @@ export default function ShippingPage() {
                     }
                   />
                 </td>
+
                 <td className={styles.actionArea}>
                   <button
                     className={styles.saveButton}

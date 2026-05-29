@@ -16,22 +16,15 @@ const itemsPerPage = 7;
 
 const Reservation = () => {
   const { posts, setShouldFetch } = useFetchPosts();
-
-  // 状態フィルター
   const [statusFilter, setStatusFilter] = useState("全件");
-
-  // 検索
   const [search, setSearch] = useState("");
 
-  // フィルター
   const filteredPosts = posts
     .filter((post) => {
-      // 削除除外
       if (post.delete) {
         return false;
       }
 
-      // 検索
       const keyword = search.toLowerCase();
 
       const isSearchMatch =
@@ -52,28 +45,19 @@ const Reservation = () => {
           .toLowerCase()
           .includes(keyword);
 
-      // 状態フィルター
       let isStatusMatch = true;
 
       if (statusFilter !== "全件") {
-        // 遅延
         if (statusFilter === "遅延") {
-          // 製造未開始
           if (!post.manufacturingDate) {
             isStatusMatch = false;
           } else {
             const start = new Date(post.manufacturingDate);
-
             const end = new Date(post.deliveryDate);
-
             const today = new Date();
-
             const total = end.getTime() - start.getTime();
-
             const passed = today.getTime() - start.getTime();
-
             const timeProgress = (passed / total) * 100;
-
             const workProgress =
               post.manufacturingAmount > 0
                 ? (post.packagingAmount / post.manufacturingAmount) * 100
@@ -89,41 +73,32 @@ const Reservation = () => {
       return isSearchMatch && isStatusMatch;
     })
 
-    // 納期順
     .sort(
       (a, b) =>
         new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime(),
     );
 
-  // ページネーション
   const { paginatedPosts, currentPage, setCurrentPage } = usePagination(
     filteredPosts,
     itemsPerPage,
   );
 
-  // 削除
   const handleDelete = useReservationDelete(setShouldFetch);
 
   return (
     <>
-      {/* ヘッダー */}
       <div className={styles.reservationImg}>
-        {/* 戻る */}
         <Link href="/" className={styles.topPageLink}>
           <button className={styles.topPageButton}>トップページに戻る</button>
         </Link>
 
-        {/* タイトル */}
         <div className={styles.center}>
           <h1>進捗管理</h1>
         </div>
 
-        {/* 検索エリア */}
         <div className={styles.searchDelete}>
-          {/* 検索 */}
           <SearchForm search={search} setSearch={setSearch} />
 
-          {/* 状態フィルター */}
           <div className={styles.filterArea}>
             <button
               onClick={() => setStatusFilter("全件")}
@@ -188,7 +163,7 @@ const Reservation = () => {
                   : styles.filterButton
               }
             >
-              測量中
+              計量中
             </button>
 
             <button
@@ -225,14 +200,12 @@ const Reservation = () => {
             </button>
           </div>
 
-          {/* ゴミ箱 */}
           <Link className={styles.deleteIconLink} href="/childDelete">
             <DeleteIcon className={styles.deleteIcon} />
           </Link>
         </div>
       </div>
 
-      {/* テーブル */}
       <div className={styles.reservationWrapper}>
         <table border={1} className={styles.listTitle}>
           <TableHeader />
@@ -249,7 +222,6 @@ const Reservation = () => {
         </table>
       </div>
 
-      {/* ページネーション */}
       <div className={styles.reservationPagination}>
         <Pagination
           totalItems={filteredPosts.length}
