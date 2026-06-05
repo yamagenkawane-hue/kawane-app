@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
-import { PostData, ProductionSchedule, PostRow } from "@/app/type";
+import { PostData, ProductionSchedule } from "@/app/type";
 import styles from "./page.module.css";
 
 const emptyForm = {
@@ -16,102 +17,64 @@ const emptyForm = {
   pressCompletedDate: "",
 };
 
+type NumpadTarget =
+  | { kind: "form"; field: "planAmount" | "pressCompletedAmount" }
+  | { kind: "schedule"; id: string; field: "planAmount" | "pressCompletedAmount" };
+
+const mapSchedule = (row: Record<string, any>): ProductionSchedule => ({
+  id: row.id,
+  customerName: row.customer_name || "",
+  productName: row.product_name || "",
+  pressNumber: row.press_number || "",
+  lotNo: row.lot_no || "",
+  planAmount: Number(row.plan_amount || 0),
+  pressCompletedAmount: Number(row.press_completed_amount || 0),
+  pressCompletedDate: row.press_completed_date || "",
+  shippingScheduledStart: row.shipping_scheduled_start || "",
+  shippingScheduledEnd: row.shipping_scheduled_end || "",
+  createdAt: row.created_at || "",
+  updatedAt: row.updated_at || "",
+});
+
+const mapPost = (row: Record<string, any>): PostData => ({
+  id: row.id,
+  orderNo: row.order_no || "",
+  lotNo: row.lot_no || "",
+  productName: row.product_name || "",
+  customerName: row.customer_name || "",
+  orderAmount: Number(row.order_amount || 0),
+  remainingAmount: Number(row.remaining_amount || row.order_amount || 0),
+  status: row.status || "",
+  deliveryDate: row.delivery_date || "",
+  completionScheduledDate: row.completion_scheduled_date || row.delivery_date || "",
+  remark: row.remark || "",
+});
+
 export default function ProductionSchedulesPage() {
   const [schedules, setSchedules] = useState<ProductionSchedule[]>([]);
   const [orderSchedules, setOrderSchedules] = useState<PostData[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
-
-  const formatDate = (date: Date) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  };
-
-  const isTodayInProductionPeriod = (row: PostRow) => {
-    const today = formatDate(new Date());
-    const startDate =
-      row.manufacturing_date ||
-      row.created_at?.slice(0, 10) ||
-      row.delivery_date ||
-      today;
-    const completionDate =
-      row.completion_scheduled_date || row.delivery_date || startDate;
-
-    return startDate <= today && today <= completionDate;
-  };
+  const [numpadTarget, setNumpadTarget] = useState<NumpadTarget | null>(null);
 
   const fetchSchedules = async () => {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase
-        .from("production_schedules")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const [scheduleResult, dailyResult] = await Promise.all([
+        supabase
+          .from("production_schedules")
+          .select("*")
+          .order("created_at", { ascending: false }),
+        fetch("/api/daily-production"),
+      ]);
 
-      if (error) throw error;
+      if (scheduleResult.error) throw scheduleResult.error;
+      if (!dailyResult.ok) throw new Error("注残データの取得に失敗しました");
 
-      const { data: orderRows, error: orderError } = await supabase
-        .from("posts")
-        .select("*")
-        .order("delivery_date", { ascending: true });
-
-      if (orderError) throw orderError;
-
-      setSchedules(
-        (data || []).map((row) => ({
-          id: row.id,
-          customerName: row.customer_name || "",
-          productName: row.product_name || "",
-          pressNumber: row.press_number || "",
-          lotNo: row.lot_no || "",
-          planAmount: row.plan_amount || 0,
-          pressCompletedAmount: row.press_completed_amount || 0,
-          pressCompletedDate: row.press_completed_date || "",
-          createdAt: row.created_at || "",
-          updatedAt: row.updated_at || "",
-        })),
-      );
-
-      setOrderSchedules(
-        (orderRows || [])
-          .filter((row) => {
-            const packagingAmount = (row.packaging_logs || []).reduce(
-              (sum: number, log: { amount: number }) => sum + log.amount,
-              0,
-            );
-            const orderAmount = Number(row.order_amount || 0);
-            return (
-              row.delete !== true &&
-              orderAmount - packagingAmount > 0 &&
-              isTodayInProductionPeriod(row)
-            );
-          })
-          .map((row) => {
-            const packagingAmount = (row.packaging_logs || []).reduce(
-              (sum: number, log: { amount: number }) => sum + log.amount,
-              0,
-            );
-
-            return {
-              id: row.id,
-              orderNo: row.order_no || "",
-              lotNo: row.lot_no || "",
-              productName: row.product_name || "",
-              customerName: row.customer_name || "",
-              orderAmount: row.order_amount || 0,
-              remainingAmount: Number(row.order_amount || 0) - packagingAmount,
-              status: row.status || "",
-              deliveryDate: row.delivery_date || "",
-              completionScheduledDate:
-                row.completion_scheduled_date || row.delivery_date || "",
-              remark: row.remark || "",
-              packagingAmount,
-            };
-          }),
-      );
+      const dailyRows = await dailyResult.json();
+      setSchedules((scheduleResult.data || []).map(mapSchedule));
+      setOrderSchedules((dailyRows || []).map(mapPost));
     } catch (error) {
       console.error(error);
       alert("生産予定の取得に失敗しました");
@@ -121,113 +84,57 @@ export default function ProductionSchedulesPage() {
   };
 
   useEffect(() => {
-    const loadSchedules = async () => {
-      try {
-        setLoading(true);
-
-        const { data, error } = await supabase
-          .from("production_schedules")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (error) throw error;
-
-        const { data: orderRows, error: orderError } = await supabase
-          .from("posts")
-          .select("*")
-          .order("delivery_date", { ascending: true });
-
-        if (orderError) throw orderError;
-
-        const mappedSchedules: ProductionSchedule[] = (data || []).map(
-          (row) => ({
-            id: row.id,
-            customerName: row.customer_name || "",
-            productName: row.product_name || "",
-            pressNumber: row.press_number || "",
-            lotNo: row.lot_no || "",
-            planAmount: row.plan_amount || 0,
-            pressCompletedAmount: row.press_completed_amount || 0,
-            pressCompletedDate: row.press_completed_date || "",
-            createdAt: row.created_at || "",
-            updatedAt: row.updated_at || "",
-          }),
-        );
-
-        const mappedOrders: PostData[] = (orderRows || [])
-          .filter((row) => {
-            const packagingAmount = (row.packaging_logs || []).reduce(
-              (sum: number, log: { amount: number }) => sum + log.amount,
-              0,
-            );
-
-            const orderAmount = Number(row.order_amount || 0);
-
-            return (
-              row.delete !== true &&
-              orderAmount - packagingAmount > 0 &&
-              isTodayInProductionPeriod(row)
-            );
-          })
-          .map((row) => {
-            const packagingAmount = (row.packaging_logs || []).reduce(
-              (sum: number, log: { amount: number }) => sum + log.amount,
-              0,
-            );
-
-            return {
-              id: row.id,
-              orderNo: row.order_no || "",
-              lotNo: row.lot_no || "",
-              productName: row.product_name || "",
-              customerName: row.customer_name || "",
-              orderAmount: row.order_amount || 0,
-              remainingAmount: Number(row.order_amount || 0) - packagingAmount,
-              status: row.status || "",
-              deliveryDate: row.delivery_date || "",
-              completionScheduledDate:
-                row.completion_scheduled_date || row.delivery_date || "",
-              remark: row.remark || "",
-              packagingAmount,
-            };
-          });
-
-        setSchedules(mappedSchedules);
-        setOrderSchedules(mappedOrders);
-      } catch (error) {
-        console.error(error);
-        alert("生産予定の取得に失敗しました");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void loadSchedules();
+    void fetchSchedules();
   }, []);
+
+  const handleNumpadChange = (value: string) => {
+    if (!numpadTarget) return;
+    const numericValue = Number(value || 0);
+
+    if (numpadTarget.kind === "form") {
+      setForm((prev) => ({ ...prev, [numpadTarget.field]: numericValue }));
+      return;
+    }
+
+    setSchedules((prev) =>
+      prev.map((schedule) =>
+        schedule.id === numpadTarget.id
+          ? { ...schedule, [numpadTarget.field]: numericValue }
+          : schedule,
+      ),
+    );
+  };
+
+  const currentNumpadValue = () => {
+    if (!numpadTarget) return "";
+    if (numpadTarget.kind === "form") return String(form[numpadTarget.field] || "");
+    const schedule = schedules.find((item) => item.id === numpadTarget.id);
+    return String(schedule?.[numpadTarget.field] || "");
+  };
 
   const handleAdd = async () => {
     if (!form.customerName || !form.productName || !form.pressNumber) {
-      alert("取引先、製品名、プレスナンバーを入力してください");
+      alert("得意先、製品名、プレス機Noを入力してください");
       return;
     }
 
     try {
       setLoading(true);
-
-      const now = new Date().toISOString();
-      const { error } = await supabase.from("production_schedules").insert({
-        customer_name: form.customerName,
-        product_name: form.productName,
-        press_number: form.pressNumber,
-        lot_no: form.lotNo,
-        plan_amount: Number(form.planAmount),
-        press_completed_amount: Number(form.pressCompletedAmount),
-        press_completed_date: form.pressCompletedDate || null,
-        created_at: now,
-        updated_at: now,
+      const response = await fetch("/api/daily-production", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_name: form.customerName,
+          product_name: form.productName,
+          press_number: form.pressNumber,
+          lot_no: form.lotNo,
+          plan_amount: Number(form.planAmount),
+          press_completed_amount: Number(form.pressCompletedAmount),
+          press_completed_date: form.pressCompletedDate || null,
+        }),
       });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error("生産予定の登録に失敗しました");
 
       setForm(emptyForm);
       await fetchSchedules();
@@ -270,7 +177,6 @@ export default function ProductionSchedulesPage() {
         .eq("id", schedule.id);
 
       if (error) throw error;
-
       await fetchSchedules();
     } catch (error) {
       console.error(error);
@@ -313,7 +219,7 @@ export default function ProductionSchedulesPage() {
         <div className={styles.formGrid}>
           <input
             className={styles.input}
-            placeholder="取引先"
+            placeholder="得意先"
             value={form.customerName}
             onChange={(e) => setForm({ ...form, customerName: e.target.value })}
           />
@@ -325,7 +231,7 @@ export default function ProductionSchedulesPage() {
           />
           <input
             className={styles.input}
-            placeholder="プレスナンバー"
+            placeholder="プレス機No"
             value={form.pressNumber}
             onChange={(e) => setForm({ ...form, pressNumber: e.target.value })}
           />
@@ -337,23 +243,22 @@ export default function ProductionSchedulesPage() {
           />
           <input
             className={styles.input}
-            type="number"
-            placeholder="計画数"
-            value={form.planAmount}
-            onChange={(e) =>
-              setForm({ ...form, planAmount: Number(e.target.value) })
-            }
+            inputMode="numeric"
+            placeholder="数量"
+            value={form.planAmount || ""}
+            onFocus={() => setNumpadTarget({ kind: "form", field: "planAmount" })}
+            onChange={(e) => setForm({ ...form, planAmount: Number(e.target.value) })}
           />
           <input
             className={styles.input}
-            type="number"
+            inputMode="numeric"
             placeholder="プレス完了数"
-            value={form.pressCompletedAmount}
+            value={form.pressCompletedAmount || ""}
+            onFocus={() =>
+              setNumpadTarget({ kind: "form", field: "pressCompletedAmount" })
+            }
             onChange={(e) =>
-              setForm({
-                ...form,
-                pressCompletedAmount: Number(e.target.value),
-              })
+              setForm({ ...form, pressCompletedAmount: Number(e.target.value) })
             }
           />
           <input
@@ -377,14 +282,14 @@ export default function ProductionSchedulesPage() {
           <thead>
             <tr>
               <th>種別</th>
-              <th>取引先</th>
+              <th>得意先</th>
               <th>製品名</th>
-              <th>プレスNo</th>
+              <th>プレス機No</th>
               <th>ロットNo</th>
-              <th>計画数</th>
+              <th>数量</th>
               <th>完了数</th>
               <th>完了日</th>
-              <th>完了予定日</th>
+              <th>納期</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -398,10 +303,10 @@ export default function ProductionSchedulesPage() {
                 <td>{post.productName}</td>
                 <td>{post.orderNo}</td>
                 <td>{post.lotNo || "-"}</td>
-                <td>{post.orderAmount}</td>
-                <td>{post.packagingAmount || 0}</td>
+                <td>{post.remainingAmount}</td>
                 <td>-</td>
-                <td>{post.completionScheduledDate || post.deliveryDate}</td>
+                <td>-</td>
+                <td>{post.deliveryDate || "-"}</td>
                 <td className={styles.readOnlyText}>自動表示</td>
               </tr>
             ))}
@@ -450,22 +355,32 @@ export default function ProductionSchedulesPage() {
                 <td>
                   <input
                     className={styles.tableInput}
-                    type="number"
-                    value={schedule.planAmount}
+                    inputMode="numeric"
+                    value={schedule.planAmount || ""}
+                    onFocus={() =>
+                      setNumpadTarget({
+                        kind: "schedule",
+                        id: schedule.id,
+                        field: "planAmount",
+                      })
+                    }
                     onChange={(e) =>
-                      handleChange(
-                        schedule.id,
-                        "planAmount",
-                        Number(e.target.value),
-                      )
+                      handleChange(schedule.id, "planAmount", Number(e.target.value))
                     }
                   />
                 </td>
                 <td>
                   <input
                     className={styles.tableInput}
-                    type="number"
-                    value={schedule.pressCompletedAmount}
+                    inputMode="numeric"
+                    value={schedule.pressCompletedAmount || ""}
+                    onFocus={() =>
+                      setNumpadTarget({
+                        kind: "schedule",
+                        id: schedule.id,
+                        field: "pressCompletedAmount",
+                      })
+                    }
                     onChange={(e) =>
                       handleChange(
                         schedule.id,
@@ -481,11 +396,7 @@ export default function ProductionSchedulesPage() {
                     type="date"
                     value={schedule.pressCompletedDate}
                     onChange={(e) =>
-                      handleChange(
-                        schedule.id,
-                        "pressCompletedDate",
-                        e.target.value,
-                      )
+                      handleChange(schedule.id, "pressCompletedDate", e.target.value)
                     }
                   />
                 </td>
@@ -509,6 +420,13 @@ export default function ProductionSchedulesPage() {
           </tbody>
         </table>
       </div>
+
+      <Numpad
+        open={numpadTarget !== null}
+        value={currentNumpadValue()}
+        onChange={handleNumpadChange}
+        onClose={() => setNumpadTarget(null)}
+      />
     </div>
   );
 }

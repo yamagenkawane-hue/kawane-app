@@ -1,0 +1,37 @@
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.row {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 56px 48px 1fr 160px;
+  padding: 10px;
+}
+
+.handle {
+  background: #e0f2fe;
+  border: none;
+  border-radius: 8px;
+  color: #0369a1;
+  cursor: grab;
+  font-size: 20px;
+  font-weight: 900;
+  min-height: 44px;
+}
+
+.order,
+.name,
+.subcontractor {
+  color: #111827;
+  font-weight: 800;
+}
+
+.subcontractor {
+  color: #475569;
+}

@@ -44,9 +44,9 @@ const TableHeader = () => {
           梱包
         </th>
 
-        <th rowSpan={2} className={styles.remainingHeader}>
+        {/* <th rowSpan={2} className={styles.remainingHeader}>
           注残
-        </th>
+        </th> */}
 
         <th rowSpan={2} className={styles.progressHeader}>
           工程進捗

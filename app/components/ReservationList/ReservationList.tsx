@@ -633,7 +633,7 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
 
-      <td>{post.orderAmount - Number(packaging)}</td>
+      {/* <td>{post.orderAmount - Number(packaging)}</td> */}
 
       <td>
         <div className={styles.progressArea}>

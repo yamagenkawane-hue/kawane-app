@@ -35,12 +35,12 @@ const menus = [
     icon: <CalendarCheck size={30} />,
   },
   {
-    title: "現場実績登録",
+    title: "実績登録",
     href: "/productionResults",
     icon: <ClipboardPen size={30} />,
   },
   {
-    title: "製造管理",
+    title: "計量実績登録",
     href: "/manufacturing",
     icon: <Factory size={30} />,
   },

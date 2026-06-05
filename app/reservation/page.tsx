@@ -73,10 +73,27 @@ const Reservation = () => {
       return isSearchMatch && isStatusMatch;
     })
 
-    .sort(
-      (a, b) =>
-        new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime(),
-    );
+    .sort((a, b) => {
+      const customerCompare = a.customerName.localeCompare(
+        b.customerName,
+        "ja",
+      );
+
+      if (customerCompare !== 0) {
+        return customerCompare;
+      }
+
+      return (
+        new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime()
+      );
+    });
+
+  console.table(
+    filteredPosts.map((p) => ({
+      customerName: JSON.stringify(p.customerName),
+      orderNo: p.orderNo,
+    })),
+  );
 
   const { paginatedPosts, currentPage, setCurrentPage } = usePagination(
     filteredPosts,

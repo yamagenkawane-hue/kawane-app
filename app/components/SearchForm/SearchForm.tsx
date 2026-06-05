@@ -1,9 +1,7 @@
 "use client";
 
 import React from "react";
-
 import styles from "./page.module.css";
-
 import { SearchProps } from "@/app/type";
 
 const SearchForm: React.FC<SearchProps> = ({ search, setSearch }) => {

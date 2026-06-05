@@ -17,16 +17,9 @@ export default function UserManagerPage() {
 
   const managerName = process.env.NEXT_PUBLIC_MANAGER_ID;
   const managerPass = process.env.NEXT_PUBLIC_MANAGER_PASSWORD;
-  // =========================
-  // Lock判定
-  // =========================
 
   const isLocked = (user: UserType) =>
     user.name === managerName && user.pass === managerPass;
-
-  // =========================
-  // Fetch
-  // =========================
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -53,10 +46,6 @@ export default function UserManagerPage() {
     }
   }, []);
 
-  // =========================
-  // Init
-  // =========================
-
   useEffect(() => {
     const init = async () => {
       await fetchUsers();
@@ -64,20 +53,12 @@ export default function UserManagerPage() {
     init();
   }, [fetchUsers]);
 
-  // =========================
-  // Edit Start
-  // =========================
-
   const startEdit = (user: UserType) => {
     if (isLocked(user)) return; // ロック時は何もしない
     setEditingUser(user);
     setEditName(user.name);
     setEditPass(user.pass);
   };
-
-  // =========================
-  // Save Edit
-  // =========================
 
   const saveEdit = async () => {
     if (!editingUser) return;
@@ -100,13 +81,8 @@ export default function UserManagerPage() {
     }
   };
 
-  // =========================
-  // Move Trash
-  // =========================
-
   const moveTrash = async (user: UserType) => {
-    // 引数をUserTypeに変更
-    if (isLocked(user)) return; // ロック時は何もしない
+    if (isLocked(user)) return;
     try {
       const { error } = await supabase
         .from("user")
@@ -120,10 +96,6 @@ export default function UserManagerPage() {
       console.error("削除エラー", error);
     }
   };
-
-  // =========================
-  // Restore
-  // =========================
 
   const restoreUser = async (id: string) => {
     try {
@@ -139,10 +111,6 @@ export default function UserManagerPage() {
       console.error("復元エラー", error);
     }
   };
-
-  // =========================
-  // Full Delete
-  // =========================
 
   const fullDelete = async (id: string) => {
     const confirmDelete = window.confirm(
@@ -163,7 +131,6 @@ export default function UserManagerPage() {
 
   return (
     <div className={styles.container}>
-      {/* Header */}
       <div className={styles.header}>
         <Link href="/settings" className={styles.backButton}>
           ← Settingsへ戻る
@@ -175,10 +142,8 @@ export default function UserManagerPage() {
         </div>
       </div>
 
-      {/* Loading */}
       {loading && <div className={styles.loading}>Loading...</div>}
 
-      {/* User List */}
       {!loading && (
         <>
           <div className={styles.section}>
@@ -246,7 +211,6 @@ export default function UserManagerPage() {
             </div>
           </div>
 
-          {/* Trash */}
           <div className={styles.section}>
             <h2 className={styles.sectionTitle}>ゴミ箱</h2>
 
@@ -284,7 +248,6 @@ export default function UserManagerPage() {
         </>
       )}
 
-      {/* Edit Modal */}
       {editingUser && (
         <div className={styles.modal}>
           <div className={styles.modalCard}>

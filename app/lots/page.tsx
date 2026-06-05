@@ -111,7 +111,7 @@ export default function LotsPage() {
 
   const handleAdd = async () => {
     if (!productName || !customerName || quantity === "") {
-      alert("製品名、取引先、数量を入力してください");
+      alert("製品名、得意先、数量を入力してください");
       return;
     }
 
@@ -229,7 +229,7 @@ export default function LotsPage() {
         />
         <input
           className={styles.input}
-          placeholder="取引先"
+          placeholder="得意先"
           value={customerName}
           onChange={(e) => setCustomerName(e.target.value)}
         />
@@ -262,7 +262,7 @@ export default function LotsPage() {
               <th>ロットNo</th>
               <th>区分</th>
               <th>製品名</th>
-              <th>取引先</th>
+              <th>得意先</th>
               <th>数量</th>
               <th>状態</th>
               <th>操作</th>

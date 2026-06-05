@@ -1,0 +1,78 @@
+.backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.42);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 1000;
+}
+
+.dialog {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.26);
+  max-width: 360px;
+  padding: 20px;
+  width: 100%;
+}
+
+.display {
+  background: #f8fafc;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  color: #111827;
+  font-size: 32px;
+  font-weight: 900;
+  margin-bottom: 14px;
+  min-height: 64px;
+  overflow: hidden;
+  padding: 14px;
+  text-align: right;
+}
+
+.grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.key,
+.clearKey,
+.cancelButton,
+.enterButton {
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 22px;
+  font-weight: 900;
+  min-height: 64px;
+}
+
+.key {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.clearKey {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.actions {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 14px;
+}
+
+.cancelButton {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.enterButton {
+  background: #2563eb;
+  color: #fff;
+}

@@ -238,6 +238,8 @@ export type ProductionSchedule = {
   planAmount: number;
   pressCompletedAmount: number;
   pressCompletedDate: string;
+  shippingScheduledStart?: string;
+  shippingScheduledEnd?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -297,6 +299,40 @@ export type ShipmentRecord = {
   shippedDate: string;
   shippedAmount: number;
   carryoverAmount: number;
+};
+
+export type Shipment = {
+  id: string;
+  postId: string;
+  orderNo: string;
+  customerName: string;
+  productCode?: string;
+  productName: string;
+  lotNo: string;
+  scheduledDate: string;
+  deliveryDate: string;
+  orderAmount: number;
+  quantity: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Subcontractor = {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProductProcess = {
+  id: string;
+  productCode: string;
+  processName: string;
+  processOrder: number;
+  subcontractorId: string | null;
+  subcontractorName?: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type PostRow = {
