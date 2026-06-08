@@ -5,11 +5,11 @@ import Link from "next/link";
 import { Subcontractor } from "@/app/type";
 import styles from "../masterCommon.module.css";
 
-const mapSubcontractor = (row: Record<string, any>): Subcontractor => ({
-  id: row.id,
-  name: row.name || "",
-  createdAt: row.created_at || "",
-  updatedAt: row.updated_at || "",
+const mapSubcontractor = (row: Record<string, unknown>): Subcontractor => ({
+  id: String(row.id || ""),
+  name: String(row.name || ""),
+  createdAt: String(row.created_at || ""),
+  updatedAt: String(row.updated_at || ""),
 });
 
 export default function SubcontractorsPage() {
@@ -32,7 +32,11 @@ export default function SubcontractorsPage() {
   };
 
   useEffect(() => {
-    void fetchItems();
+    const loadItems = async () => {
+      await fetchItems();
+    };
+
+    void loadItems();
   }, []);
 
   const addItem = async () => {

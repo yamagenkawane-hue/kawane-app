@@ -8,7 +8,7 @@ import styles from "./page.module.css";
 
 const menus = [
   {
-    title: "新規登録",
+    title: "ユーザー登録",
     href: "/newRegistration",
     icon: <UserPlus size={28} />,
   },
@@ -18,7 +18,7 @@ const menus = [
     icon: <Settings size={28} />,
   },
   {
-    title: "製品登録",
+    title: "受注登録",
     href: "/create",
     icon: <PackagePlus size={28} />,
   },

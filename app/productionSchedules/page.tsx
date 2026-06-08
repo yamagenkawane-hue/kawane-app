@@ -21,33 +21,35 @@ type NumpadTarget =
   | { kind: "form"; field: "planAmount" | "pressCompletedAmount" }
   | { kind: "schedule"; id: string; field: "planAmount" | "pressCompletedAmount" };
 
-const mapSchedule = (row: Record<string, any>): ProductionSchedule => ({
-  id: row.id,
-  customerName: row.customer_name || "",
-  productName: row.product_name || "",
-  pressNumber: row.press_number || "",
-  lotNo: row.lot_no || "",
+const mapSchedule = (row: Record<string, unknown>): ProductionSchedule => ({
+  id: String(row.id || ""),
+  customerName: String(row.customer_name || ""),
+  productName: String(row.product_name || ""),
+  pressNumber: String(row.press_number || ""),
+  lotNo: String(row.lot_no || ""),
   planAmount: Number(row.plan_amount || 0),
   pressCompletedAmount: Number(row.press_completed_amount || 0),
-  pressCompletedDate: row.press_completed_date || "",
-  shippingScheduledStart: row.shipping_scheduled_start || "",
-  shippingScheduledEnd: row.shipping_scheduled_end || "",
-  createdAt: row.created_at || "",
-  updatedAt: row.updated_at || "",
+  pressCompletedDate: String(row.press_completed_date || ""),
+  shippingScheduledStart: String(row.shipping_scheduled_start || ""),
+  shippingScheduledEnd: String(row.shipping_scheduled_end || ""),
+  createdAt: String(row.created_at || ""),
+  updatedAt: String(row.updated_at || ""),
 });
 
-const mapPost = (row: Record<string, any>): PostData => ({
-  id: row.id,
-  orderNo: row.order_no || "",
-  lotNo: row.lot_no || "",
-  productName: row.product_name || "",
-  customerName: row.customer_name || "",
+const mapPost = (row: Record<string, unknown>): PostData => ({
+  id: String(row.id || ""),
+  orderNo: String(row.order_no || ""),
+  lotNo: String(row.lot_no || ""),
+  productName: String(row.product_name || ""),
+  customerName: String(row.customer_name || ""),
   orderAmount: Number(row.order_amount || 0),
   remainingAmount: Number(row.remaining_amount || row.order_amount || 0),
-  status: row.status || "",
-  deliveryDate: row.delivery_date || "",
-  completionScheduledDate: row.completion_scheduled_date || row.delivery_date || "",
-  remark: row.remark || "",
+  status: String(row.status || ""),
+  deliveryDate: String(row.delivery_date || ""),
+  completionScheduledDate: String(
+    row.completion_scheduled_date || row.delivery_date || "",
+  ),
+  remark: String(row.remark || ""),
 });
 
 export default function ProductionSchedulesPage() {
@@ -84,7 +86,11 @@ export default function ProductionSchedulesPage() {
   };
 
   useEffect(() => {
-    void fetchSchedules();
+    const loadSchedules = async () => {
+      await fetchSchedules();
+    };
+
+    void loadSchedules();
   }, []);
 
   const handleNumpadChange = (value: string) => {

@@ -18,20 +18,20 @@ type ShippingPost = PostData & {
 
 const formatDate = (date: Date) => date.toISOString().slice(0, 10);
 
-const mapShipment = (row: Record<string, any>): Shipment => ({
-  id: row.id,
-  postId: row.post_id || "",
-  orderNo: row.order_no || "",
-  customerName: row.customer_name || "",
-  productCode: row.product_code || "",
-  productName: row.product_name || "",
-  lotNo: row.lot_no || "",
-  scheduledDate: row.scheduled_date || "",
-  deliveryDate: row.delivery_date || "",
+const mapShipment = (row: Record<string, unknown>): Shipment => ({
+  id: String(row.id || ""),
+  postId: String(row.post_id || ""),
+  orderNo: String(row.order_no || ""),
+  customerName: String(row.customer_name || ""),
+  productCode: String(row.product_code || ""),
+  productName: String(row.product_name || ""),
+  lotNo: String(row.lot_no || ""),
+  scheduledDate: String(row.scheduled_date || ""),
+  deliveryDate: String(row.delivery_date || ""),
   orderAmount: Number(row.order_amount || 0),
   quantity: Number(row.quantity || 0),
-  createdAt: row.created_at || "",
-  updatedAt: row.updated_at || "",
+  createdAt: String(row.created_at || ""),
+  updatedAt: String(row.updated_at || ""),
 });
 
 export default function ShippingPage() {
@@ -116,7 +116,11 @@ export default function ShippingPage() {
   };
 
   useEffect(() => {
-    void fetchData();
+    const loadData = async () => {
+      await fetchData();
+    };
+
+    void loadData();
   }, []);
 
   const visiblePosts = useMemo(

@@ -50,6 +50,18 @@ const settingsMenus = [
     icon: <Package size={34} />,
   },
   {
+    title: "外注先マスタ",
+    text: "外注工程で使用する取引先を管理",
+    href: "/subcontractors",
+    icon: <Factory size={34} />,
+  },
+  {
+    title: "製品工程マスタ",
+    text: "製品ごとの工程順と外注先を管理",
+    href: "/productProcesses",
+    icon: <Settings2 size={34} />,
+  },
+  {
     title: "材料マスタ",
     text: "製造で使用する材料情報を管理",
     href: "/materialMaster",

@@ -91,3 +91,28 @@
 .dangerRow:hover {
   background: #fecaca !important;
 }
+
+.confirmButton {
+  background: #16a34a;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+  padding: 8px 14px;
+}
+
+.confirmButton:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.confirmedBadge {
+  background: #dbeafe;
+  border-radius: 999px;
+  color: #1d4ed8;
+  display: inline-block;
+  font-weight: bold;
+  padding: 7px 12px;
+  white-space: nowrap;
+}

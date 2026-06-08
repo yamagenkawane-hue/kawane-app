@@ -100,6 +100,16 @@
   font-weight: 700;
 }
 
+.message {
+  background: #ecfdf5;
+  border: 1px solid #86efac;
+  border-radius: 10px;
+  color: #166534;
+  font-weight: 800;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+}
+
 .tableCard {
   overflow-x: auto;
 }

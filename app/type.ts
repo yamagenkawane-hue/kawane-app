@@ -126,6 +126,7 @@ export type PostData = {
   id: string;
   orderNo: string;
   lotNo?: string;
+  productCode?: string;
   productName: string;
   customerName: string;
   orderAmount: number;
@@ -267,6 +268,7 @@ export type ProductMaster = {
   id: string;
   productCode: string;
   productName: string;
+  customerName: string;
   standard: string;
   unit: string;
 };
@@ -315,6 +317,16 @@ export type Shipment = {
   quantity: number;
   createdAt: string;
   updatedAt: string;
+};
+
+export type InventoryAllocation = {
+  id: string;
+  postId: string;
+  inventoryItemId: string | null;
+  productCode: string;
+  lotNo: string;
+  allocatedAmount: number;
+  confirmedAt: string;
 };
 
 export type Subcontractor = {
