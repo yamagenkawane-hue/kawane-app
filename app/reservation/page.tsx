@@ -14,6 +14,21 @@ import { useReservationDelete } from "../utills/useReservationDelete";
 
 const itemsPerPage = 7;
 
+const customerNameCollator = new Intl.Collator("ja", {
+  numeric: true,
+  sensitivity: "base",
+});
+
+const getCustomerSortKey = (customerName: string) =>
+  customerName
+    .trim()
+    .replaceAll(/\s+/g, "")
+    .replaceAll("株式会社", "かぶしきがいしゃ")
+    .replaceAll("有限会社", "ゆうげんがいしゃ")
+    .replaceAll("合同会社", "ごうどうがいしゃ")
+    .replaceAll("合資会社", "ごうしがいしゃ")
+    .replaceAll("合名会社", "ごうめいがいしゃ");
+
 const Reservation = () => {
   const { posts, setShouldFetch } = useFetchPosts();
   const [statusFilter, setStatusFilter] = useState("全件");
@@ -22,6 +37,9 @@ const Reservation = () => {
   const filteredPosts = posts
     .filter((post) => {
       if (post.delete) {
+        return false;
+      }
+      if (Number(post.shippedAmount || 0) >= Number(post.orderAmount || 0)) {
         return false;
       }
 
@@ -74,9 +92,9 @@ const Reservation = () => {
     })
 
     .sort((a, b) => {
-      const customerCompare = a.customerName.localeCompare(
-        b.customerName,
-        "ja",
+      const customerCompare = customerNameCollator.compare(
+        getCustomerSortKey(a.customerName),
+        getCustomerSortKey(b.customerName),
       );
 
       if (customerCompare !== 0) {

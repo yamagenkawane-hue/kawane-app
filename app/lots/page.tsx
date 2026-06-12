@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
 import { Lot } from "@/app/type";
 import styles from "./page.module.css";
 
 type LotType = Lot["lotType"];
+type NumpadTarget = { kind: "form" } | { kind: "lot"; id: string } | null;
 
 const lotTypeLabels: Record<LotType, string> = {
   normal: "通常",
@@ -28,6 +30,7 @@ export default function LotsPage() {
   const [quantity, setQuantity] = useState<number | "">("");
   const [status, setStatus] = useState("計画中");
   const [loading, setLoading] = useState(false);
+  const [numpadTarget, setNumpadTarget] = useState<NumpadTarget>(null);
 
   const nextLotNo = useMemo(() => {
     const prefix = prefixMap[lotType];
@@ -198,6 +201,25 @@ export default function LotsPage() {
     );
   };
 
+  const currentNumpadValue = () => {
+    if (!numpadTarget) return "";
+    if (numpadTarget.kind === "form") return quantity === "" ? "" : String(quantity);
+    const lot = lots.find((item) => item.id === numpadTarget.id);
+    return lot ? String(lot.quantity || "") : "";
+  };
+
+  const handleNumpadChange = (value: string) => {
+    const nextValue = value === "" ? "" : Number(value);
+
+    if (!numpadTarget) return;
+    if (numpadTarget.kind === "form") {
+      setQuantity(nextValue);
+      return;
+    }
+
+    handleLotChange(numpadTarget.id, "quantity", nextValue === "" ? 0 : nextValue);
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
@@ -235,9 +257,10 @@ export default function LotsPage() {
         />
         <input
           className={styles.input}
-          type="number"
+          inputMode="numeric"
           placeholder="数量"
           value={quantity}
+          onFocus={() => setNumpadTarget({ kind: "form" })}
           onChange={(e) =>
             setQuantity(e.target.value === "" ? "" : Number(e.target.value))
           }
@@ -316,8 +339,9 @@ export default function LotsPage() {
                 <td>
                   <input
                     className={styles.tableInput}
-                    type="number"
+                    inputMode="numeric"
                     value={lot.quantity}
+                    onFocus={() => setNumpadTarget({ kind: "lot", id: lot.id })}
                     onChange={(e) =>
                       handleLotChange(
                         lot.id,
@@ -355,6 +379,13 @@ export default function LotsPage() {
           </tbody>
         </table>
       </div>
+
+      <Numpad
+        open={numpadTarget !== null}
+        value={currentNumpadValue()}
+        onChange={handleNumpadChange}
+        onClose={() => setNumpadTarget(null)}
+      />
     </div>
   );
 }

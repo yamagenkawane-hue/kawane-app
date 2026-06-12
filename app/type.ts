@@ -40,6 +40,7 @@ export type Post = {
   measurementAmount: number;
   packagingDate: string;
   packagingAmount: number;
+  shippedAmount?: number;
   remainingAmount: number;
   deliveryDate: string;
   completionScheduledDate?: string;
@@ -232,6 +233,7 @@ export type ProcessResult = {
 
 export type ProductionSchedule = {
   id: string;
+  orderNo?: string;
   customerName: string;
   productName: string;
   pressNumber: string;
@@ -287,6 +289,7 @@ export type InventoryItem = {
   productName: string;
   lotNo: string;
   currentStock: number;
+  allocatedStock: number;
   updatedAt: string;
 };
 
@@ -326,6 +329,7 @@ export type InventoryAllocation = {
   productCode: string;
   lotNo: string;
   allocatedAmount: number;
+  shippedAmount: number;
   confirmedAt: string;
 };
 

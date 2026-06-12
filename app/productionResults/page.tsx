@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
 import {
   PostData,
@@ -23,6 +24,7 @@ export default function ProductionResultsPage() {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [amount, setAmount] = useState<number | "">("");
   const [loading, setLoading] = useState(false);
+  const [numpadOpen, setNumpadOpen] = useState(false);
 
   const selectedSchedule = useMemo(
     () => schedules.find((item) => item.id === scheduleId),
@@ -344,9 +346,10 @@ export default function ProductionResultsPage() {
 
         <input
           className={styles.input}
-          type="number"
+          inputMode="numeric"
           placeholder="数量"
           value={amount}
+          onFocus={() => setNumpadOpen(true)}
           onChange={(e) =>
             setAmount(e.target.value === "" ? "" : Number(e.target.value))
           }
@@ -404,6 +407,13 @@ export default function ProductionResultsPage() {
           </tbody>
         </table>
       </div>
+
+      <Numpad
+        open={numpadOpen}
+        value={amount === "" ? "" : String(amount)}
+        onChange={(value) => setAmount(value === "" ? "" : Number(value))}
+        onClose={() => setNumpadOpen(false)}
+      />
     </div>
   );
 }

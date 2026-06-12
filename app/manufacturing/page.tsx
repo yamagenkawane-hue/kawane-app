@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
 import { ProductionSchedule } from "@/app/type";
 import styles from "../masterCommon.module.css";
@@ -11,6 +12,7 @@ export default function ManufacturingPage() {
   const [scheduleId, setScheduleId] = useState("");
   const [finalQuantity, setFinalQuantity] = useState<number | "">("");
   const [lotNo, setLotNo] = useState("");
+  const [numpadOpen, setNumpadOpen] = useState(false);
 
   const selected = schedules.find((item) => item.id === scheduleId);
 
@@ -128,7 +130,7 @@ export default function ManufacturingPage() {
 
     setFinalQuantity("");
     await fetchSchedules();
-    alert("製造実績と在庫を更新しました");
+    alert("計量実績と在庫を更新しました");
   };
 
   return (
@@ -137,7 +139,7 @@ export default function ManufacturingPage() {
         <Link href="/" className={styles.backButton}>
           ← トップへ戻る
         </Link>
-        <h1 className={styles.title}>製造管理</h1>
+        <h1 className={styles.title}>計量登録</h1>
       </div>
 
       <div className={styles.formCard}>
@@ -171,9 +173,10 @@ export default function ManufacturingPage() {
           />
           <input
             className={styles.input}
-            type="number"
+            inputMode="numeric"
             placeholder="計量後の最終確定数量"
             value={finalQuantity}
+            onFocus={() => setNumpadOpen(true)}
             onChange={(e) =>
               setFinalQuantity(
                 e.target.value === "" ? "" : Number(e.target.value),
@@ -208,6 +211,15 @@ export default function ManufacturingPage() {
           </div>
         </div>
       )}
+
+      <Numpad
+        open={numpadOpen}
+        value={finalQuantity === "" ? "" : String(finalQuantity)}
+        onChange={(value) =>
+          setFinalQuantity(value === "" ? "" : Number(value))
+        }
+        onClose={() => setNumpadOpen(false)}
+      />
     </div>
   );
 }

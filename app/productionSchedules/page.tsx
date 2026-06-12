@@ -8,6 +8,7 @@ import { PostData, ProductionSchedule } from "@/app/type";
 import styles from "./page.module.css";
 
 const emptyForm = {
+  orderNo: "",
   customerName: "",
   productName: "",
   pressNumber: "",
@@ -21,8 +22,14 @@ type NumpadTarget =
   | { kind: "form"; field: "planAmount" | "pressCompletedAmount" }
   | { kind: "schedule"; id: string; field: "planAmount" | "pressCompletedAmount" };
 
+type EditingRow =
+  | { kind: "post"; id: string }
+  | { kind: "schedule"; id: string }
+  | null;
+
 const mapSchedule = (row: Record<string, unknown>): ProductionSchedule => ({
   id: String(row.id || ""),
+  orderNo: String(row.order_no || ""),
   customerName: String(row.customer_name || ""),
   productName: String(row.product_name || ""),
   pressNumber: String(row.press_number || ""),
@@ -52,12 +59,35 @@ const mapPost = (row: Record<string, unknown>): PostData => ({
   remark: String(row.remark || ""),
 });
 
+const formatDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
+};
+
+const createScheduleNo = (schedules: ProductionSchedule[]) => {
+  const todayKey = formatDateKey(new Date());
+  const prefix = `PS-${todayKey}-`;
+  const maxSequence = schedules.reduce((max, schedule) => {
+    if (!schedule.orderNo?.startsWith(prefix)) return max;
+    const sequence = Number(schedule.orderNo.slice(prefix.length));
+    return Number.isFinite(sequence) ? Math.max(max, sequence) : max;
+  }, 0);
+
+  return `${prefix}${String(maxSequence + 1).padStart(3, "0")}`;
+};
+
 export default function ProductionSchedulesPage() {
   const [schedules, setSchedules] = useState<ProductionSchedule[]>([]);
   const [orderSchedules, setOrderSchedules] = useState<PostData[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
   const [numpadTarget, setNumpadTarget] = useState<NumpadTarget | null>(null);
+  const [editingRow, setEditingRow] = useState<EditingRow>(null);
+
+  const isEditing = (kind: "post" | "schedule", id: string) =>
+    editingRow?.kind === kind && editingRow.id === id;
 
   const fetchSchedules = async () => {
     try {
@@ -126,12 +156,14 @@ export default function ProductionSchedulesPage() {
 
     try {
       setLoading(true);
+      const orderNo = form.orderNo || createScheduleNo(schedules);
       const response = await fetch("/api/daily-production", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customer_name: form.customerName,
           product_name: form.productName,
+          order_no: orderNo,
           press_number: form.pressNumber,
           lot_no: form.lotNo,
           plan_amount: Number(form.planAmount),
@@ -164,13 +196,27 @@ export default function ProductionSchedulesPage() {
     );
   };
 
+  const handlePostChange = (
+    id: string,
+    field: keyof PostData,
+    value: string | number,
+  ) => {
+    setOrderSchedules((prev) =>
+      prev.map((post) =>
+        post.id === id ? { ...post, [field]: value } : post,
+      ),
+    );
+  };
+
   const handleSave = async (schedule: ProductionSchedule) => {
     try {
       setLoading(true);
+      const orderNo = schedule.orderNo || createScheduleNo(schedules);
 
       const { error } = await supabase
         .from("production_schedules")
         .update({
+          order_no: orderNo,
           customer_name: schedule.customerName,
           product_name: schedule.productName,
           press_number: schedule.pressNumber,
@@ -183,6 +229,51 @@ export default function ProductionSchedulesPage() {
         .eq("id", schedule.id);
 
       if (error) throw error;
+
+      if (orderNo && schedule.pressCompletedDate && !orderNo.startsWith("PS-")) {
+        const { error: postError } = await supabase
+          .from("posts")
+          .update({
+            completion_scheduled_date: schedule.pressCompletedDate,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("order_no", orderNo);
+
+        if (postError) throw postError;
+      }
+
+      setEditingRow(null);
+      await fetchSchedules();
+    } catch (error) {
+      console.error(error);
+      alert("生産予定の保存に失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePostSave = async (post: PostData) => {
+    try {
+      setLoading(true);
+
+      const { error } = await supabase
+        .from("posts")
+        .update({
+          order_no: post.orderNo,
+          customer_name: post.customerName,
+          product_name: post.productName,
+          lot_no: post.lotNo || null,
+          order_amount: Number(post.remainingAmount || post.orderAmount || 0),
+          completion_scheduled_date:
+            post.completionScheduledDate || post.deliveryDate || null,
+          delivery_date: post.deliveryDate || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", post.id);
+
+      if (error) throw error;
+
+      setEditingRow(null);
       await fetchSchedules();
     } catch (error) {
       console.error(error);
@@ -212,6 +303,35 @@ export default function ProductionSchedulesPage() {
     }
   };
 
+  const handlePostDelete = async (id: string) => {
+    if (!confirm("この受注を生産予定画面から外しますか？")) return;
+
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from("posts")
+        .update({
+          shipping_scheduled_start: null,
+          shipping_scheduled_end: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+
+      if (error) throw error;
+      await fetchSchedules();
+    } catch (error) {
+      console.error(error);
+      alert("生産予定からの削除に失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    setEditingRow(null);
+    await fetchSchedules();
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
@@ -223,6 +343,12 @@ export default function ProductionSchedulesPage() {
 
       <div className={styles.formCard}>
         <div className={styles.formGrid}>
+          <input
+            className={styles.input}
+            placeholder="注番"
+            value={form.orderNo}
+            onChange={(e) => setForm({ ...form, orderNo: e.target.value })}
+          />
           <input
             className={styles.input}
             placeholder="得意先"
@@ -288,6 +414,7 @@ export default function ProductionSchedulesPage() {
           <thead>
             <tr>
               <th>種別</th>
+              <th>注番</th>
               <th>得意先</th>
               <th>製品名</th>
               <th>プレス機No</th>
@@ -300,31 +427,153 @@ export default function ProductionSchedulesPage() {
             </tr>
           </thead>
           <tbody>
-            {orderSchedules.map((post) => (
-              <tr key={`post-${post.id}`} className={styles.autoRow}>
-                <td>
-                  <span className={styles.sourceBadge}>注残</span>
-                </td>
-                <td>{post.customerName}</td>
-                <td>{post.productName}</td>
-                <td>{post.orderNo}</td>
-                <td>{post.lotNo || "-"}</td>
-                <td>{post.remainingAmount}</td>
-                <td>-</td>
-                <td>-</td>
-                <td>{post.deliveryDate || "-"}</td>
-                <td className={styles.readOnlyText}>自動表示</td>
-              </tr>
-            ))}
+            {orderSchedules.map((post) => {
+              const editing = isEditing("post", post.id);
 
-            {schedules.map((schedule) => (
+              return (
+                <tr key={`post-${post.id}`} className={styles.autoRow}>
+                  <td>
+                    <span className={styles.sourceBadge}>注残</span>
+                  </td>
+                  <td>
+                    <input
+                      className={`${styles.tableInput} ${styles.orderInput}`}
+                      disabled={!editing}
+                      value={post.orderNo}
+                      onChange={(e) =>
+                        handlePostChange(post.id, "orderNo", e.target.value)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className={`${styles.tableInput} ${styles.customerInput}`}
+                      disabled={!editing}
+                      value={post.customerName}
+                      onChange={(e) =>
+                        handlePostChange(post.id, "customerName", e.target.value)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className={`${styles.tableInput} ${styles.productInput}`}
+                      disabled={!editing}
+                      value={post.productName}
+                      onChange={(e) =>
+                        handlePostChange(post.id, "productName", e.target.value)
+                      }
+                    />
+                  </td>
+                  <td>-</td>
+                  <td>
+                    <input
+                      className={`${styles.tableInput} ${styles.lotInput}`}
+                      disabled={!editing}
+                      value={post.lotNo || ""}
+                      onChange={(e) =>
+                        handlePostChange(post.id, "lotNo", e.target.value)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className={`${styles.tableInput} ${styles.numberInput}`}
+                      disabled={!editing}
+                      inputMode="numeric"
+                      value={post.remainingAmount || ""}
+                      onChange={(e) =>
+                        handlePostChange(
+                          post.id,
+                          "remainingAmount",
+                          Number(e.target.value),
+                        )
+                      }
+                    />
+                  </td>
+                  <td>-</td>
+                  <td>
+                    <input
+                      className={`${styles.tableInput} ${styles.dateInput}`}
+                      disabled={!editing}
+                      type="date"
+                      value={post.completionScheduledDate || ""}
+                      onChange={(e) =>
+                        handlePostChange(
+                          post.id,
+                          "completionScheduledDate",
+                          e.target.value,
+                        )
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className={`${styles.tableInput} ${styles.dateInput}`}
+                      disabled={!editing}
+                      type="date"
+                      value={post.deliveryDate || ""}
+                      onChange={(e) =>
+                        handlePostChange(post.id, "deliveryDate", e.target.value)
+                      }
+                    />
+                  </td>
+                  <td className={styles.actionArea}>
+                    {editing ? (
+                      <>
+                        <button
+                          className={styles.saveButton}
+                          onClick={() => handlePostSave(post)}
+                        >
+                          保存
+                        </button>
+                        <button className={styles.cancelButton} onClick={handleCancel}>
+                          キャンセル
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className={styles.editButton}
+                          onClick={() => setEditingRow({ kind: "post", id: post.id })}
+                        >
+                          編集
+                        </button>
+                        <button
+                          className={styles.deleteButton}
+                          onClick={() => handlePostDelete(post.id)}
+                        >
+                          削除
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+
+            {schedules.map((schedule) => {
+              const editing = isEditing("schedule", schedule.id);
+
+              return (
               <tr key={schedule.id}>
                 <td>
                   <span className={styles.manualBadge}>手入力</span>
                 </td>
                 <td>
                   <input
-                    className={styles.tableInput}
+                    className={`${styles.tableInput} ${styles.orderInput}`}
+                    disabled={!editing}
+                    value={schedule.orderNo || ""}
+                    onChange={(e) =>
+                      handleChange(schedule.id, "orderNo", e.target.value)
+                    }
+                  />
+                </td>
+                <td>
+                  <input
+                    className={`${styles.tableInput} ${styles.customerInput}`}
+                    disabled={!editing}
                     value={schedule.customerName}
                     onChange={(e) =>
                       handleChange(schedule.id, "customerName", e.target.value)
@@ -333,7 +582,8 @@ export default function ProductionSchedulesPage() {
                 </td>
                 <td>
                   <input
-                    className={styles.tableInput}
+                    className={`${styles.tableInput} ${styles.productInput}`}
+                    disabled={!editing}
                     value={schedule.productName}
                     onChange={(e) =>
                       handleChange(schedule.id, "productName", e.target.value)
@@ -342,7 +592,8 @@ export default function ProductionSchedulesPage() {
                 </td>
                 <td>
                   <input
-                    className={styles.tableInput}
+                    className={`${styles.tableInput} ${styles.pressInput}`}
+                    disabled={!editing}
                     value={schedule.pressNumber}
                     onChange={(e) =>
                       handleChange(schedule.id, "pressNumber", e.target.value)
@@ -351,7 +602,8 @@ export default function ProductionSchedulesPage() {
                 </td>
                 <td>
                   <input
-                    className={styles.tableInput}
+                    className={`${styles.tableInput} ${styles.lotInput}`}
+                    disabled={!editing}
                     value={schedule.lotNo}
                     onChange={(e) =>
                       handleChange(schedule.id, "lotNo", e.target.value)
@@ -360,10 +612,12 @@ export default function ProductionSchedulesPage() {
                 </td>
                 <td>
                   <input
-                    className={styles.tableInput}
+                    className={`${styles.tableInput} ${styles.numberInput}`}
+                    disabled={!editing}
                     inputMode="numeric"
                     value={schedule.planAmount || ""}
                     onFocus={() =>
+                      editing &&
                       setNumpadTarget({
                         kind: "schedule",
                         id: schedule.id,
@@ -377,10 +631,12 @@ export default function ProductionSchedulesPage() {
                 </td>
                 <td>
                   <input
-                    className={styles.tableInput}
+                    className={`${styles.tableInput} ${styles.numberInput}`}
+                    disabled={!editing}
                     inputMode="numeric"
                     value={schedule.pressCompletedAmount || ""}
                     onFocus={() =>
+                      editing &&
                       setNumpadTarget({
                         kind: "schedule",
                         id: schedule.id,
@@ -398,7 +654,8 @@ export default function ProductionSchedulesPage() {
                 </td>
                 <td>
                   <input
-                    className={styles.tableInput}
+                    className={`${styles.tableInput} ${styles.dateInput}`}
+                    disabled={!editing}
                     type="date"
                     value={schedule.pressCompletedDate}
                     onChange={(e) =>
@@ -408,21 +665,40 @@ export default function ProductionSchedulesPage() {
                 </td>
                 <td>-</td>
                 <td className={styles.actionArea}>
-                  <button
-                    className={styles.saveButton}
-                    onClick={() => handleSave(schedule)}
-                  >
-                    保存
-                  </button>
-                  <button
-                    className={styles.deleteButton}
-                    onClick={() => handleDelete(schedule.id)}
-                  >
-                    削除
-                  </button>
+                  {editing ? (
+                    <>
+                      <button
+                        className={styles.saveButton}
+                        onClick={() => handleSave(schedule)}
+                      >
+                        保存
+                      </button>
+                      <button className={styles.cancelButton} onClick={handleCancel}>
+                        キャンセル
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        className={styles.editButton}
+                        onClick={() =>
+                          setEditingRow({ kind: "schedule", id: schedule.id })
+                        }
+                      >
+                        編集
+                      </button>
+                      <button
+                        className={styles.deleteButton}
+                        onClick={() => handleDelete(schedule.id)}
+                      >
+                        削除
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

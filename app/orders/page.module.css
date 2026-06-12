@@ -116,3 +116,9 @@
   padding: 7px 12px;
   white-space: nowrap;
 }
+
+.noInventoryText {
+  color: #64748b;
+  font-weight: bold;
+  white-space: nowrap;
+}

@@ -7,6 +7,8 @@ import supabase from "@/lib/supabase";
 import { ProductMaster, ProductProcess, Subcontractor } from "@/app/type";
 import styles from "../masterCommon.module.css";
 
+const processOrderOptions = Array.from({ length: 50 }, (_, index) => index + 1);
+
 const mapProduct = (row: Record<string, unknown>): ProductMaster => ({
   id: String(row.id || ""),
   productCode: String(row.product_code || ""),
@@ -78,7 +80,15 @@ export default function ProductProcessesPage() {
       setProcesses((await processResponse.json()).map(mapProcess));
 
       if (!form.productCode && productRows[0]) {
-        setForm((prev) => ({ ...prev, productCode: productRows[0].productCode }));
+        setForm((prev) => ({
+          ...prev,
+          productCode: productRows[0].productCode,
+          processOrder: Math.min(
+            50,
+            processes.filter((p) => p.productCode === productRows[0].productCode)
+              .length + 1,
+          ),
+        }));
       }
     } catch (error) {
       console.error(error);
@@ -121,7 +131,7 @@ export default function ProductProcessesPage() {
     setForm((prev) => ({
       ...prev,
       processName: "",
-      processOrder: selectedProcesses.length + 2,
+      processOrder: Math.min(50, selectedProcesses.length + 2),
       subcontractorId: "",
     }));
     await fetchData();
@@ -189,8 +199,8 @@ export default function ProductProcessesPage() {
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
-        <Link href="/settings" className={styles.backButton}>
-          ← 設定へ戻る
+        <Link href="/masterSettings" className={styles.backButton}>
+          ← マスタ設定に戻る
         </Link>
         <h1 className={styles.title}>製品工程マスタ</h1>
       </div>
@@ -204,8 +214,10 @@ export default function ProductProcessesPage() {
               setForm({
                 ...form,
                 productCode: e.target.value,
-                processOrder:
+                processOrder: Math.min(
+                  50,
                   processes.filter((p) => p.productCode === e.target.value).length + 1,
+                ),
               })
             }
           >
@@ -222,15 +234,19 @@ export default function ProductProcessesPage() {
             value={form.processName}
             onChange={(e) => setForm({ ...form, processName: e.target.value })}
           />
-          <input
-            className={styles.input}
-            min={1}
-            type="number"
+          <select
+            className={styles.select}
             value={form.processOrder}
             onChange={(e) =>
               setForm({ ...form, processOrder: Number(e.target.value) })
             }
-          />
+          >
+            {processOrderOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
           <select
             className={styles.select}
             value={form.subcontractorId}
@@ -290,14 +306,19 @@ export default function ProductProcessesPage() {
               <tr key={process.id}>
                 <td>{process.productCode}</td>
                 <td>
-                  <input
-                    className={styles.tableInput}
-                    type="number"
+                  <select
+                    className={styles.select}
                     value={process.processOrder}
                     onChange={(e) =>
                       updateProcess(process.id, "processOrder", Number(e.target.value))
                     }
-                  />
+                  >
+                    {processOrderOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
                 </td>
                 <td>
                   <input

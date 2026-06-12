@@ -2,9 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
 import { InventoryItem } from "@/app/type";
 import styles from "../masterCommon.module.css";
+
+type NumpadTarget =
+  | { kind: "form"; field: "currentStock" | "allocatedStock" }
+  | { kind: "item"; id: string; field: "currentStock" | "allocatedStock" }
+  | null;
 
 export default function InventoryMasterPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -13,7 +19,9 @@ export default function InventoryMasterPage() {
     productName: "",
     lotNo: "",
     currentStock: 0,
+    allocatedStock: 0,
   });
+  const [numpadTarget, setNumpadTarget] = useState<NumpadTarget>(null);
 
   const fetchItems = async () => {
     const { data, error } = await supabase
@@ -31,6 +39,7 @@ export default function InventoryMasterPage() {
         productName: row.product_name || "",
         lotNo: row.lot_no || "",
         currentStock: row.current_stock || 0,
+        allocatedStock: row.allocated_stock || 0,
         updatedAt: row.updated_at || "",
       })),
     );
@@ -56,6 +65,7 @@ export default function InventoryMasterPage() {
         productName: row.product_name || "",
         lotNo: row.lot_no || "",
         currentStock: row.current_stock || 0,
+        allocatedStock: row.allocated_stock || 0,
         updatedAt: row.updated_at || "",
       }));
 
@@ -75,9 +85,16 @@ export default function InventoryMasterPage() {
       product_name: form.productName,
       lot_no: form.lotNo,
       current_stock: Number(form.currentStock),
+      allocated_stock: Number(form.allocatedStock),
       updated_at: new Date().toISOString(),
     });
-    setForm({ productCode: "", productName: "", lotNo: "", currentStock: 0 });
+    setForm({
+      productCode: "",
+      productName: "",
+      lotNo: "",
+      currentStock: 0,
+      allocatedStock: 0,
+    });
     await fetchItems();
   };
 
@@ -99,17 +116,40 @@ export default function InventoryMasterPage() {
         product_name: item.productName,
         lot_no: item.lotNo,
         current_stock: Number(item.currentStock),
+        allocated_stock: Number(item.allocatedStock),
         updated_at: new Date().toISOString(),
       })
       .eq("id", item.id);
     await fetchItems();
   };
 
+  const currentNumpadValue = () => {
+    if (!numpadTarget) return "";
+    if (numpadTarget.kind === "form") {
+      return String(form[numpadTarget.field] || "");
+    }
+
+    const item = items.find((row) => row.id === numpadTarget.id);
+    return item ? String(item[numpadTarget.field] || "") : "";
+  };
+
+  const handleNumpadChange = (value: string) => {
+    const nextValue = Number(value || 0);
+    if (!numpadTarget) return;
+
+    if (numpadTarget.kind === "form") {
+      setForm((prev) => ({ ...prev, [numpadTarget.field]: nextValue }));
+      return;
+    }
+
+    updateItem(numpadTarget.id, numpadTarget.field, nextValue);
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
-        <Link href="/settings" className={styles.backButton}>
-          ← 設定へ戻る
+        <Link href="/masterSettings" className={styles.backButton}>
+          ← マスタ設定に戻る
         </Link>
         <h1 className={styles.title}>在庫マスタ</h1>
       </div>
@@ -135,11 +175,26 @@ export default function InventoryMasterPage() {
           />
           <input
             className={styles.input}
-            type="number"
+            inputMode="numeric"
             placeholder="現在庫数"
             value={form.currentStock}
+            onFocus={() =>
+              setNumpadTarget({ kind: "form", field: "currentStock" })
+            }
             onChange={(e) =>
               setForm({ ...form, currentStock: Number(e.target.value) })
+            }
+          />
+          <input
+            className={styles.input}
+            inputMode="numeric"
+            placeholder="引当済み数"
+            value={form.allocatedStock}
+            onFocus={() =>
+              setNumpadTarget({ kind: "form", field: "allocatedStock" })
+            }
+            onChange={(e) =>
+              setForm({ ...form, allocatedStock: Number(e.target.value) })
             }
           />
         </div>
@@ -157,6 +212,8 @@ export default function InventoryMasterPage() {
               <th>製品名</th>
               <th>ロットNo</th>
               <th>現在庫数</th>
+              <th>引当済み数</th>
+              <th>引当可能数</th>
               <th>更新日時</th>
               <th>操作</th>
             </tr>
@@ -194,8 +251,15 @@ export default function InventoryMasterPage() {
                 <td>
                   <input
                     className={styles.tableInput}
-                    type="number"
+                    inputMode="numeric"
                     value={item.currentStock}
+                    onFocus={() =>
+                      setNumpadTarget({
+                        kind: "item",
+                        id: item.id,
+                        field: "currentStock",
+                      })
+                    }
                     onChange={(e) =>
                       updateItem(
                         item.id,
@@ -204,6 +268,33 @@ export default function InventoryMasterPage() {
                       )
                     }
                   />
+                </td>
+                <td>
+                  <input
+                    className={styles.tableInput}
+                    inputMode="numeric"
+                    value={item.allocatedStock}
+                    onFocus={() =>
+                      setNumpadTarget({
+                        kind: "item",
+                        id: item.id,
+                        field: "allocatedStock",
+                      })
+                    }
+                    onChange={(e) =>
+                      updateItem(
+                        item.id,
+                        "allocatedStock",
+                        Number(e.target.value),
+                      )
+                    }
+                  />
+                </td>
+                <td>
+                  {Math.max(
+                    0,
+                    Number(item.currentStock) - Number(item.allocatedStock),
+                  )}
                 </td>
                 <td>{item.updatedAt ? item.updatedAt.slice(0, 16) : "-"}</td>
                 <td className={styles.actionArea}>
@@ -219,6 +310,13 @@ export default function InventoryMasterPage() {
           </tbody>
         </table>
       </div>
+
+      <Numpad
+        open={numpadTarget !== null}
+        value={currentNumpadValue()}
+        onChange={handleNumpadChange}
+        onClose={() => setNumpadTarget(null)}
+      />
     </div>
   );
 }

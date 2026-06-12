@@ -80,8 +80,8 @@ export default function SubcontractorsPage() {
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
-        <Link href="/settings" className={styles.backButton}>
-          ← 設定へ戻る
+        <Link href="/masterSettings" className={styles.backButton}>
+          ← マスタ設定に戻る
         </Link>
         <h1 className={styles.title}>外注先マスタ</h1>
       </div>

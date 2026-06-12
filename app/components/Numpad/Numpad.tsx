@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import styles from "./page.module.css";
 
 type NumpadProps = {
@@ -12,8 +13,6 @@ type NumpadProps = {
 const keys = ["7", "8", "9", "4", "5", "6", "1", "2", "3", "0", ".", "C"];
 
 export default function Numpad({ value, onChange, onClose, open }: NumpadProps) {
-  if (!open) return null;
-
   const handlePress = (key: string) => {
     if (key === "C") {
       onChange("");
@@ -23,6 +22,52 @@ export default function Numpad({ value, onChange, onClose, open }: NumpadProps) 
     if (key === "." && value.includes(".")) return;
     onChange(`${value}${key}`);
   };
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (/^[0-9]$/.test(event.key)) {
+        event.preventDefault();
+        onChange(`${value}${event.key}`);
+        return;
+      }
+
+      if (event.key === "." && !value.includes(".")) {
+        event.preventDefault();
+        onChange(`${value}.`);
+        return;
+      }
+
+      if (event.key === "Backspace") {
+        event.preventDefault();
+        onChange(value.slice(0, -1));
+        return;
+      }
+
+      if (event.key === "Delete" || event.key.toLowerCase() === "c") {
+        event.preventDefault();
+        onChange("");
+        return;
+      }
+
+      if (event.key === "Enter") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onChange, onClose, open, value]);
+
+  if (!open) return null;
 
   return (
     <div className={styles.backdrop} role="presentation">

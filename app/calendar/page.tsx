@@ -109,12 +109,12 @@ export default function CalendarPage() {
     <div className={styles.container}>
       {/* 戻る */}
       <div className={styles.backArea}>
-        <Link href="/settings" className={styles.backButton}>
-          ← 設定へ戻る
+        <Link href="/masterSettings" className={styles.backButton}>
+          ← マスタ設定に戻る
         </Link>
       </div>
 
-      <h1 className={styles.title}>会社カレンダー</h1>
+      <h1 className={styles.title}>休日マスタ</h1>
 
       {/* 入力 */}
       <div className={styles.formArea}>

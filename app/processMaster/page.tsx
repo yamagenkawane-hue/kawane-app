@@ -6,6 +6,9 @@ import supabase from "@/lib/supabase";
 import { ProcessMaster } from "@/app/type";
 import styles from "./page.module.css";
 
+const dayOptions = Array.from({ length: 31 }, (_, index) => index);
+const orderOptions = Array.from({ length: 50 }, (_, index) => index + 1);
+
 export default function ProcessMasterPage() {
   const [processes, setProcesses] = useState<ProcessMaster[]>([]);
   const [processId, setProcessId] = useState("");
@@ -191,8 +194,8 @@ export default function ProcessMasterPage() {
     <div className={styles.container}>
       {/* ヘッダー */}
       <div className={styles.headerArea}>
-        <Link href="/settings" className={styles.backButton}>
-          ← 設定へ戻る
+        <Link href="/masterSettings" className={styles.backButton}>
+          ← マスタ設定に戻る
         </Link>
 
         <h1 className={styles.title}>工程マスタ</h1>
@@ -216,21 +219,29 @@ export default function ProcessMasterPage() {
           className={styles.input}
         />
 
-        <input
-          type="number"
-          placeholder="必要日数"
+        <select
           value={days}
           onChange={(e) => setDays(Number(e.target.value))}
           className={styles.numberInput}
-        />
+        >
+          {dayOptions.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
 
-        <input
-          type="number"
-          placeholder="順番"
+        <select
           value={sort}
           onChange={(e) => setSort(Number(e.target.value))}
           className={styles.numberInput}
-        />
+        >
+          {orderOptions.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
 
         <label className={styles.checkbox}>
           <input
@@ -287,25 +298,35 @@ export default function ProcessMasterPage() {
               </td>
 
               <td>
-                <input
-                  type="number"
+                <select
                   value={process.days}
                   onChange={(e) =>
                     handleChange(process.id, "days", Number(e.target.value))
                   }
                   className={styles.numberInput}
-                />
+                >
+                  {dayOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               </td>
 
               <td>
-                <input
-                  type="number"
+                <select
                   value={process.sort}
                   onChange={(e) =>
                     handleChange(process.id, "sort", Number(e.target.value))
                   }
                   className={styles.numberInput}
-                />
+                >
+                  {orderOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               </td>
 
               <td>

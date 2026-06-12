@@ -30,6 +30,7 @@ export default function WeighingReportPage() {
         productName: row.product_name || "",
         lotNo: row.lot_no || "",
         currentStock: row.current_stock || 0,
+        allocatedStock: row.allocated_stock || 0,
         updatedAt: row.updated_at || "",
       }));
 

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "../../lib/supabase";
 import styles from "./page.module.css";
 import { CustomerMaster, ProductMaster } from "../type";
@@ -18,6 +19,7 @@ const Create = () => {
   const [completionScheduledDate, setCompletionScheduledDate] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
   const [remark, setRemark] = useState("");
+  const [orderAmountNumpadOpen, setOrderAmountNumpadOpen] = useState(false);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -314,6 +316,7 @@ const Create = () => {
             pattern="[0-9]*"
             type="text"
             value={orderAmount}
+            onFocus={() => setOrderAmountNumpadOpen(true)}
             onChange={(e) => setOrderAmount(e.target.value.replace(/\D/g, ""))}
             placeholder="1000"
             required
@@ -357,6 +360,13 @@ const Create = () => {
           登録
         </button>
       </form>
+
+      <Numpad
+        open={orderAmountNumpadOpen}
+        value={orderAmount}
+        onChange={(value) => setOrderAmount(value.replace(/\D/g, ""))}
+        onClose={() => setOrderAmountNumpadOpen(false)}
+      />
     </div>
   );
 };

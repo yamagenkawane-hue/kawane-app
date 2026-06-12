@@ -6,6 +6,8 @@ import supabase from "@/lib/supabase";
 import { CustomerMaster } from "@/app/type";
 import styles from "../masterCommon.module.css";
 
+const shippingOffsetOptions = Array.from({ length: 31 }, (_, index) => index);
+
 export default function CustomerMasterPage() {
   const [items, setItems] = useState<CustomerMaster[]>([]);
   const [form, setForm] = useState({
@@ -125,8 +127,8 @@ export default function CustomerMasterPage() {
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
-        <Link href="/settings" className={styles.backButton}>
-          ← 設定へ戻る
+        <Link href="/masterSettings" className={styles.backButton}>
+          ← マスタ設定に戻る
         </Link>
         <h1 className={styles.title}>得意先マスタ</h1>
       </div>
@@ -139,15 +141,19 @@ export default function CustomerMasterPage() {
             value={form.customerName}
             onChange={(e) => setForm({ ...form, customerName: e.target.value })}
           />
-          <input
-            className={styles.input}
-            type="number"
-            placeholder="納期の何日前に出荷"
+          <select
+            className={styles.select}
             value={form.shippingOffsetDays}
             onChange={(e) =>
               setForm({ ...form, shippingOffsetDays: Number(e.target.value) })
             }
-          />
+          >
+            {shippingOffsetOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
           <input
             className={styles.input}
             placeholder="備考"
@@ -186,9 +192,8 @@ export default function CustomerMasterPage() {
                   />
                 </td>
                 <td>
-                  <input
-                    className={styles.tableInput}
-                    type="number"
+                  <select
+                    className={styles.select}
                     value={item.shippingOffsetDays}
                     onChange={(e) =>
                       updateItem(
@@ -197,7 +202,13 @@ export default function CustomerMasterPage() {
                         Number(e.target.value),
                       )
                     }
-                  />
+                  >
+                    {shippingOffsetOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
                 </td>
                 <td>
                   <input

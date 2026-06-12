@@ -5,6 +5,7 @@ import styles from "./page.module.css";
 import supabase from "../../../lib/supabase";
 import { ReservationRowProps } from "@/app/type";
 import Link from "next/link";
+import Numpad from "@/app/components/Numpad/Numpad";
 
 const ReservationList: React.FC<ReservationRowProps> = ({
   post,
@@ -28,6 +29,7 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   const [measurementLogAmount, setMeasurementLogAmount] = useState<number | "">(
     "",
   );
+  const [measurementNumpadOpen, setMeasurementNumpadOpen] = useState(false);
   const measurementLogs = post.measurementLogs || [];
   const [packagingLogDate, setPackagingLogDate] = useState("");
   const [packagingLogAmount, setPackagingLogAmount] = useState<number | "">("");
@@ -516,9 +518,10 @@ const ReservationList: React.FC<ReservationRowProps> = ({
               onChange={(e) => setMeasurementLogDate(e.target.value)}
             />
             <input
-              type="number"
+              inputMode="numeric"
               placeholder="数量"
               value={measurementLogAmount}
+              onFocus={() => setMeasurementNumpadOpen(true)}
               onChange={(e) =>
                 setMeasurementLogAmount(
                   e.target.value === "" ? "" : Number(e.target.value),
@@ -698,6 +701,14 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         <button className={styles.deleteButton} onClick={handleDelete}>
           削除
         </button>
+        <Numpad
+          open={measurementNumpadOpen}
+          value={measurementLogAmount === "" ? "" : String(measurementLogAmount)}
+          onChange={(value) =>
+            setMeasurementLogAmount(value === "" ? "" : Number(value))
+          }
+          onClose={() => setMeasurementNumpadOpen(false)}
+        />
       </td>
     </tr>
   );

@@ -14,7 +14,8 @@
   margin-bottom: 24px;
 }
 
-.form input {
+.form input,
+.form select {
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 8px;
@@ -122,6 +123,8 @@
   border: 1px solid #d1d5db;
 
   text-align: center;
+
+  background: white;
 }
 
 .checkbox {

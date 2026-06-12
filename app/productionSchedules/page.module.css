@@ -39,7 +39,7 @@
 
 .formGrid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  grid-template-columns: 1.1fr 1.2fr 1.5fr 0.75fr 1fr 0.7fr 0.7fr 1fr;
   gap: 14px;
 }
 
@@ -50,10 +50,47 @@
   border-radius: 10px;
   padding: 10px 12px;
   background: #fff;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.tableInput {
+  min-width: 0;
+}
+
+.orderInput {
+  min-width: 126px;
+}
+
+.customerInput {
+  min-width: 130px;
+}
+
+.productInput {
+  min-width: 170px;
+}
+
+.pressInput {
+  min-width: 74px;
+}
+
+.lotInput {
+  min-width: 108px;
+}
+
+.numberInput {
+  min-width: 72px;
+  text-align: right;
+}
+
+.dateInput {
+  min-width: 118px;
 }
 
 .addButton,
+.editButton,
 .saveButton,
+.cancelButton,
 .deleteButton {
   border: none;
   border-radius: 10px;
@@ -72,8 +109,23 @@
   background: #16a34a;
 }
 
+.editButton {
+  background: #2563eb;
+}
+
+.cancelButton {
+  background: #64748b;
+}
+
 .deleteButton {
   background: #dc2626;
+}
+
+.tableInput:disabled {
+  border-color: transparent;
+  background: transparent;
+  color: #111827;
+  opacity: 1;
 }
 
 .loading {
@@ -88,20 +140,71 @@
 
 .table {
   width: 100%;
-  min-width: 980px;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .table th {
   background: #1f2937;
   color: #fff;
-  padding: 12px;
+  padding: 10px 8px;
   white-space: nowrap;
 }
 
 .table td {
   border-bottom: 1px solid #e5e7eb;
-  padding: 10px;
+  padding: 8px 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.table th:nth-child(1),
+.table td:nth-child(1) {
+  width: 62px;
+}
+
+.table th:nth-child(2),
+.table td:nth-child(2) {
+  width: 136px;
+}
+
+.table th:nth-child(3),
+.table td:nth-child(3) {
+  width: 138px;
+}
+
+.table th:nth-child(4),
+.table td:nth-child(4) {
+  width: 180px;
+}
+
+.table th:nth-child(5),
+.table td:nth-child(5) {
+  width: 78px;
+}
+
+.table th:nth-child(6),
+.table td:nth-child(6) {
+  width: 116px;
+}
+
+.table th:nth-child(7),
+.table td:nth-child(7),
+.table th:nth-child(8),
+.table td:nth-child(8) {
+  width: 82px;
+}
+
+.table th:nth-child(9),
+.table td:nth-child(9),
+.table th:nth-child(10),
+.table td:nth-child(10) {
+  width: 126px;
+}
+
+.table th:nth-child(11),
+.table td:nth-child(11) {
+  width: 148px;
 }
 
 .autoRow {
@@ -137,6 +240,11 @@
 .actionArea {
   display: flex;
   gap: 8px;
+  white-space: nowrap;
+}
+
+.actionArea button {
+  padding: 9px 12px;
 }
 
 @media (max-width: 900px) {
@@ -151,5 +259,9 @@
 
   .formGrid {
     grid-template-columns: 1fr;
+  }
+
+  .table {
+    min-width: 1120px;
   }
 }

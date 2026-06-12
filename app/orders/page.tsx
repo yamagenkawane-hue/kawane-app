@@ -12,6 +12,8 @@ type AdjustedPost = PostData & {
   scheduledDate?: string;
   allocatedAmount: number;
   allocationConfirmed: boolean;
+  availableInventoryAmount: number;
+  shippedAmount: number;
 };
 
 const addDays = (dateText: string, days: number) => {
@@ -19,6 +21,24 @@ const addDays = (dateText: string, days: number) => {
   date.setDate(date.getDate() + days);
   return date.toISOString().slice(0, 10);
 };
+
+const customerNameCollator = new Intl.Collator("ja", {
+  numeric: true,
+  sensitivity: "base",
+});
+
+const getCustomerSortKey = (customerName: string) =>
+  customerName
+    .trim()
+    .replaceAll(/\s+/g, "")
+    .replaceAll("株式会社", "かぶしきがいしゃ")
+    .replaceAll("有限会社", "ゆうげんがいしゃ")
+    .replaceAll("合同会社", "ごうどうがいしゃ")
+    .replaceAll("合資会社", "ごうしがいしゃ")
+    .replaceAll("合名会社", "ごうめいがいしゃ");
+
+const compareCustomerName = (a: string, b: string) =>
+  customerNameCollator.compare(getCustomerSortKey(a), getCustomerSortKey(b));
 
 const OrdersPage = () => {
   const [posts, setPosts] = useState<AdjustedPost[]>([]);
@@ -33,16 +53,28 @@ const OrdersPage = () => {
 
   const fetchPosts = async () => {
     try {
-      const [postResult, customerResult, allocationResult] = await Promise.all([
-        supabase.from("posts").select("*"),
-        supabase.from("customer_master").select("*"),
-        supabase.from("inventory_allocations").select("*"),
-      ]);
+      const [
+        postResult,
+        customerResult,
+        allocationResult,
+        inventoryResult,
+        shipmentResult,
+      ] = await Promise.all([
+          supabase.from("posts").select("*"),
+          supabase.from("customer_master").select("*"),
+          supabase.from("inventory_allocations").select("*"),
+          supabase
+            .from("inventory_items")
+            .select("product_code,current_stock,allocated_stock"),
+          supabase.from("shipments").select("post_id,quantity"),
+        ]);
 
       const { data, error } = postResult;
 
       if (error) throw error;
       if (allocationResult.error) throw allocationResult.error;
+      if (inventoryResult.error) throw inventoryResult.error;
+      if (shipmentResult.error) throw shipmentResult.error;
 
       const customerList: CustomerMaster[] = (customerResult.data || []).map(
         (row) => ({
@@ -62,6 +94,7 @@ const OrdersPage = () => {
         productCode: row.product_code || "",
         lotNo: row.lot_no || "",
         allocatedAmount: Number(row.allocated_amount || 0),
+        shippedAmount: Number(row.shipped_amount || 0),
         confirmedAt: row.confirmed_at || "",
       }));
 
@@ -73,6 +106,24 @@ const OrdersPage = () => {
         },
         {},
       );
+
+      const availableInventoryMap = new Map<string, number>();
+      for (const row of inventoryResult.data || []) {
+        const productCode = row.product_code || "";
+        const currentStock = Number(row.current_stock || 0);
+        const allocatedStock = Number(row.allocated_stock || 0);
+        availableInventoryMap.set(
+          productCode,
+          (availableInventoryMap.get(productCode) || 0) +
+            Math.max(0, currentStock - allocatedStock),
+        );
+      }
+
+      const shippedMap = new Map<string, number>();
+      for (const row of shipmentResult.data || []) {
+        const postId = row.post_id || "";
+        shippedMap.set(postId, (shippedMap.get(postId) || 0) + Number(row.quantity || 0));
+      }
 
       const rawData: PostData[] = (data || []).map((row) => ({
           id: row.id,
@@ -121,23 +172,20 @@ const OrdersPage = () => {
 
       const filtered = rawData.filter((post) => {
         const completed = post.packagingAmount || 0;
-        return post.orderAmount - completed > 0;
+        const shippedAmount = shippedMap.get(post.id) || 0;
+        return post.orderAmount - completed > 0 && shippedAmount < post.orderAmount;
       });
 
       // =========================
-      // 得意先昇順（同一得意先内は納期順）
+      // 納期順（同一納期は得意先昇順）
       // =========================
 
       filtered.sort((a, b) => {
-        const customerCompare = a.customerName.localeCompare(
-          b.customerName,
-          "ja",
-        );
-        if (customerCompare !== 0) return customerCompare;
-        return (
+        const deliveryCompare =
           new Date(a.deliveryDate).getTime() -
-          new Date(b.deliveryDate).getTime()
-        );
+          new Date(b.deliveryDate).getTime();
+        if (deliveryCompare !== 0) return deliveryCompare;
+        return compareCustomerName(a.customerName, b.customerName);
       });
 
       const adjusted: AdjustedPost[] = filtered.map((post) => {
@@ -155,6 +203,10 @@ const OrdersPage = () => {
           (sum, allocation) => sum + allocation.allocatedAmount,
           0,
         );
+        const shippedAmount = shippedMap.get(post.id) || 0;
+        const availableInventoryAmount = availableInventoryMap.get(
+          post.productCode || "",
+        ) || 0;
 
         return {
           ...post,
@@ -163,18 +215,23 @@ const OrdersPage = () => {
           transferSource: formatAllocationSource(postAllocations),
           allocatedAmount,
           allocationConfirmed: postAllocations.length > 0,
+          availableInventoryAmount,
+          shippedAmount,
         };
       });
 
       const visiblePosts = adjusted
-        .filter((post) => post.remainingAmount > 0 || post.allocationConfirmed)
+        .filter(
+          (post) =>
+            post.shippedAmount < post.orderAmount &&
+            (post.remainingAmount > 0 || post.allocationConfirmed),
+        )
         .sort((a, b) => {
-          const customerCompare = a.customerName.localeCompare(
-            b.customerName,
-            "ja",
-          );
-          if (customerCompare !== 0) return customerCompare;
-          return a.shippingScheduledDate.localeCompare(b.shippingScheduledDate);
+          const deliveryCompare =
+            new Date(a.deliveryDate).getTime() -
+            new Date(b.deliveryDate).getTime();
+          if (deliveryCompare !== 0) return deliveryCompare;
+          return compareCustomerName(a.customerName, b.customerName);
         });
 
       setPosts(visiblePosts);
@@ -207,10 +264,12 @@ const OrdersPage = () => {
       alert("在庫引当を確定しました");
     } catch (error) {
       console.error(error);
+      const message =
+        typeof error === "object" && error !== null && "message" in error
+          ? String(error.message)
+          : "在庫引当の確定に失敗しました";
       alert(
-        error instanceof Error
-          ? error.message
-          : "在庫引当の確定に失敗しました",
+        message,
       );
     } finally {
       setLoadingPostId("");
@@ -286,7 +345,7 @@ const OrdersPage = () => {
                   <td>
                     {post.allocationConfirmed ? (
                       <span className={styles.confirmedBadge}>確定済み</span>
-                    ) : (
+                    ) : post.availableInventoryAmount > 0 ? (
                       <button
                         className={styles.confirmButton}
                         disabled={loadingPostId === post.id}
@@ -294,6 +353,8 @@ const OrdersPage = () => {
                       >
                         {loadingPostId === post.id ? "処理中" : "確定"}
                       </button>
+                    ) : (
+                      <span className={styles.noInventoryText}>在庫なし</span>
                     )}
                   </td>
                 </tr>

@@ -11,12 +11,27 @@ export const useFetchPosts = () => {
       if (!shouldFetch) return;
 
       try {
-        const { data, error } = await supabase
-          .from("posts")
-          .select("*")
-          .order("created_at", { ascending: true });
+        const [postResult, shipmentResult] = await Promise.all([
+          supabase
+            .from("posts")
+            .select("*")
+            .order("created_at", { ascending: true }),
+          supabase.from("shipments").select("post_id,quantity"),
+        ]);
+
+        const { data, error } = postResult;
 
         if (error) throw error;
+        if (shipmentResult.error) throw shipmentResult.error;
+
+        const shippedMap = new Map<string, number>();
+        for (const row of shipmentResult.data || []) {
+          const postId = row.post_id || "";
+          shippedMap.set(
+            postId,
+            (shippedMap.get(postId) || 0) + Number(row.quantity || 0),
+          );
+        }
 
         const postsArray: Post[] = (data || []).map((row) => {
           // =========================
@@ -61,6 +76,7 @@ export const useFetchPosts = () => {
           // 注残
           // =========================
           const remainingAmount = orderAmount - packagingAmount;
+          const shippedAmount = shippedMap.get(row.id) || 0;
 
           // =========================
           // 状態
@@ -98,6 +114,7 @@ export const useFetchPosts = () => {
             measurementAmount,
             packagingDate: row.packaging_date || "",
             packagingAmount,
+            shippedAmount,
             remainingAmount,
             deliveryDate: row.delivery_date || "",
             completionScheduledDate:

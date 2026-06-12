@@ -7,10 +7,11 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
-import { CustomerMaster, PostData, Shipment } from "@/app/type";
+import { CustomerMaster, InventoryAllocation, PostData, Shipment } from "@/app/type";
 import styles from "../masterCommon.module.css";
 
 type ShippingPost = PostData & {
+  lotNo: string;
   productCode: string;
   shippedAmount: number;
   scheduledDate: string;
@@ -34,6 +35,27 @@ const mapShipment = (row: Record<string, unknown>): Shipment => ({
   updatedAt: String(row.updated_at || ""),
 });
 
+const mapAllocation = (row: Record<string, unknown>): InventoryAllocation => ({
+  id: String(row.id || ""),
+  postId: String(row.post_id || ""),
+  inventoryItemId: row.inventory_item_id ? String(row.inventory_item_id) : null,
+  productCode: String(row.product_code || ""),
+  lotNo: String(row.lot_no || ""),
+  allocatedAmount: Number(row.allocated_amount || 0),
+  shippedAmount: Number(row.shipped_amount || 0),
+  confirmedAt: String(row.confirmed_at || ""),
+});
+
+const formatAllocationLots = (allocations: InventoryAllocation[]) =>
+  allocations
+    .map((allocation) => ({
+      lotNo: allocation.lotNo,
+      amount: Math.max(allocation.allocatedAmount - allocation.shippedAmount, 0),
+    }))
+    .filter((allocation) => allocation.lotNo && allocation.amount > 0)
+    .map((allocation) => `${allocation.lotNo}(${allocation.amount})`)
+    .join(" / ");
+
 export default function ShippingPage() {
   const [posts, setPosts] = useState<ShippingPost[]>([]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -46,14 +68,20 @@ export default function ShippingPage() {
     try {
       setLoading(true);
 
-      const [postResult, customerResult, shipmentResponse] = await Promise.all([
+      const [postResult, customerResult, allocationResult, shipmentResponse] = await Promise.all([
         supabase.from("posts").select("*").order("customer_name", { ascending: true }),
         supabase.from("customer_master").select("*"),
+        supabase
+          .from("inventory_allocations")
+          .select("*")
+          .order("confirmed_at", { ascending: true })
+          .order("lot_no", { ascending: true }),
         fetch("/api/shipments"),
       ]);
 
       if (postResult.error) throw postResult.error;
       if (customerResult.error) throw customerResult.error;
+      if (allocationResult.error) throw allocationResult.error;
       if (!shipmentResponse.ok) throw new Error("出荷データの取得に失敗しました");
 
       const customerList: CustomerMaster[] = (customerResult.data || []).map(
@@ -66,6 +94,14 @@ export default function ShippingPage() {
       );
 
       const shipmentRows: Shipment[] = (await shipmentResponse.json()).map(mapShipment);
+      const allocationRows: InventoryAllocation[] = (allocationResult.data || []).map(mapAllocation);
+      const allocationMap = allocationRows.reduce(
+        (acc: Record<string, InventoryAllocation[]>, allocation) => {
+          acc[allocation.postId] = [...(acc[allocation.postId] || []), allocation];
+          return acc;
+        },
+        {},
+      );
       const shippedMap = shipmentRows.reduce((acc: Record<string, number>, row) => {
         acc[row.postId] = (acc[row.postId] || 0) + Number(row.quantity || 0);
         return acc;
@@ -82,11 +118,12 @@ export default function ShippingPage() {
           );
           const orderAmount = Number(row.order_amount || 0);
           const shippedAmount = Number(shippedMap[row.id] || 0);
+          const allocationLotNo = formatAllocationLots(allocationMap[row.id] || []);
 
           return {
             id: row.id,
             orderNo: row.order_no || "",
-            lotNo: row.lot_no || "",
+            lotNo: allocationLotNo || row.lot_no || "",
             productCode: row.product_code || "",
             productName: row.product_name || "",
             customerName: row.customer_name || "",
@@ -168,6 +205,10 @@ export default function ShippingPage() {
       alert("出荷数が注残数を超えています");
       return;
     }
+    if (!post.lotNo.trim()) {
+      alert("ロットNoが未設定です。注残管理で在庫引当を確定してください");
+      return;
+    }
 
     try {
       setLoading(true);
@@ -188,13 +229,18 @@ export default function ShippingPage() {
         }),
       });
 
-      if (!response.ok) throw new Error("出荷登録に失敗しました");
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || "出荷登録に失敗しました");
+      }
 
       setShipAmounts((prev) => ({ ...prev, [post.id]: 0 }));
       await fetchData();
     } catch (error) {
       console.error(error);
-      alert("出荷登録に失敗しました。在庫RPC deduct_inventory の作成も確認してください");
+      alert(
+        error instanceof Error ? error.message : "出荷登録に失敗しました",
+      );
     } finally {
       setLoading(false);
     }
