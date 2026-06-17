@@ -178,6 +178,24 @@
   border: 1px solid #d1d5db;
 }
 
+.checkboxRow {
+  align-items: center;
+
+  display: flex;
+
+  gap: 10px;
+
+  font-weight: 700;
+
+  margin-top: 18px;
+}
+
+.checkboxRow input {
+  width: 18px;
+
+  height: 18px;
+}
+
 .modalActions {
   display: flex;
 

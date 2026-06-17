@@ -13,6 +13,7 @@ export default function UserManagerPage() {
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
   const [editName, setEditName] = useState("");
   const [editPass, setEditPass] = useState("");
+  const [editManager, setEditManager] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const managerName = process.env.NEXT_PUBLIC_MANAGER_ID;
@@ -58,6 +59,7 @@ export default function UserManagerPage() {
     setEditingUser(user);
     setEditName(user.name);
     setEditPass(user.pass);
+    setEditManager(user.manager);
   };
 
   const saveEdit = async () => {
@@ -66,7 +68,7 @@ export default function UserManagerPage() {
     try {
       const { error } = await supabase
         .from("user")
-        .update({ name: editName, pass: editPass })
+        .update({ name: editName, pass: editPass, manager: editManager })
         .eq("id", editingUser.id);
 
       if (error) throw error;
@@ -74,6 +76,7 @@ export default function UserManagerPage() {
       setEditingUser(null);
       setEditName("");
       setEditPass("");
+      setEditManager(false);
 
       await fetchUsers();
     } catch (error) {
@@ -267,6 +270,15 @@ export default function UserManagerPage() {
               placeholder="パスワード"
             />
 
+            <label className={styles.checkboxRow}>
+              <input
+                type="checkbox"
+                checked={editManager}
+                onChange={(e) => setEditManager(e.target.checked)}
+              />
+              管理者権限
+            </label>
+
             <div className={styles.modalActions}>
               <button className={styles.saveButton} onClick={saveEdit}>
                 保存
@@ -278,6 +290,7 @@ export default function UserManagerPage() {
                   setEditingUser(null);
                   setEditName("");
                   setEditPass("");
+                  setEditManager(false);
                 }}
               >
                 キャンセル

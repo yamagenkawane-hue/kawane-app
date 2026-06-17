@@ -59,6 +59,18 @@
   font-weight: 800;
 }
 
+.notice {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  color: #1e3a8a;
+  display: flex;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 10px 12px;
+}
+
 .summaryCard {
   display: grid;
   grid-template-columns: repeat(4, minmax(120px, 1fr));

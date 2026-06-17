@@ -169,7 +169,7 @@ const Create = () => {
       return;
     }
 
-    const { error } = await supabase.from("posts").insert({
+    const { data: insertedPost, error } = await supabase.from("posts").insert({
       order_no: normalizedOrderNo,
       lot_no: lotNo,
       product_code: productCode,
@@ -193,7 +193,7 @@ const Create = () => {
       delete: false,
       created_at: now,
       updated_at: now,
-    });
+    }).select("id").single();
 
     if (error) {
       if (error.code === "23505") {
@@ -211,6 +211,21 @@ const Create = () => {
         `登録に失敗しました\n\ncode: ${error.code}\nmessage: ${error.message}`,
       );
       return;
+    }
+
+    if (insertedPost?.id) {
+      const { error: processError } = await supabase.rpc(
+        "create_order_processes_for_post",
+        { p_post_id: insertedPost.id },
+      );
+
+      if (processError) {
+        console.error("Supabase order process create error:", processError);
+        alert(
+          `受注は登録しましたが、工程予定の自動作成に失敗しました。\n\nmessage: ${processError.message}`,
+        );
+        return;
+      }
     }
 
     alert("製品を登録しました");

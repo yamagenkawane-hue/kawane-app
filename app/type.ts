@@ -224,11 +224,30 @@ export type ProcessResult = {
   id: string;
   postId: string;
   scheduleId?: string;
+  orderProcessId?: string;
   processId: string;
   processName: string;
   date: string;
   amount: number;
   createdAt: string;
+};
+
+export type OrderProcess = {
+  id: string;
+  postId: string;
+  orderNo: string;
+  productCode: string;
+  productName: string;
+  customerName: string;
+  processName: string;
+  processOrder: number;
+  plannedAmount: number;
+  completedAmount: number;
+  completedDate: string;
+  subcontractorId: string | null;
+  locked: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ProductionSchedule = {
