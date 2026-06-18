@@ -66,6 +66,12 @@ const formatDateKey = (date: Date) => {
   return `${year}${month}${day}`;
 };
 
+const todayText = () =>
+  new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+
+const isOverdue = (deliveryDate?: string) =>
+  Boolean(deliveryDate) && String(deliveryDate) < todayText();
+
 const createScheduleNo = (schedules: ProductionSchedule[]) => {
   const todayKey = formatDateKey(new Date());
   const prefix = `PS-${todayKey}-`;
@@ -429,9 +435,12 @@ export default function ProductionSchedulesPage() {
           <tbody>
             {orderSchedules.map((post) => {
               const editing = isEditing("post", post.id);
+              const rowClassName = isOverdue(post.deliveryDate)
+                ? styles.dangerRow
+                : styles.autoRow;
 
               return (
-                <tr key={`post-${post.id}`} className={styles.autoRow}>
+                <tr key={`post-${post.id}`} className={rowClassName}>
                   <td>
                     <span className={styles.sourceBadge}>注残</span>
                   </td>

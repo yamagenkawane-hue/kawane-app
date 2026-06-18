@@ -211,6 +211,14 @@
   background: #f8fafc;
 }
 
+.dangerRow {
+  background: #fee2e2;
+}
+
+.dangerRow:hover {
+  background: #fecaca !important;
+}
+
 .sourceBadge,
 .manualBadge {
   border-radius: 999px;
