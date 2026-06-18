@@ -128,6 +128,16 @@
   opacity: 1;
 }
 
+.displayText {
+  color: #111827;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
+}
+
 .loading {
   margin-bottom: 16px;
   color: #475569;
@@ -155,7 +165,8 @@
   border-bottom: 1px solid #e5e7eb;
   padding: 8px 6px;
   vertical-align: middle;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .table th:nth-child(1),

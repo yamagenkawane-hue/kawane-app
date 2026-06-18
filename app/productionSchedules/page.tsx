@@ -95,6 +95,10 @@ export default function ProductionSchedulesPage() {
   const isEditing = (kind: "post" | "schedule", id: string) =>
     editingRow?.kind === kind && editingRow.id === id;
 
+  const renderCellText = (value?: string | number) => (
+    <div className={styles.displayText}>{value || "-"}</div>
+  );
+
   const fetchSchedules = async () => {
     try {
       setLoading(true);
@@ -445,45 +449,57 @@ export default function ProductionSchedulesPage() {
                     <span className={styles.sourceBadge}>注残</span>
                   </td>
                   <td>
-                    <input
-                      className={`${styles.tableInput} ${styles.orderInput}`}
-                      disabled={!editing}
-                      value={post.orderNo}
-                      onChange={(e) =>
-                        handlePostChange(post.id, "orderNo", e.target.value)
-                      }
-                    />
+                    {editing ? (
+                      <input
+                        className={`${styles.tableInput} ${styles.orderInput}`}
+                        value={post.orderNo}
+                        onChange={(e) =>
+                          handlePostChange(post.id, "orderNo", e.target.value)
+                        }
+                      />
+                    ) : (
+                      renderCellText(post.orderNo)
+                    )}
                   </td>
                   <td>
-                    <input
-                      className={`${styles.tableInput} ${styles.customerInput}`}
-                      disabled={!editing}
-                      value={post.customerName}
-                      onChange={(e) =>
-                        handlePostChange(post.id, "customerName", e.target.value)
-                      }
-                    />
+                    {editing ? (
+                      <input
+                        className={`${styles.tableInput} ${styles.customerInput}`}
+                        value={post.customerName}
+                        onChange={(e) =>
+                          handlePostChange(post.id, "customerName", e.target.value)
+                        }
+                      />
+                    ) : (
+                      renderCellText(post.customerName)
+                    )}
                   </td>
                   <td>
-                    <input
-                      className={`${styles.tableInput} ${styles.productInput}`}
-                      disabled={!editing}
-                      value={post.productName}
-                      onChange={(e) =>
-                        handlePostChange(post.id, "productName", e.target.value)
-                      }
-                    />
+                    {editing ? (
+                      <input
+                        className={`${styles.tableInput} ${styles.productInput}`}
+                        value={post.productName}
+                        onChange={(e) =>
+                          handlePostChange(post.id, "productName", e.target.value)
+                        }
+                      />
+                    ) : (
+                      renderCellText(post.productName)
+                    )}
                   </td>
                   <td>-</td>
                   <td>
-                    <input
-                      className={`${styles.tableInput} ${styles.lotInput}`}
-                      disabled={!editing}
-                      value={post.lotNo || ""}
-                      onChange={(e) =>
-                        handlePostChange(post.id, "lotNo", e.target.value)
-                      }
-                    />
+                    {editing ? (
+                      <input
+                        className={`${styles.tableInput} ${styles.lotInput}`}
+                        value={post.lotNo || ""}
+                        onChange={(e) =>
+                          handlePostChange(post.id, "lotNo", e.target.value)
+                        }
+                      />
+                    ) : (
+                      renderCellText(post.lotNo)
+                    )}
                   </td>
                   <td>
                     <input
@@ -570,54 +586,69 @@ export default function ProductionSchedulesPage() {
                   <span className={styles.manualBadge}>手入力</span>
                 </td>
                 <td>
-                  <input
-                    className={`${styles.tableInput} ${styles.orderInput}`}
-                    disabled={!editing}
-                    value={schedule.orderNo || ""}
-                    onChange={(e) =>
-                      handleChange(schedule.id, "orderNo", e.target.value)
-                    }
-                  />
+                  {editing ? (
+                    <input
+                      className={`${styles.tableInput} ${styles.orderInput}`}
+                      value={schedule.orderNo || ""}
+                      onChange={(e) =>
+                        handleChange(schedule.id, "orderNo", e.target.value)
+                      }
+                    />
+                  ) : (
+                    renderCellText(schedule.orderNo)
+                  )}
                 </td>
                 <td>
-                  <input
-                    className={`${styles.tableInput} ${styles.customerInput}`}
-                    disabled={!editing}
-                    value={schedule.customerName}
-                    onChange={(e) =>
-                      handleChange(schedule.id, "customerName", e.target.value)
-                    }
-                  />
+                  {editing ? (
+                    <input
+                      className={`${styles.tableInput} ${styles.customerInput}`}
+                      value={schedule.customerName}
+                      onChange={(e) =>
+                        handleChange(schedule.id, "customerName", e.target.value)
+                      }
+                    />
+                  ) : (
+                    renderCellText(schedule.customerName)
+                  )}
                 </td>
                 <td>
-                  <input
-                    className={`${styles.tableInput} ${styles.productInput}`}
-                    disabled={!editing}
-                    value={schedule.productName}
-                    onChange={(e) =>
-                      handleChange(schedule.id, "productName", e.target.value)
-                    }
-                  />
+                  {editing ? (
+                    <input
+                      className={`${styles.tableInput} ${styles.productInput}`}
+                      value={schedule.productName}
+                      onChange={(e) =>
+                        handleChange(schedule.id, "productName", e.target.value)
+                      }
+                    />
+                  ) : (
+                    renderCellText(schedule.productName)
+                  )}
                 </td>
                 <td>
-                  <input
-                    className={`${styles.tableInput} ${styles.pressInput}`}
-                    disabled={!editing}
-                    value={schedule.pressNumber}
-                    onChange={(e) =>
-                      handleChange(schedule.id, "pressNumber", e.target.value)
-                    }
-                  />
+                  {editing ? (
+                    <input
+                      className={`${styles.tableInput} ${styles.pressInput}`}
+                      value={schedule.pressNumber}
+                      onChange={(e) =>
+                        handleChange(schedule.id, "pressNumber", e.target.value)
+                      }
+                    />
+                  ) : (
+                    renderCellText(schedule.pressNumber)
+                  )}
                 </td>
                 <td>
-                  <input
-                    className={`${styles.tableInput} ${styles.lotInput}`}
-                    disabled={!editing}
-                    value={schedule.lotNo}
-                    onChange={(e) =>
-                      handleChange(schedule.id, "lotNo", e.target.value)
-                    }
-                  />
+                  {editing ? (
+                    <input
+                      className={`${styles.tableInput} ${styles.lotInput}`}
+                      value={schedule.lotNo}
+                      onChange={(e) =>
+                        handleChange(schedule.id, "lotNo", e.target.value)
+                      }
+                    />
+                  ) : (
+                    renderCellText(schedule.lotNo)
+                  )}
                 </td>
                 <td>
                   <input
