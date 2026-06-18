@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import supabase from "@/lib/supabase";
 
-const toToday = () => new Date().toISOString().slice(0, 10);
+const toToday = () =>
+  new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 
 export default async function handler(
   req: NextApiRequest,
@@ -13,8 +14,9 @@ export default async function handler(
       const { data, error } = await supabase
         .from("posts")
         .select("*")
-        .lte("shipping_scheduled_start", today)
-        .gte("shipping_scheduled_end", today)
+        .or(
+          `and(shipping_scheduled_start.lte.${today},shipping_scheduled_end.gte.${today}),delivery_date.lt.${today}`,
+        )
         .order("customer_name", { ascending: true });
 
       if (error) throw error;
