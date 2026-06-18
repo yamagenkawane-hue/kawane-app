@@ -13,6 +13,84 @@ import {
 } from "@/app/type";
 import styles from "./page.module.css";
 
+const postScheduleId = (postId: string) => `post:${postId}`;
+
+const isPostScheduleId = (id: string) => id.startsWith("post:");
+
+const getPostIdFromScheduleId = (id: string) =>
+  isPostScheduleId(id) ? id.replace("post:", "") : "";
+
+const mapScheduleRow = (row: Record<string, unknown>): ProductionSchedule => ({
+  id: String(row.id || ""),
+  orderNo: String(row.order_no || ""),
+  customerName: String(row.customer_name || ""),
+  productName: String(row.product_name || ""),
+  pressNumber: String(row.press_number || ""),
+  lotNo: String(row.lot_no || ""),
+  planAmount: Number(row.plan_amount || 0),
+  pressCompletedAmount: Number(row.press_completed_amount || 0),
+  pressCompletedDate: String(row.press_completed_date || ""),
+  createdAt: String(row.created_at || ""),
+  updatedAt: String(row.updated_at || ""),
+});
+
+const mapPostRow = (row: Record<string, unknown>): PostData => ({
+  id: String(row.id || ""),
+  orderNo: String(row.order_no || ""),
+  lotNo: String(row.lot_no || ""),
+  productCode: String(row.product_code || ""),
+  productName: String(row.product_name || ""),
+  customerName: String(row.customer_name || ""),
+  orderAmount: Number(row.order_amount || 0),
+  remainingAmount: Number(row.remaining_amount || row.order_amount || 0),
+  status: String(row.status || ""),
+  deliveryDate: String(row.delivery_date || ""),
+});
+
+const mapPostToSchedule = (row: Record<string, unknown>): ProductionSchedule => ({
+  id: postScheduleId(String(row.id || "")),
+  orderNo: String(row.order_no || ""),
+  customerName: String(row.customer_name || ""),
+  productName: String(row.product_name || ""),
+  pressNumber: String(row.product_code || ""),
+  lotNo: String(row.lot_no || ""),
+  planAmount: Number(row.remaining_amount || row.order_amount || 0),
+  pressCompletedAmount: 0,
+  pressCompletedDate: "",
+  createdAt: String(row.created_at || ""),
+  updatedAt: String(row.updated_at || ""),
+});
+
+const mapOrderProcessRow = (row: Record<string, unknown>): OrderProcess => ({
+  id: String(row.id || ""),
+  postId: String(row.post_id || ""),
+  orderNo: String(row.order_no || ""),
+  productCode: String(row.product_code || ""),
+  productName: String(row.product_name || ""),
+  customerName: String(row.customer_name || ""),
+  processName: String(row.process_name || ""),
+  processOrder: Number(row.process_order || 0),
+  plannedAmount: Number(row.planned_amount || 0),
+  completedAmount: Number(row.completed_amount || 0),
+  completedDate: String(row.completed_date || ""),
+  subcontractorId: row.subcontractor_id ? String(row.subcontractor_id) : null,
+  locked: Boolean(row.locked || false),
+  createdAt: String(row.created_at || ""),
+  updatedAt: String(row.updated_at || ""),
+});
+
+const mapResultRow = (row: Record<string, unknown>): ProcessResult => ({
+  id: String(row.id || ""),
+  postId: String(row.post_id || ""),
+  scheduleId: String(row.schedule_id || ""),
+  orderProcessId: String(row.order_process_id || ""),
+  processId: String(row.process_id || ""),
+  processName: String(row.process_name || ""),
+  date: String(row.date || ""),
+  amount: Number(row.amount || 0),
+  createdAt: String(row.created_at || ""),
+});
+
 export default function ProductionResultsPage() {
   const router = useRouter();
   const [schedules, setSchedules] = useState<ProductionSchedule[]>([]);
@@ -33,6 +111,8 @@ export default function ProductionResultsPage() {
 
   const selectedPostId = useMemo(() => {
     if (!selectedSchedule) return "";
+    const schedulePostId = getPostIdFromScheduleId(selectedSchedule.id);
+    if (schedulePostId) return schedulePostId;
 
     const matched = posts.find((post) => {
       const sameOrder =
@@ -62,12 +142,67 @@ export default function ProductionResultsPage() {
     [orderProcessId, orderProcesses],
   );
 
+  const findPostIdForSchedule = (
+    schedule: ProductionSchedule,
+    postList = posts,
+  ) => {
+    const schedulePostId = getPostIdFromScheduleId(schedule.id);
+    if (schedulePostId) return schedulePostId;
+
+    const matched = postList.find((post) => {
+      const sameOrder = schedule.orderNo && post.orderNo === schedule.orderNo;
+      const sameLot = schedule.lotNo && post.lotNo === schedule.lotNo;
+      const sameProduct =
+        post.productName === schedule.productName &&
+        post.customerName === schedule.customerName;
+
+      return sameOrder || sameLot || sameProduct;
+    });
+
+    return matched?.id || "";
+  };
+
+  const fetchOrderProcesses = async () => {
+    const { data, error } = await supabase
+      .from("order_processes")
+      .select("*")
+      .order("process_order", { ascending: true });
+
+    if (error) throw error;
+
+    const mappedProcesses = (data || []).map(mapOrderProcessRow);
+    setOrderProcesses(mappedProcesses);
+    return mappedProcesses;
+  };
+
+  const ensureOrderProcesses = async (
+    schedule: ProductionSchedule,
+    postList = posts,
+  ) => {
+    const postId = findPostIdForSchedule(schedule, postList);
+    if (!postId) return;
+
+    const existingProcesses = orderProcesses.filter(
+      (process) => process.postId === postId,
+    );
+    if (existingProcesses.length > 0) return;
+
+    const { error } = await supabase.rpc("create_order_processes_for_post", {
+      p_post_id: postId,
+    });
+
+    if (error) throw error;
+
+    await fetchOrderProcesses();
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
 
       const [
         scheduleResult,
+        dailyScheduleResult,
         orderProcessResult,
         postResult,
         resultResult,
@@ -77,6 +212,7 @@ export default function ProductionResultsPage() {
             .from("production_schedules")
             .select("*")
             .order("created_at", { ascending: false }),
+          fetch("/api/daily-production"),
           supabase
             .from("order_processes")
             .select("*")
@@ -90,73 +226,21 @@ export default function ProductionResultsPage() {
         ]);
 
       if (scheduleResult.error) throw scheduleResult.error;
+      if (!dailyScheduleResult.ok) {
+        throw new Error("daily production fetch failed");
+      }
       if (orderProcessResult.error) throw orderProcessResult.error;
       if (postResult.error) throw postResult.error;
       if (resultResult.error) throw resultResult.error;
 
-      setSchedules(
-        (scheduleResult.data || []).map((row) => ({
-          id: row.id,
-          orderNo: row.order_no || "",
-          customerName: row.customer_name || "",
-          productName: row.product_name || "",
-          pressNumber: row.press_number || "",
-          lotNo: row.lot_no || "",
-          planAmount: row.plan_amount || 0,
-          pressCompletedAmount: row.press_completed_amount || 0,
-          pressCompletedDate: row.press_completed_date || "",
-          createdAt: row.created_at || "",
-          updatedAt: row.updated_at || "",
-        })),
-      );
+      const dailyRows = await dailyScheduleResult.json();
+      const dailySchedules = (dailyRows || []).map(mapPostToSchedule);
+      const manualSchedules = (scheduleResult.data || []).map(mapScheduleRow);
 
-      setOrderProcesses(
-        (orderProcessResult.data || []).map((row) => ({
-          id: row.id,
-          postId: row.post_id || "",
-          orderNo: row.order_no || "",
-          productCode: row.product_code || "",
-          productName: row.product_name || "",
-          customerName: row.customer_name || "",
-          processName: row.process_name || "",
-          processOrder: row.process_order || 0,
-          plannedAmount: row.planned_amount || 0,
-          completedAmount: row.completed_amount || 0,
-          completedDate: row.completed_date || "",
-          subcontractorId: row.subcontractor_id || null,
-          locked: row.locked || false,
-          createdAt: row.created_at || "",
-          updatedAt: row.updated_at || "",
-        })),
-      );
-
-      setPosts(
-        (postResult.data || []).map((row) => ({
-          id: row.id,
-          orderNo: row.order_no || "",
-          lotNo: row.lot_no || "",
-          productName: row.product_name || "",
-          customerName: row.customer_name || "",
-          orderAmount: row.order_amount || 0,
-          remainingAmount: row.remaining_amount || 0,
-          status: row.status || "",
-          deliveryDate: row.delivery_date || "",
-        })),
-      );
-
-      setResults(
-        (resultResult.data || []).map((row) => ({
-          id: row.id,
-          postId: row.post_id || "",
-          scheduleId: row.schedule_id || "",
-          orderProcessId: row.order_process_id || "",
-          processId: row.process_id,
-          processName: row.process_name || "",
-          date: row.date,
-          amount: row.amount,
-          createdAt: row.created_at || "",
-        })),
-      );
+      setSchedules([...dailySchedules, ...manualSchedules]);
+      setOrderProcesses((orderProcessResult.data || []).map(mapOrderProcessRow));
+      setPosts((postResult.data || []).map(mapPostRow));
+      setResults((resultResult.data || []).map(mapResultRow));
     } catch (error) {
       console.error(error);
       alert("現場実績データの取得に失敗しました");
@@ -167,125 +251,29 @@ export default function ProductionResultsPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      try {
-        setLoading(true);
-
-        const [
-          scheduleResult,
-          orderProcessResult,
-          postResult,
-          resultResult,
-        ] =
-          await Promise.all([
-            supabase
-              .from("production_schedules")
-              .select("*")
-              .order("created_at", {
-                ascending: false,
-              }),
-
-            supabase
-              .from("order_processes")
-              .select("*")
-              .order("process_order", {
-                ascending: true,
-              }),
-
-            supabase.from("posts").select("*"),
-
-            supabase
-              .from("production_results")
-              .select("*")
-              .order("created_at", {
-                ascending: false,
-              })
-              .limit(30),
-          ]);
-
-        if (scheduleResult.error) throw scheduleResult.error;
-
-        if (orderProcessResult.error) throw orderProcessResult.error;
-
-        if (postResult.error) throw postResult.error;
-
-        if (resultResult.error) throw resultResult.error;
-
-        const mappedSchedules: ProductionSchedule[] = (
-          scheduleResult.data || []
-        ).map((row) => ({
-          id: row.id,
-          orderNo: row.order_no || "",
-          customerName: row.customer_name || "",
-          productName: row.product_name || "",
-          pressNumber: row.press_number || "",
-          lotNo: row.lot_no || "",
-          planAmount: row.plan_amount || 0,
-          pressCompletedAmount: row.press_completed_amount || 0,
-          pressCompletedDate: row.press_completed_date || "",
-          createdAt: row.created_at || "",
-          updatedAt: row.updated_at || "",
-        }));
-
-        const mappedPosts: PostData[] = (postResult.data || []).map((row) => ({
-          id: row.id,
-          orderNo: row.order_no || "",
-          lotNo: row.lot_no || "",
-          productName: row.product_name || "",
-          customerName: row.customer_name || "",
-          orderAmount: row.order_amount || 0,
-          remainingAmount: row.remaining_amount || 0,
-          status: row.status || "",
-          deliveryDate: row.delivery_date || "",
-        }));
-
-        const mappedOrderProcesses: OrderProcess[] = (
-          orderProcessResult.data || []
-        ).map((row) => ({
-          id: row.id,
-          postId: row.post_id || "",
-          orderNo: row.order_no || "",
-          productCode: row.product_code || "",
-          productName: row.product_name || "",
-          customerName: row.customer_name || "",
-          processName: row.process_name || "",
-          processOrder: row.process_order || 0,
-          plannedAmount: row.planned_amount || 0,
-          completedAmount: row.completed_amount || 0,
-          completedDate: row.completed_date || "",
-          subcontractorId: row.subcontractor_id || null,
-          locked: row.locked || false,
-          createdAt: row.created_at || "",
-          updatedAt: row.updated_at || "",
-        }));
-
-        const mappedResults: ProcessResult[] = (resultResult.data || []).map(
-          (row) => ({
-            id: row.id,
-            postId: row.post_id || "",
-            scheduleId: row.schedule_id || "",
-            orderProcessId: row.order_process_id || "",
-            processId: row.process_id,
-            processName: row.process_name || "",
-            date: row.date,
-            amount: row.amount,
-            createdAt: row.created_at || "",
-          }),
-        );
-
-        setSchedules(mappedSchedules);
-        setOrderProcesses(mappedOrderProcesses);
-        setPosts(mappedPosts);
-        setResults(mappedResults);
-      } catch (error) {
-        console.error(error);
-        alert("現場実績データの取得に失敗しました");
-      } finally {
-        setLoading(false);
-      }
+      await fetchData();
     };
 
     void loadData();
   }, []);
+
+  const handleScheduleChange = async (value: string) => {
+    setScheduleId(value);
+    setOrderProcessId("");
+
+    const schedule = schedules.find((item) => item.id === value);
+    if (!schedule) return;
+
+    try {
+      setLoading(true);
+      await ensureOrderProcesses(schedule);
+    } catch (error) {
+      console.error(error);
+      alert("工程予定の自動作成に失敗しました。製品工程マスタを確認してください。");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getProcessAllowance = (target: OrderProcess) => {
     if (target.processOrder === 1) return target.plannedAmount;
@@ -328,14 +316,19 @@ export default function ProductionResultsPage() {
 
       const { error } = await supabase.rpc("register_order_process_result", {
         p_order_process_id: selectedOrderProcess.id,
-        p_schedule_id: selectedSchedule.id,
+        p_schedule_id: isPostScheduleId(selectedSchedule.id)
+          ? null
+          : selectedSchedule.id,
         p_date: date,
         p_amount: resultAmount,
       });
 
       if (error) throw error;
 
-      if (selectedOrderProcess.processOrder === 1) {
+      if (
+        selectedOrderProcess.processOrder === 1 &&
+        !isPostScheduleId(selectedSchedule.id)
+      ) {
         const { error: scheduleError } = await supabase
           .from("production_schedules")
           .update({
@@ -376,10 +369,7 @@ export default function ProductionResultsPage() {
         <select
           className={styles.select}
           value={scheduleId}
-          onChange={(e) => {
-            setScheduleId(e.target.value);
-            setOrderProcessId("");
-          }}
+          onChange={(e) => void handleScheduleChange(e.target.value)}
         >
           <option value="">デイリー予定の製品を選択</option>
           {schedules.map((schedule) => (
@@ -508,4 +498,5 @@ export default function ProductionResultsPage() {
     </div>
   );
 }
+
 
