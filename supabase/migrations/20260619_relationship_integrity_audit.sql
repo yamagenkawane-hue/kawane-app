@@ -341,6 +341,7 @@ select
 from production_schedules ps
 left join posts p on p.id = ps.post_id
 where nullif(trim(ps.order_no), '') is not null
+  and ps.order_no not like 'PS-%'
   and (ps.post_id is null or p.id is null)
 
 union all
@@ -353,10 +354,13 @@ select
 from production_schedules ps
 left join product_master pm on pm.id = ps.product_id
 left join customer_master cm on cm.id = ps.customer_id
-where ps.product_id is null
-   or pm.id is null
-   or ps.customer_id is null
-   or cm.id is null
+where ps.order_no not like 'PS-%'
+  and (
+    ps.product_id is null
+    or pm.id is null
+    or ps.customer_id is null
+    or cm.id is null
+  )
 
 union all
 select
