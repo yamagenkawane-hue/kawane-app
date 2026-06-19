@@ -37,16 +37,16 @@ select
   op.completed_date,
   op.subcontractor_id,
   sc.name as subcontractor_name,
-  op.outsource_sent_date,
-  op.outsource_expected_return_date,
-  op.outsource_returned_date,
-  op.outsource_status,
-  op.outsource_note,
   op.locked,
   p.delivery_date,
   p.completion_scheduled_date,
   op.created_at,
-  op.updated_at
+  op.updated_at,
+  op.outsource_sent_date,
+  op.outsource_expected_return_date,
+  op.outsource_returned_date,
+  op.outsource_status,
+  op.outsource_note
 from order_processes op
 left join posts p
   on p.id = op.post_id
