@@ -60,13 +60,13 @@ const OrdersPage = () => {
         inventoryResult,
         shipmentResult,
       ] = await Promise.all([
-          supabase.from("posts").select("*"),
+          supabase.from("v_posts_with_master").select("*"),
           supabase.from("customer_master").select("*"),
-          supabase.from("inventory_allocations").select("*"),
+          supabase.from("v_inventory_allocations_with_master").select("*"),
           supabase
-            .from("inventory_items")
+            .from("v_inventory_items_with_master")
             .select("product_code,current_stock,allocated_stock"),
-          supabase.from("shipments").select("post_id,quantity"),
+          supabase.from("v_shipments_with_master").select("post_id,quantity"),
         ]);
 
       const { data, error } = postResult;

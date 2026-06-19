@@ -164,7 +164,7 @@ export default function ProductionResultsPage() {
 
   const fetchOrderProcesses = async () => {
     const { data, error } = await supabase
-      .from("order_processes")
+      .from("v_order_processes_with_master")
       .select("*")
       .order("process_order", { ascending: true });
 
@@ -214,7 +214,7 @@ export default function ProductionResultsPage() {
             .order("created_at", { ascending: false }),
           fetch("/api/daily-production"),
           supabase
-            .from("order_processes")
+            .from("v_order_processes_with_master")
             .select("*")
             .order("process_order", { ascending: true }),
           supabase.from("posts").select("*"),

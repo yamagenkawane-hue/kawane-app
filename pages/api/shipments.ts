@@ -18,7 +18,7 @@ export default async function handler(
   try {
     if (req.method === "GET") {
       const { data, error } = await supabase
-        .from("shipments")
+        .from("v_shipments_with_master")
         .select("*")
         .order("customer_name", { ascending: true });
 

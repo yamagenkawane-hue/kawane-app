@@ -69,10 +69,10 @@ export default function ShippingPage() {
       setLoading(true);
 
       const [postResult, customerResult, allocationResult, shipmentResponse] = await Promise.all([
-        supabase.from("posts").select("*").order("customer_name", { ascending: true }),
+        supabase.from("v_posts_with_master").select("*").order("customer_name", { ascending: true }),
         supabase.from("customer_master").select("*"),
         supabase
-          .from("inventory_allocations")
+          .from("v_inventory_allocations_with_master")
           .select("*")
           .order("confirmed_at", { ascending: true })
           .order("lot_no", { ascending: true }),

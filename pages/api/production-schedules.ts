@@ -8,7 +8,7 @@ export default async function handler(
   try {
     if (req.method === "GET") {
       const { data, error } = await supabase
-        .from("production_schedules")
+        .from("v_production_schedules_with_master")
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;

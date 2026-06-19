@@ -25,7 +25,7 @@ export default function InventoryMasterPage() {
 
   const fetchItems = async () => {
     const { data, error } = await supabase
-      .from("inventory_items")
+      .from("v_inventory_items_with_master")
       .select("*")
       .order("updated_at", { ascending: false });
     if (error) {
@@ -48,7 +48,7 @@ export default function InventoryMasterPage() {
   useEffect(() => {
     const loadItems = async () => {
       const { data, error } = await supabase
-        .from("inventory_items")
+        .from("v_inventory_items_with_master")
         .select("*")
         .order("updated_at", {
           ascending: false,

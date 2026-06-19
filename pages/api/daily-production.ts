@@ -12,7 +12,7 @@ export default async function handler(
     if (req.method === "GET") {
       const today = String(req.query.date || toToday());
       const { data, error } = await supabase
-        .from("posts")
+        .from("v_posts_with_master")
         .select("*")
         .or(
           `and(shipping_scheduled_start.lte.${today},shipping_scheduled_end.gte.${today}),delivery_date.lt.${today}`,

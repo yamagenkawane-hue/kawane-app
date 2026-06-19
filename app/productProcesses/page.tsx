@@ -34,7 +34,7 @@ const mapProcess = (row: Record<string, unknown>): ProductProcess => {
     processName: String(row.process_name || ""),
     processOrder: Number(row.process_order || 0),
     subcontractorId: row.subcontractor_id ? String(row.subcontractor_id) : null,
-    subcontractorName: subcontractor?.name || "",
+    subcontractorName: String(row.subcontractor_name || subcontractor?.name || ""),
     createdAt: String(row.created_at || ""),
     updatedAt: String(row.updated_at || ""),
   };
@@ -65,7 +65,10 @@ export default function ProductProcessesPage() {
       setLoading(true);
       const [productResult, subcontractorResponse, processResponse] =
         await Promise.all([
-          supabase.from("product_master").select("*").order("product_code"),
+          supabase
+            .from("v_product_master_with_customer")
+            .select("*")
+            .order("product_code"),
           fetch("/api/masters/subcontractors"),
           fetch("/api/masters/product-processes"),
         ]);

@@ -61,9 +61,9 @@ export default function OrderProcessesPage() {
     try {
       setLoading(true);
       const [postResult, processResult] = await Promise.all([
-        supabase.from("posts").select("*").order("order_no", { ascending: true }),
+        supabase.from("v_posts_with_master").select("*").order("order_no", { ascending: true }),
         supabase
-          .from("order_processes")
+          .from("v_order_processes_with_master")
           .select("*")
           .order("process_order", { ascending: true }),
       ]);

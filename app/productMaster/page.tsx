@@ -20,7 +20,7 @@ export default function ProductMasterPage() {
 
   const fetchItems = async () => {
     const { data, error } = await supabase
-      .from("product_master")
+      .from("v_product_master_with_customer")
       .select("*")
       .order("product_code", { ascending: true });
     if (error) {
@@ -43,7 +43,7 @@ export default function ProductMasterPage() {
     const loadItems = async () => {
       const [productResult, customerResult] = await Promise.all([
         supabase
-          .from("product_master")
+          .from("v_product_master_with_customer")
           .select("*")
           .order("product_code", { ascending: true }),
         supabase
