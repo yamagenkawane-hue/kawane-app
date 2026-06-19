@@ -12,6 +12,13 @@ type OutsourceRow = OrderProcess & {
   outsourcing: boolean;
 };
 
+const outsourceStatusOptions = [
+  { value: "not_sent", label: "未出し" },
+  { value: "sent", label: "外注中" },
+  { value: "returned", label: "戻り済み" },
+  { value: "hold", label: "保留" },
+];
+
 const mapOrderProcess = (row: Record<string, unknown>): OutsourceRow => {
   const plannedAmount = Number(row.planned_amount || 0);
   const completedAmount = Number(row.completed_amount || 0);
@@ -35,6 +42,13 @@ const mapOrderProcess = (row: Record<string, unknown>): OutsourceRow => {
     completedDate: String(row.completed_date || ""),
     subcontractorId: row.subcontractor_id ? String(row.subcontractor_id) : null,
     subcontractorName: String(row.subcontractor_name || ""),
+    outsourceSentDate: String(row.outsource_sent_date || ""),
+    outsourceExpectedReturnDate: String(
+      row.outsource_expected_return_date || "",
+    ),
+    outsourceReturnedDate: String(row.outsource_returned_date || ""),
+    outsourceStatus: String(row.outsource_status || "not_sent"),
+    outsourceNote: String(row.outsource_note || ""),
     locked: Boolean(row.locked || false),
     createdAt: String(row.created_at || ""),
     updatedAt: String(row.updated_at || ""),
@@ -75,6 +89,7 @@ const isSameProcess = (process: OutsourceRow, master: ProductProcess) => {
 
 export default function OutsourcingPage() {
   const [rows, setRows] = useState<OutsourceRow[]>([]);
+  const [savingId, setSavingId] = useState("");
   const [loading, setLoading] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
 
@@ -166,6 +181,43 @@ export default function OutsourcingPage() {
     [rows, visibleRows],
   );
 
+  const updateRow = (
+    id: string,
+    field: keyof OutsourceRow,
+    value: string | number | boolean | null,
+  ) => {
+    setRows((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, [field]: value } : row)),
+    );
+  };
+
+  const saveRow = async (row: OutsourceRow) => {
+    try {
+      setSavingId(row.id);
+
+      const { error } = await supabase
+        .from("order_processes")
+        .update({
+          outsource_sent_date: row.outsourceSentDate || null,
+          outsource_expected_return_date:
+            row.outsourceExpectedReturnDate || null,
+          outsource_returned_date: row.outsourceReturnedDate || null,
+          outsource_status: row.outsourceStatus || "not_sent",
+          outsource_note: row.outsourceNote || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id);
+
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error(error);
+      alert("外注情報の保存に失敗しました");
+    } finally {
+      setSavingId("");
+    }
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
@@ -222,7 +274,12 @@ export default function OutsourcingPage() {
               <th>予定数</th>
               <th>完了数</th>
               <th>残数</th>
+              <th>状態</th>
+              <th>外注出し日</th>
+              <th>戻り予定日</th>
+              <th>戻り実績日</th>
               <th>完了日</th>
+              <th>メモ</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -242,8 +299,74 @@ export default function OutsourcingPage() {
                 <td>{row.plannedAmount}</td>
                 <td>{row.completedAmount}</td>
                 <td>{row.remainingAmount}</td>
+                <td>
+                  <select
+                    className={styles.tableInput}
+                    value={row.outsourceStatus || "not_sent"}
+                    onChange={(e) =>
+                      updateRow(row.id, "outsourceStatus", e.target.value)
+                    }
+                  >
+                    {outsourceStatusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td>
+                  <input
+                    className={styles.tableInput}
+                    type="date"
+                    value={row.outsourceSentDate || ""}
+                    onChange={(e) =>
+                      updateRow(row.id, "outsourceSentDate", e.target.value)
+                    }
+                  />
+                </td>
+                <td>
+                  <input
+                    className={styles.tableInput}
+                    type="date"
+                    value={row.outsourceExpectedReturnDate || ""}
+                    onChange={(e) =>
+                      updateRow(
+                        row.id,
+                        "outsourceExpectedReturnDate",
+                        e.target.value,
+                      )
+                    }
+                  />
+                </td>
+                <td>
+                  <input
+                    className={styles.tableInput}
+                    type="date"
+                    value={row.outsourceReturnedDate || ""}
+                    onChange={(e) =>
+                      updateRow(row.id, "outsourceReturnedDate", e.target.value)
+                    }
+                  />
+                </td>
                 <td>{row.completedDate || "-"}</td>
+                <td>
+                  <input
+                    className={styles.tableInput}
+                    value={row.outsourceNote || ""}
+                    onChange={(e) =>
+                      updateRow(row.id, "outsourceNote", e.target.value)
+                    }
+                  />
+                </td>
                 <td className={styles.actionArea}>
+                  <button
+                    className={styles.saveButton}
+                    type="button"
+                    disabled={savingId === row.id}
+                    onClick={() => saveRow(row)}
+                  >
+                    {savingId === row.id ? "保存中" : "保存"}
+                  </button>
                   <Link className={styles.backButton} href="/productionResults">
                     実績
                   </Link>
@@ -255,7 +378,7 @@ export default function OutsourcingPage() {
             ))}
             {visibleRows.length === 0 && (
               <tr>
-                <td colSpan={11}>外注工程はありません</td>
+                <td colSpan={16}>外注工程はありません</td>
               </tr>
             )}
           </tbody>

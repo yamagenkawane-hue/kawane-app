@@ -251,6 +251,11 @@ export type OrderProcess = {
   completedDate: string;
   subcontractorId: string | null;
   subcontractorName?: string;
+  outsourceSentDate?: string;
+  outsourceExpectedReturnDate?: string;
+  outsourceReturnedDate?: string;
+  outsourceStatus?: string;
+  outsourceNote?: string;
   locked: boolean;
   createdAt: string;
   updatedAt: string;
