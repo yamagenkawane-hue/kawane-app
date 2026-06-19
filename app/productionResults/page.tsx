@@ -36,6 +36,8 @@ const mapScheduleRow = (row: Record<string, unknown>): ProductionSchedule => ({
 
 const mapPostRow = (row: Record<string, unknown>): PostData => ({
   id: String(row.id || ""),
+  productId: row.product_id ? String(row.product_id) : "",
+  customerId: row.customer_id ? String(row.customer_id) : "",
   orderNo: String(row.order_no || ""),
   lotNo: String(row.lot_no || ""),
   productCode: String(row.product_code || ""),
@@ -64,6 +66,9 @@ const mapPostToSchedule = (row: Record<string, unknown>): ProductionSchedule => 
 const mapOrderProcessRow = (row: Record<string, unknown>): OrderProcess => ({
   id: String(row.id || ""),
   postId: String(row.post_id || ""),
+  productId: row.product_id ? String(row.product_id) : "",
+  customerId: row.customer_id ? String(row.customer_id) : "",
+  productProcessId: row.product_process_id ? String(row.product_process_id) : "",
   orderNo: String(row.order_no || ""),
   productCode: String(row.product_code || ""),
   productName: String(row.product_name || ""),
@@ -74,6 +79,7 @@ const mapOrderProcessRow = (row: Record<string, unknown>): OrderProcess => ({
   completedAmount: Number(row.completed_amount || 0),
   completedDate: String(row.completed_date || ""),
   subcontractorId: row.subcontractor_id ? String(row.subcontractor_id) : null,
+  subcontractorName: String(row.subcontractor_name || ""),
   locked: Boolean(row.locked || false),
   createdAt: String(row.created_at || ""),
   updatedAt: String(row.updated_at || ""),
@@ -217,9 +223,9 @@ export default function ProductionResultsPage() {
             .from("v_order_processes_with_master")
             .select("*")
             .order("process_order", { ascending: true }),
-          supabase.from("posts").select("*"),
+          supabase.from("v_posts_with_master").select("*"),
           supabase
-            .from("production_results")
+            .from("v_production_results_with_master")
             .select("*")
             .order("created_at", { ascending: false })
             .limit(30),

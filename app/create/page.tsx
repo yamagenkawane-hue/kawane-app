@@ -25,7 +25,7 @@ const Create = () => {
     const fetchProducts = async () => {
       const [productResult, customerResult] = await Promise.all([
         supabase
-          .from("product_master")
+          .from("v_product_master_with_customer")
           .select("*")
           .order("product_code", { ascending: true }),
         supabase
@@ -49,6 +49,7 @@ const Create = () => {
       setProducts(
         (data || []).map((row) => ({
           id: row.id,
+          customerId: row.customer_id || "",
           productCode: row.product_code || "",
           productName: row.product_name || "",
           customerName: row.customer_name || "",
@@ -151,6 +152,14 @@ const Create = () => {
     }
 
     const now = new Date().toISOString();
+    const selectedProduct = products.find(
+      (product) =>
+        product.productCode === productCode &&
+        product.productName === productName,
+    );
+    const selectedCustomer = customers.find(
+      (customer) => customer.customerName === customerName,
+    );
 
     const { data: existingOrder, error: existingOrderError } = await supabase
       .from("posts")
@@ -174,7 +183,9 @@ const Create = () => {
       lot_no: lotNo,
       product_code: productCode,
       product_name: productName,
+      product_id: selectedProduct?.id || null,
       customer_name: customerName,
+      customer_id: selectedProduct?.customerId || selectedCustomer?.id || null,
       order_amount: normalizedOrderAmount,
       completion_scheduled_date: completionScheduledDate,
       manufacturing_date: null,

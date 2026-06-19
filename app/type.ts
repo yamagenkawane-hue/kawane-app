@@ -125,6 +125,8 @@ export type ProcessLog = {
 
 export type PostData = {
   id: string;
+  productId?: string;
+  customerId?: string;
   orderNo: string;
   lotNo?: string;
   productCode?: string;
@@ -235,6 +237,9 @@ export type ProcessResult = {
 export type OrderProcess = {
   id: string;
   postId: string;
+  productId?: string;
+  customerId?: string;
+  productProcessId?: string;
   orderNo: string;
   productCode: string;
   productName: string;
@@ -245,6 +250,7 @@ export type OrderProcess = {
   completedAmount: number;
   completedDate: string;
   subcontractorId: string | null;
+  subcontractorName?: string;
   locked: boolean;
   createdAt: string;
   updatedAt: string;
@@ -287,6 +293,7 @@ export type CustomerMaster = {
 
 export type ProductMaster = {
   id: string;
+  customerId?: string;
   productCode: string;
   productName: string;
   customerName: string;
@@ -361,11 +368,13 @@ export type Subcontractor = {
 
 export type ProductProcess = {
   id: string;
+  productId?: string;
   productCode: string;
   processName: string;
   processOrder: number;
   subcontractorId: string | null;
   subcontractorName?: string;
+  outsourcing?: boolean;
   createdAt: string;
   updatedAt: string;
 };

@@ -8,6 +8,8 @@ import styles from "../masterCommon.module.css";
 
 const mapPost = (row: Record<string, unknown>): PostData => ({
   id: String(row.id || ""),
+  productId: row.product_id ? String(row.product_id) : "",
+  customerId: row.customer_id ? String(row.customer_id) : "",
   orderNo: String(row.order_no || ""),
   lotNo: String(row.lot_no || ""),
   productCode: String(row.product_code || ""),
@@ -22,6 +24,9 @@ const mapPost = (row: Record<string, unknown>): PostData => ({
 const mapOrderProcess = (row: Record<string, unknown>): OrderProcess => ({
   id: String(row.id || ""),
   postId: String(row.post_id || ""),
+  productId: row.product_id ? String(row.product_id) : "",
+  customerId: row.customer_id ? String(row.customer_id) : "",
+  productProcessId: row.product_process_id ? String(row.product_process_id) : "",
   orderNo: String(row.order_no || ""),
   productCode: String(row.product_code || ""),
   productName: String(row.product_name || ""),
@@ -32,6 +37,7 @@ const mapOrderProcess = (row: Record<string, unknown>): OrderProcess => ({
   completedAmount: Number(row.completed_amount || 0),
   completedDate: String(row.completed_date || ""),
   subcontractorId: row.subcontractor_id ? String(row.subcontractor_id) : null,
+  subcontractorName: String(row.subcontractor_name || ""),
   locked: Boolean(row.locked || false),
   createdAt: String(row.created_at || ""),
   updatedAt: String(row.updated_at || ""),
@@ -147,6 +153,8 @@ export default function OrderProcessesPage() {
       const { error } = await supabase.from("order_processes").insert({
         post_id: selectedPost.id,
         order_no: selectedPost.orderNo,
+        product_id: selectedPost.productId || null,
+        customer_id: selectedPost.customerId || null,
         product_code: selectedPost.productCode || "",
         product_name: selectedPost.productName,
         customer_name: selectedPost.customerName,

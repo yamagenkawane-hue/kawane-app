@@ -9,6 +9,7 @@ import {
   ClipboardList,
   ClipboardPen,
   Factory,
+  Handshake,
   PackageSearch,
   LogOut,
   Scale,
@@ -38,6 +39,11 @@ const menus = [
     title: "実績登録",
     href: "/productionResults",
     icon: <ClipboardPen size={30} />,
+  },
+  {
+    title: "外注管理",
+    href: "/outsourcing",
+    icon: <Handshake size={30} />,
   },
   {
     title: "計量実績登録",
