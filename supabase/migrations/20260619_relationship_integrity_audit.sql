@@ -55,16 +55,29 @@ where pp.process_master_id is null
   );
 
 update order_processes op
-set product_id = coalesce(op.product_id, p.product_id, pm.id),
-    customer_id = coalesce(op.customer_id, p.customer_id, cm.id)
-from posts p
-left join product_master pm
-  on pm.product_code = op.product_code
-  or pm.product_name = op.product_name
-left join customer_master cm
-  on cm.customer_name = op.customer_name
-where op.post_id = p.id
-  and (op.product_id is null or op.customer_id is null);
+set product_id = coalesce(
+      op.product_id,
+      (select p.product_id from posts p where p.id = op.post_id limit 1),
+      (
+        select pm.id
+        from product_master pm
+        where pm.product_code = op.product_code
+           or pm.product_name = op.product_name
+        limit 1
+      )
+    ),
+    customer_id = coalesce(
+      op.customer_id,
+      (select p.customer_id from posts p where p.id = op.post_id limit 1),
+      (
+        select cm.id
+        from customer_master cm
+        where cm.customer_name = op.customer_name
+        limit 1
+      )
+    )
+where op.product_id is null
+   or op.customer_id is null;
 
 update order_processes op
 set product_process_id = pp.id
