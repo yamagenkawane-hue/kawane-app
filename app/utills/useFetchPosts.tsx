@@ -3,6 +3,7 @@ import supabase from "../../lib/supabase";
 import { Post } from "../type";
 import {
   buildOrderProcessProgressMap,
+  buildOutsourceStatusMap,
   buildProductionResultProgressMap,
   createEmptyProcessProgress,
   getPreferredLogs,
@@ -32,7 +33,7 @@ export const useFetchPosts = () => {
           supabase
             .from("v_order_processes_with_master")
             .select(
-              "post_id,process_name,process_order,completed_amount,completed_date",
+              "post_id,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,outsource_status,outsource_sent_date,outsource_returned_date",
             ),
           supabase
             .from("v_production_results_with_master")
@@ -56,6 +57,9 @@ export const useFetchPosts = () => {
         }
 
         const processProgressMap = buildOrderProcessProgressMap(
+          orderProcessResult.data || [],
+        );
+        const outsourceStatusMap = buildOutsourceStatusMap(
           orderProcessResult.data || [],
         );
         const productionResultMap = buildProductionResultProgressMap(
@@ -127,6 +131,8 @@ export const useFetchPosts = () => {
           let status: Post["status"] = "未着手";
           if (packagingAmount >= orderAmount && orderAmount > 0) {
             status = "出荷OK";
+          } else if (outsourceStatusMap.has(row.id)) {
+            status = outsourceStatusMap.get(row.id) as Post["status"];
           } else if (packagingAmount > 0) {
             status = "梱包中";
           } else if (measurementAmount > 0) {

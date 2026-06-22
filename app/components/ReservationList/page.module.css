@@ -693,6 +693,14 @@
   font-weight: bold;
 }
 
+.外注 {
+  background-color: #7c3aed;
+}
+
+.外注済 {
+  background-color: #0f766e;
+}
+
 /* =========================
    平均行
 ========================= */
