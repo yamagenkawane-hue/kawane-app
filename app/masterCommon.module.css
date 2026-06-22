@@ -13,24 +13,44 @@
 }
 
 .backButton {
-  color: #2563eb;
-  font-weight: 800;
+  align-items: center;
+  background: #2563eb;
+  border: 1px solid #2563eb;
+  border-radius: 12px;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+  color: #fff;
+  display: inline-flex;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 18px;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .linkButton {
-  background: transparent;
-  border: none;
-  color: #2563eb;
+  align-items: center;
+  background: #2563eb;
+  border: 1px solid #2563eb;
+  border-radius: 12px;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+  color: #fff;
   cursor: pointer;
+  display: inline-flex;
   font: inherit;
-  font-weight: 800;
-  padding: 0;
-  text-align: left;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 18px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .linkButton:disabled {
-  color: #94a3b8;
+  background: #cbd5e1;
+  border-color: #cbd5e1;
+  box-shadow: none;
+  color: #f8fafc;
   cursor: not-allowed;
 }
 
