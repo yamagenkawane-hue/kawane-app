@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useSyncExternalStore, useState } from "react";
 import supabase from "../../../lib/supabase";
 import styles from "./page.module.css";
 import Link from "next/link";
@@ -62,18 +62,47 @@ const menus = [
   },
 ];
 
+const authChangeEventName = "auth-state-change";
+
+function subscribe(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener(authChangeEventName, callback);
+
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener(authChangeEventName, callback);
+  };
+}
+
+function getLoggedInUser() {
+  return localStorage.getItem("loggedInUser");
+}
+
+function getManagerIn() {
+  return localStorage.getItem("isManagerIn");
+}
+
+function getServerSnapshot() {
+  return null;
+}
+
 const Signin = () => {
   const [posts, setPosts] = useState<User[]>([]);
-  const [isLoggedIn, setIsLoggedIn] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      localStorage.getItem("loggedInUser") !== null,
+
+  const loggedInUser = useSyncExternalStore(
+    subscribe,
+    getLoggedInUser,
+    getServerSnapshot,
   );
-  const [isManagerIn, setIsManagerIn] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      localStorage.getItem("isManagerIn") === "true",
+
+  const managerInValue = useSyncExternalStore(
+    subscribe,
+    getManagerIn,
+    getServerSnapshot,
   );
+
+  const isLoggedIn = loggedInUser !== null;
+  const isManagerIn = managerInValue === "true";
 
   // Supabaseからユーザー取得
   useEffect(() => {
@@ -105,8 +134,7 @@ const Signin = () => {
     try {
       localStorage.removeItem("loggedInUser");
       localStorage.removeItem("isManagerIn");
-      setIsLoggedIn(false);
-      setIsManagerIn(false);
+      window.dispatchEvent(new Event(authChangeEventName));
     } catch (error) {
       console.error("サインアウトエラー:", error);
     }
@@ -116,8 +144,7 @@ const Signin = () => {
   const handleLoginSuccess = (isManager: boolean) => {
     localStorage.setItem("loggedInUser", "true");
     localStorage.setItem("isManagerIn", String(isManager));
-    setIsLoggedIn(true);
-    setIsManagerIn(isManager);
+    window.dispatchEvent(new Event(authChangeEventName));
   };
 
   return (
