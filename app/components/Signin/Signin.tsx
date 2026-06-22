@@ -21,14 +21,14 @@ import { User } from "@/app/type";
 
 const menus = [
   {
+    title: "受注管理",
+    href: "/orders",
+    icon: <PackageSearch size={30} />,
+  },
+  {
     title: "進捗管理",
     href: "/reservation",
     icon: <ClipboardList size={30} />,
-  },
-  {
-    title: "注残管理",
-    href: "/orders",
-    icon: <PackageSearch size={30} />,
   },
   {
     title: "生産予定",
@@ -41,14 +41,14 @@ const menus = [
     icon: <ClipboardPen size={30} />,
   },
   {
+    title: "製造管理",
+    href: "/manufacturing",
+    icon: <Factory size={30} />,
+  },
+  {
     title: "外注管理",
     href: "/outsourcing",
     icon: <Handshake size={30} />,
-  },
-  {
-    title: "計量実績登録",
-    href: "/manufacturing",
-    icon: <Factory size={30} />,
   },
   {
     title: "出荷管理",
