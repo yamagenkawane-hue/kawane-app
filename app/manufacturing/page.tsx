@@ -18,7 +18,7 @@ export default function ManufacturingPage() {
 
   const fetchSchedules = async () => {
     const { data, error } = await supabase
-      .from("production_schedules")
+      .from("v_production_schedules_with_master")
       .select("*")
       .order("created_at", { ascending: false });
     if (error) {
@@ -28,6 +28,8 @@ export default function ManufacturingPage() {
     setSchedules(
       (data || []).map((row) => ({
         id: row.id,
+        postId: row.post_id || "",
+        orderNo: row.order_no || "",
         customerName: row.customer_name || "",
         productName: row.product_name || "",
         pressNumber: row.press_number || "",
@@ -44,7 +46,7 @@ export default function ManufacturingPage() {
   useEffect(() => {
     const loadSchedules = async () => {
       const { data, error } = await supabase
-        .from("production_schedules")
+        .from("v_production_schedules_with_master")
         .select("*")
         .order("created_at", {
           ascending: false,
@@ -57,6 +59,8 @@ export default function ManufacturingPage() {
 
       const mappedSchedules: ProductionSchedule[] = (data || []).map((row) => ({
         id: row.id,
+        postId: row.post_id || "",
+        orderNo: row.order_no || "",
         customerName: row.customer_name || "",
         productName: row.product_name || "",
         pressNumber: row.press_number || "",
@@ -92,6 +96,42 @@ export default function ManufacturingPage() {
       amount: quantity,
       created_at: now,
     });
+
+    if (selected.postId) {
+      await supabase.rpc("create_order_processes_for_post", {
+        p_post_id: selected.postId,
+      });
+
+      const { data: firstProcess, error: processError } = await supabase
+        .from("v_order_processes_with_master")
+        .select("id,completed_amount,planned_amount")
+        .eq("post_id", selected.postId)
+        .order("process_order", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (processError) throw processError;
+
+      if (firstProcess?.id) {
+        const completedAmount = Number(firstProcess.completed_amount || 0);
+        const plannedAmount = Number(firstProcess.planned_amount || 0);
+        const nextCompletedAmount = Math.min(
+          plannedAmount || completedAmount + quantity,
+          completedAmount + quantity,
+        );
+
+        const { error: updateProcessError } = await supabase
+          .from("order_processes")
+          .update({
+            completed_amount: nextCompletedAmount,
+            completed_date: today,
+            updated_at: now,
+          })
+          .eq("id", firstProcess.id);
+
+        if (updateProcessError) throw updateProcessError;
+      }
+    }
 
     const { data: existing } = await supabase
       .from("inventory_items")

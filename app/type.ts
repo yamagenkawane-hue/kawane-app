@@ -263,6 +263,7 @@ export type OrderProcess = {
 
 export type ProductionSchedule = {
   id: string;
+  postId?: string;
   orderNo?: string;
   customerName: string;
   productName: string;
