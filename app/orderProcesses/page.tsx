@@ -331,7 +331,7 @@ export default function OrderProcessesPage() {
             追加
           </button>
           <button
-            className={styles.saveButton}
+            className={styles.linkButton}
             onClick={syncFromProductMaster}
             disabled={!selectedPost || loading}
           >

@@ -18,6 +18,22 @@
   text-decoration: none;
 }
 
+.linkButton {
+  background: transparent;
+  border: none;
+  color: #2563eb;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 0;
+  text-align: left;
+}
+
+.linkButton:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
 .title {
   color: #111827;
   font-size: 34px;
