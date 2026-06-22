@@ -13,6 +13,7 @@ import {
   CompanyCalendar,
   LineMaster,
   ProcessResult,
+  OrderProcess,
 } from "@/app/type";
 
 export default function ProgressDetail() {
@@ -125,6 +126,21 @@ export default function ProgressDetail() {
 
     return [...postLogs, ...resultLogs];
   };
+
+  const getOrderProcessLogs = (
+    orderProcessId: string,
+    resultData: ProcessResult[],
+  ) =>
+    resultData
+      .filter(
+        (result) =>
+          result.orderProcessId === orderProcessId ||
+          result.processId === orderProcessId,
+      )
+      .map((result) => ({
+        date: result.date,
+        amount: result.amount,
+      }));
 
   // =========================
   // データ取得
@@ -263,6 +279,7 @@ export default function ProgressDetail() {
             id: row.id,
             postId: row.post_id,
             scheduleId: row.schedule_id || "",
+            orderProcessId: row.order_process_id || "",
             processId: row.process_id,
             processName: row.process_name || "",
             date: row.date,
@@ -271,6 +288,45 @@ export default function ProgressDetail() {
           }));
         }
 
+        const { data: orderProcessRows, error: orderProcessError } =
+          await supabase
+            .from("v_order_processes_with_master")
+            .select("*")
+            .eq("post_id", id)
+            .order("process_order", { ascending: true });
+
+        if (orderProcessError) throw orderProcessError;
+
+        const orderProcessData: OrderProcess[] = (orderProcessRows || []).map(
+          (row) => ({
+            id: row.id,
+            postId: row.post_id || "",
+            productId: row.product_id || "",
+            customerId: row.customer_id || "",
+            productProcessId: row.product_process_id || "",
+            orderNo: row.order_no || "",
+            productCode: row.product_code || "",
+            productName: row.product_name || "",
+            customerName: row.customer_name || "",
+            processName: row.process_name || "",
+            processOrder: Number(row.process_order || 0),
+            plannedAmount: Number(row.planned_amount || 0),
+            completedAmount: Number(row.completed_amount || 0),
+            completedDate: row.completed_date || "",
+            subcontractorId: row.subcontractor_id || null,
+            subcontractorName: row.subcontractor_name || "",
+            outsourceSentDate: row.outsource_sent_date || "",
+            outsourceExpectedReturnDate:
+              row.outsource_expected_return_date || "",
+            outsourceReturnedDate: row.outsource_returned_date || "",
+            outsourceStatus: row.outsource_status || "",
+            outsourceNote: row.outsource_note || "",
+            locked: row.locked || false,
+            createdAt: row.created_at || "",
+            updatedAt: row.updated_at || "",
+          }),
+        );
+
         // =========================
         // ガント生成
         // =========================
@@ -278,6 +334,138 @@ export default function ProgressDetail() {
         const ganttList: ProcessItem[] = [];
         let currentDate = safeDate(currentPost.manufacturingDate);
         const orderAmount = Number(currentPost.orderAmount || 0);
+
+        if (orderProcessData.length > 0) {
+          orderProcessData.forEach((process) => {
+            const processMaster = processData.find(
+              (item) =>
+                item.name === process.processName ||
+                item.processId === process.processName,
+            );
+            const line = lineData.find(
+              (item) =>
+                processMaster &&
+                item.processId === processMaster.processId &&
+                item.enabled !== false,
+            );
+
+            const dailyCapacity = Number(line?.dailyCapacity || 1);
+            const operationRate = Number(line?.operationRate || 100);
+            const actualCapacity = Math.max(
+              1,
+              dailyCapacity * (operationRate / 100),
+            );
+            const processResults = getOrderProcessLogs(
+              process.id,
+              resultData,
+            );
+            processResults.sort((a, b) => a.date.localeCompare(b.date));
+
+            const resultTotal = processResults.reduce(
+              (sum, item) => sum + Number(item.amount || 0),
+              0,
+            );
+            const plannedAmount = Number(process.plannedAmount || orderAmount);
+            const totalActual = Math.max(
+              Number(process.completedAmount || 0),
+              resultTotal,
+            );
+
+            let startDate = new Date(currentDate);
+            let endDate = new Date(currentDate);
+            let progress = 0;
+
+            if (processResults.length > 0) {
+              startDate = safeDate(processResults[0].date);
+              progress =
+                plannedAmount > 0
+                  ? Math.min(
+                      100,
+                      Math.floor((totalActual / plannedAmount) * 100),
+                    )
+                  : 0;
+
+              const lastActualDate = safeDate(
+                processResults[processResults.length - 1].date,
+              );
+              const remainingAmount = Math.max(0, plannedAmount - totalActual);
+
+              if (remainingAmount <= 0) {
+                endDate = lastActualDate;
+              } else {
+                const remainingDays = Math.max(
+                  1,
+                  Math.ceil(remainingAmount / actualCapacity),
+                );
+                endDate = addBusinessDays(
+                  lastActualDate,
+                  remainingDays,
+                  calendarData,
+                );
+              }
+            } else if (totalActual > 0) {
+              startDate = process.completedDate
+                ? safeDate(process.completedDate)
+                : new Date(currentDate);
+              progress =
+                plannedAmount > 0
+                  ? Math.min(
+                      100,
+                      Math.floor((totalActual / plannedAmount) * 100),
+                    )
+                  : 0;
+              const remainingAmount = Math.max(0, plannedAmount - totalActual);
+              endDate =
+                remainingAmount <= 0
+                  ? new Date(startDate)
+                  : addBusinessDays(
+                      startDate,
+                      Math.max(1, Math.ceil(remainingAmount / actualCapacity)),
+                      calendarData,
+                    );
+            } else {
+              const requiredDays = Math.max(
+                1,
+                Math.ceil(plannedAmount / actualCapacity),
+              );
+              endDate = addBusinessDays(
+                startDate,
+                requiredDays - 1,
+                calendarData,
+              );
+              progress = 0;
+            }
+
+            const delivery = safeDate(currentPost.deliveryDate);
+            const isDelay = endDate.getTime() > delivery.getTime();
+            const actualEnd =
+              progress >= 100
+                ? endDate
+                : processResults.length > 0
+                  ? safeDate(processResults[processResults.length - 1].date)
+                  : process.completedDate
+                    ? safeDate(process.completedDate)
+                    : null;
+
+            ganttList.push({
+              id: process.id,
+              name: process.processName,
+              actualStart: startDate,
+              actualEnd,
+              predictedEnd: endDate,
+              progress,
+              isDelay,
+              completedAmount: totalActual,
+              remainingAmount: Math.max(0, plannedAmount - totalActual),
+            });
+
+            currentDate = getNextBusinessDay(endDate, calendarData);
+          });
+
+          console.log("ganttList", ganttList);
+          setGanttProcesses(ganttList);
+          return;
+        }
 
         processData.forEach((process) => {
           const line = lineData.find(
