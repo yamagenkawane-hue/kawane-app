@@ -2,6 +2,50 @@ import { useEffect, useState } from "react";
 import supabase from "../../lib/supabase";
 import { Post } from "../type";
 
+type ProcessProgress = {
+  manufacturingLogs: { date: string; amount: number }[];
+  cleaningLogs: { date: string; amount: number }[];
+  inspectionLogs: { date: string; amount: number }[];
+  measurementLogs: { date: string; amount: number }[];
+  packagingLogs: { date: string; amount: number }[];
+};
+
+const createEmptyProcessProgress = (): ProcessProgress => ({
+  manufacturingLogs: [],
+  cleaningLogs: [],
+  inspectionLogs: [],
+  measurementLogs: [],
+  packagingLogs: [],
+});
+
+const getProcessLogKey = (processName: string, processOrder: number) => {
+  if (
+    processName.includes("製造") ||
+    processName.includes("プレス") ||
+    processOrder === 1
+  ) {
+    return "manufacturingLogs";
+  }
+  if (processName.includes("洗浄")) return "cleaningLogs";
+  if (processName.includes("検査")) return "inspectionLogs";
+  if (processName.includes("計量")) return "measurementLogs";
+  if (processName.includes("梱包") || processName.includes("包装")) {
+    return "packagingLogs";
+  }
+
+  return null;
+};
+
+const getPreferredLogs = (
+  orderProcessLogs: { date: string; amount: number }[],
+  productionResultLogs: { date: string; amount: number }[],
+  legacyLogs: { date: string; amount: number }[],
+) => {
+  if (orderProcessLogs.length > 0) return orderProcessLogs;
+  if (productionResultLogs.length > 0) return productionResultLogs;
+  return legacyLogs;
+};
+
 export const useFetchPosts = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [shouldFetch, setShouldFetch] = useState(true);
@@ -11,18 +55,33 @@ export const useFetchPosts = () => {
       if (!shouldFetch) return;
 
       try {
-        const [postResult, shipmentResult] = await Promise.all([
+        const [
+          postResult,
+          shipmentResult,
+          orderProcessResult,
+          productionResult,
+        ] = await Promise.all([
           supabase
             .from("posts")
             .select("*")
             .order("created_at", { ascending: true }),
           supabase.from("shipments").select("post_id,quantity"),
+          supabase
+            .from("v_order_processes_with_master")
+            .select(
+              "post_id,process_name,process_order,completed_amount,completed_date",
+            ),
+          supabase
+            .from("v_production_results_with_master")
+            .select("post_id,process_name,date,amount"),
         ]);
 
         const { data, error } = postResult;
 
         if (error) throw error;
         if (shipmentResult.error) throw shipmentResult.error;
+        if (orderProcessResult.error) throw orderProcessResult.error;
+        if (productionResult.error) throw productionResult.error;
 
         const shippedMap = new Map<string, number>();
         for (const row of shipmentResult.data || []) {
@@ -33,15 +92,78 @@ export const useFetchPosts = () => {
           );
         }
 
+        const processProgressMap = new Map<string, ProcessProgress>();
+        for (const row of orderProcessResult.data || []) {
+          const postId = row.post_id || "";
+          const completedAmount = Number(row.completed_amount || 0);
+          if (!postId || completedAmount <= 0) continue;
+
+          const logKey = getProcessLogKey(
+            row.process_name || "",
+            Number(row.process_order || 0),
+          );
+          if (!logKey) continue;
+
+          const progress =
+            processProgressMap.get(postId) || createEmptyProcessProgress();
+          const date = row.completed_date || "";
+          progress[logKey].push({ date, amount: completedAmount });
+          processProgressMap.set(postId, progress);
+        }
+
+        const productionResultMap = new Map<string, ProcessProgress>();
+        for (const row of productionResult.data || []) {
+          const postId = row.post_id || "";
+          const amount = Number(row.amount || 0);
+          if (!postId || amount <= 0) continue;
+
+          const logKey = getProcessLogKey(row.process_name || "", 0);
+          if (!logKey) continue;
+
+          const progress =
+            productionResultMap.get(postId) || createEmptyProcessProgress();
+          progress[logKey].push({ date: row.date || "", amount });
+          productionResultMap.set(postId, progress);
+        }
+
         const postsArray: Post[] = (data || []).map((row) => {
           // =========================
           // 日別実績
           // =========================
-          const manufacturingLogs = row.manufacturing_logs || [];
-          const cleaningLogs = row.cleaning_logs || [];
-          const inspectionLogs = row.inspection_logs || [];
-          const measurementLogs = row.measurement_logs || [];
-          const packagingLogs = row.packaging_logs || [];
+          const processProgress =
+            processProgressMap.get(row.id) || createEmptyProcessProgress();
+          const productionProgress =
+            productionResultMap.get(row.id) || createEmptyProcessProgress();
+          const manufacturingLogs =
+            getPreferredLogs(
+              processProgress.manufacturingLogs,
+              productionProgress.manufacturingLogs,
+              row.manufacturing_logs || [],
+            );
+          const cleaningLogs =
+            getPreferredLogs(
+              processProgress.cleaningLogs,
+              productionProgress.cleaningLogs,
+              row.cleaning_logs || [],
+            );
+          const inspectionLogs =
+            getPreferredLogs(
+              processProgress.inspectionLogs,
+              productionProgress.inspectionLogs,
+              row.inspection_logs || [],
+            );
+          const measurementLogs =
+            getPreferredLogs(
+              processProgress.measurementLogs,
+              productionProgress.measurementLogs,
+              row.measurement_logs || [],
+            );
+          const packagingLogs =
+            getPreferredLogs(
+              processProgress.packagingLogs,
+              productionProgress.packagingLogs,
+              row.packaging_logs || [],
+            );
 
           // =========================
           // 合計数量
