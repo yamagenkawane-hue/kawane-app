@@ -1,0 +1,120 @@
+export type ProcessLog = {
+  date: string;
+  amount: number;
+};
+
+export type ProcessProgress = {
+  manufacturingLogs: ProcessLog[];
+  cleaningLogs: ProcessLog[];
+  inspectionLogs: ProcessLog[];
+  measurementLogs: ProcessLog[];
+  packagingLogs: ProcessLog[];
+};
+
+export const createEmptyProcessProgress = (): ProcessProgress => ({
+  manufacturingLogs: [],
+  cleaningLogs: [],
+  inspectionLogs: [],
+  measurementLogs: [],
+  packagingLogs: [],
+});
+
+export const getProcessLogKey = (
+  processName: string,
+  processOrder: number,
+): keyof ProcessProgress | null => {
+  if (
+    processName.includes("製造") ||
+    processName.includes("プレス") ||
+    processOrder === 1
+  ) {
+    return "manufacturingLogs";
+  }
+  if (processName.includes("洗浄")) return "cleaningLogs";
+  if (processName.includes("検査")) return "inspectionLogs";
+  if (processName.includes("計量")) return "measurementLogs";
+  if (processName.includes("梱包") || processName.includes("包装")) {
+    return "packagingLogs";
+  }
+
+  return null;
+};
+
+export const getPreferredLogs = (
+  orderProcessLogs: ProcessLog[],
+  productionResultLogs: ProcessLog[],
+  legacyLogs: ProcessLog[],
+) => {
+  if (orderProcessLogs.length > 0) return orderProcessLogs;
+  if (productionResultLogs.length > 0) return productionResultLogs;
+  return legacyLogs;
+};
+
+export const sumProcessLogs = (logs: ProcessLog[]) =>
+  logs.reduce((sum, log) => sum + Number(log.amount || 0), 0);
+
+export const buildOrderProcessProgressMap = <
+  T extends {
+    post_id?: string | null;
+    process_name?: string | null;
+    process_order?: number | string | null;
+    completed_amount?: number | string | null;
+    completed_date?: string | null;
+  },
+>(
+  rows: T[],
+) => {
+  const progressMap = new Map<string, ProcessProgress>();
+
+  for (const row of rows) {
+    const postId = row.post_id || "";
+    const completedAmount = Number(row.completed_amount || 0);
+    if (!postId || completedAmount <= 0) continue;
+
+    const logKey = getProcessLogKey(
+      row.process_name || "",
+      Number(row.process_order || 0),
+    );
+    if (!logKey) continue;
+
+    const progress = progressMap.get(postId) || createEmptyProcessProgress();
+    progress[logKey].push({
+      date: row.completed_date || "",
+      amount: completedAmount,
+    });
+    progressMap.set(postId, progress);
+  }
+
+  return progressMap;
+};
+
+export const buildProductionResultProgressMap = <
+  T extends {
+    post_id?: string | null;
+    process_name?: string | null;
+    date?: string | null;
+    amount?: number | string | null;
+  },
+>(
+  rows: T[],
+) => {
+  const progressMap = new Map<string, ProcessProgress>();
+
+  for (const row of rows) {
+    const postId = row.post_id || "";
+    const amount = Number(row.amount || 0);
+    if (!postId || amount <= 0) continue;
+
+    const logKey = getProcessLogKey(row.process_name || "", 0);
+    if (!logKey) continue;
+
+    const progress = progressMap.get(postId) || createEmptyProcessProgress();
+    progress[logKey].push({
+      date: row.date || "",
+      amount,
+    });
+    progressMap.set(postId, progress);
+  }
+
+  return progressMap;
+};

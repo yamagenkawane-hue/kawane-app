@@ -1,50 +1,13 @@
 import { useEffect, useState } from "react";
 import supabase from "../../lib/supabase";
 import { Post } from "../type";
-
-type ProcessProgress = {
-  manufacturingLogs: { date: string; amount: number }[];
-  cleaningLogs: { date: string; amount: number }[];
-  inspectionLogs: { date: string; amount: number }[];
-  measurementLogs: { date: string; amount: number }[];
-  packagingLogs: { date: string; amount: number }[];
-};
-
-const createEmptyProcessProgress = (): ProcessProgress => ({
-  manufacturingLogs: [],
-  cleaningLogs: [],
-  inspectionLogs: [],
-  measurementLogs: [],
-  packagingLogs: [],
-});
-
-const getProcessLogKey = (processName: string, processOrder: number) => {
-  if (
-    processName.includes("製造") ||
-    processName.includes("プレス") ||
-    processOrder === 1
-  ) {
-    return "manufacturingLogs";
-  }
-  if (processName.includes("洗浄")) return "cleaningLogs";
-  if (processName.includes("検査")) return "inspectionLogs";
-  if (processName.includes("計量")) return "measurementLogs";
-  if (processName.includes("梱包") || processName.includes("包装")) {
-    return "packagingLogs";
-  }
-
-  return null;
-};
-
-const getPreferredLogs = (
-  orderProcessLogs: { date: string; amount: number }[],
-  productionResultLogs: { date: string; amount: number }[],
-  legacyLogs: { date: string; amount: number }[],
-) => {
-  if (orderProcessLogs.length > 0) return orderProcessLogs;
-  if (productionResultLogs.length > 0) return productionResultLogs;
-  return legacyLogs;
-};
+import {
+  buildOrderProcessProgressMap,
+  buildProductionResultProgressMap,
+  createEmptyProcessProgress,
+  getPreferredLogs,
+  sumProcessLogs,
+} from "./processProgress";
 
 export const useFetchPosts = () => {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -92,39 +55,12 @@ export const useFetchPosts = () => {
           );
         }
 
-        const processProgressMap = new Map<string, ProcessProgress>();
-        for (const row of orderProcessResult.data || []) {
-          const postId = row.post_id || "";
-          const completedAmount = Number(row.completed_amount || 0);
-          if (!postId || completedAmount <= 0) continue;
-
-          const logKey = getProcessLogKey(
-            row.process_name || "",
-            Number(row.process_order || 0),
-          );
-          if (!logKey) continue;
-
-          const progress =
-            processProgressMap.get(postId) || createEmptyProcessProgress();
-          const date = row.completed_date || "";
-          progress[logKey].push({ date, amount: completedAmount });
-          processProgressMap.set(postId, progress);
-        }
-
-        const productionResultMap = new Map<string, ProcessProgress>();
-        for (const row of productionResult.data || []) {
-          const postId = row.post_id || "";
-          const amount = Number(row.amount || 0);
-          if (!postId || amount <= 0) continue;
-
-          const logKey = getProcessLogKey(row.process_name || "", 0);
-          if (!logKey) continue;
-
-          const progress =
-            productionResultMap.get(postId) || createEmptyProcessProgress();
-          progress[logKey].push({ date: row.date || "", amount });
-          productionResultMap.set(postId, progress);
-        }
+        const processProgressMap = buildOrderProcessProgressMap(
+          orderProcessResult.data || [],
+        );
+        const productionResultMap = buildProductionResultProgressMap(
+          productionResult.data || [],
+        );
 
         const postsArray: Post[] = (data || []).map((row) => {
           // =========================
@@ -168,26 +104,11 @@ export const useFetchPosts = () => {
           // =========================
           // 合計数量
           // =========================
-          const manufacturingAmount = manufacturingLogs.reduce(
-            (sum: number, log: { amount: number }) => sum + log.amount,
-            0,
-          );
-          const cleaningAmount = cleaningLogs.reduce(
-            (sum: number, log: { amount: number }) => sum + log.amount,
-            0,
-          );
-          const inspectionAmount = inspectionLogs.reduce(
-            (sum: number, log: { amount: number }) => sum + log.amount,
-            0,
-          );
-          const measurementAmount = measurementLogs.reduce(
-            (sum: number, log: { amount: number }) => sum + log.amount,
-            0,
-          );
-          const packagingAmount = packagingLogs.reduce(
-            (sum: number, log: { amount: number }) => sum + log.amount,
-            0,
-          );
+          const manufacturingAmount = sumProcessLogs(manufacturingLogs);
+          const cleaningAmount = sumProcessLogs(cleaningLogs);
+          const inspectionAmount = sumProcessLogs(inspectionLogs);
+          const measurementAmount = sumProcessLogs(measurementLogs);
+          const packagingAmount = sumProcessLogs(packagingLogs);
 
           // =========================
           // 受注数量

@@ -5,6 +5,13 @@ import Link from "next/link";
 import supabase from "../../lib/supabase";
 import styles from "./page.module.css";
 import { CustomerMaster, InventoryAllocation, PostData } from "@/app/type";
+import {
+  buildOrderProcessProgressMap,
+  buildProductionResultProgressMap,
+  createEmptyProcessProgress,
+  getPreferredLogs,
+  sumProcessLogs,
+} from "@/app/utills/processProgress";
 
 type AdjustedPost = PostData & {
   transferSource: string;
@@ -60,6 +67,8 @@ const OrdersPage = () => {
         allocationResult,
         inventoryResult,
         shipmentResult,
+        orderProcessResult,
+        productionResult,
       ] = await Promise.all([
           supabase.from("v_posts_with_master").select("*"),
           supabase.from("customer_master").select("*"),
@@ -68,6 +77,14 @@ const OrdersPage = () => {
             .from("v_inventory_items_with_master")
             .select("product_code,current_stock,allocated_stock"),
           supabase.from("v_shipments_with_master").select("post_id,quantity"),
+          supabase
+            .from("v_order_processes_with_master")
+            .select(
+              "post_id,process_name,process_order,completed_amount,completed_date",
+            ),
+          supabase
+            .from("v_production_results_with_master")
+            .select("post_id,process_name,date,amount"),
         ]);
 
       const { data, error } = postResult;
@@ -76,6 +93,8 @@ const OrdersPage = () => {
       if (allocationResult.error) throw allocationResult.error;
       if (inventoryResult.error) throw inventoryResult.error;
       if (shipmentResult.error) throw shipmentResult.error;
+      if (orderProcessResult.error) throw orderProcessResult.error;
+      if (productionResult.error) throw productionResult.error;
 
       const customerList: CustomerMaster[] = (customerResult.data || []).map(
         (row) => ({
@@ -126,7 +145,45 @@ const OrdersPage = () => {
         shippedMap.set(postId, (shippedMap.get(postId) || 0) + Number(row.quantity || 0));
       }
 
-      const rawData: PostData[] = (data || []).map((row) => ({
+      const processProgressMap = buildOrderProcessProgressMap(
+        orderProcessResult.data || [],
+      );
+      const productionResultMap = buildProductionResultProgressMap(
+        productionResult.data || [],
+      );
+
+      const rawData: PostData[] = (data || []).map((row) => {
+        const processProgress =
+          processProgressMap.get(row.id) || createEmptyProcessProgress();
+        const productionProgress =
+          productionResultMap.get(row.id) || createEmptyProcessProgress();
+        const manufacturingLogs = getPreferredLogs(
+          processProgress.manufacturingLogs,
+          productionProgress.manufacturingLogs,
+          row.manufacturing_logs || [],
+        );
+        const cleaningLogs = getPreferredLogs(
+          processProgress.cleaningLogs,
+          productionProgress.cleaningLogs,
+          row.cleaning_logs || [],
+        );
+        const inspectionLogs = getPreferredLogs(
+          processProgress.inspectionLogs,
+          productionProgress.inspectionLogs,
+          row.inspection_logs || [],
+        );
+        const measurementLogs = getPreferredLogs(
+          processProgress.measurementLogs,
+          productionProgress.measurementLogs,
+          row.measurement_logs || [],
+        );
+        const packagingLogs = getPreferredLogs(
+          processProgress.packagingLogs,
+          productionProgress.packagingLogs,
+          row.packaging_logs || [],
+        );
+
+        return {
           id: row.id,
           delete: row.delete || false,
           orderNo: row.order_no || "",
@@ -141,32 +198,18 @@ const OrdersPage = () => {
             row.completion_scheduled_date || row.delivery_date || "",
           deliveryDate: row.delivery_date || "",
           remark: row.remark || "",
-          manufacturingAmount: (row.manufacturing_logs || []).reduce(
-            (sum: number, log: { amount: number }) => sum + log.amount,
-            0,
-          ),
-          cleaningAmount: (row.cleaning_logs || []).reduce(
-            (sum: number, log: { amount: number }) => sum + log.amount,
-            0,
-          ),
-          inspectionAmount: (row.inspection_logs || []).reduce(
-            (sum: number, log: { amount: number }) => sum + log.amount,
-            0,
-          ),
-          measurementAmount: (row.measurement_logs || []).reduce(
-            (sum: number, log: { amount: number }) => sum + log.amount,
-            0,
-          ),
-          packagingAmount: (row.packaging_logs || []).reduce(
-            (sum: number, log: { amount: number }) => sum + log.amount,
-            0,
-          ),
-          manufacturingLogs: row.manufacturing_logs || [],
-          cleaningLogs: row.cleaning_logs || [],
-          inspectionLogs: row.inspection_logs || [],
-          measurementLogs: row.measurement_logs || [],
-          packagingLogs: row.packaging_logs || [],
-      }));
+          manufacturingAmount: sumProcessLogs(manufacturingLogs),
+          cleaningAmount: sumProcessLogs(cleaningLogs),
+          inspectionAmount: sumProcessLogs(inspectionLogs),
+          measurementAmount: sumProcessLogs(measurementLogs),
+          packagingAmount: sumProcessLogs(packagingLogs),
+          manufacturingLogs,
+          cleaningLogs,
+          inspectionLogs,
+          measurementLogs,
+          packagingLogs,
+        };
+      });
 
       // =========================
       // 注残があるものだけ
