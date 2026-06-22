@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useSyncExternalStore, useState } from "react";
+import React, { useEffect, useState } from "react";
 import supabase from "../../../lib/supabase";
 import styles from "./page.module.css";
 import Link from "next/link";
@@ -62,40 +62,18 @@ const menus = [
   },
 ];
 
-function subscribe(callback: () => void) {
-  window.addEventListener("storage", callback);
-  return () => window.removeEventListener("storage", callback);
-}
-
-function getLoggedInUser() {
-  return localStorage.getItem("loggedInUser");
-}
-
-function getManagerIn() {
-  return localStorage.getItem("isManagerIn");
-}
-
-function getServerSnapshot() {
-  return null;
-}
-
 const Signin = () => {
   const [posts, setPosts] = useState<User[]>([]);
-
-  const loggedInUser = useSyncExternalStore(
-    subscribe,
-    getLoggedInUser,
-    getServerSnapshot,
+  const [isLoggedIn, setIsLoggedIn] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      localStorage.getItem("loggedInUser") !== null,
   );
-
-  const managerInValue = useSyncExternalStore(
-    subscribe,
-    getManagerIn,
-    getServerSnapshot,
+  const [isManagerIn, setIsManagerIn] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      localStorage.getItem("isManagerIn") === "true",
   );
-
-  const isLoggedIn = loggedInUser !== null;
-  const isManagerIn = managerInValue === "true";
 
   // Supabaseからユーザー取得
   useEffect(() => {
@@ -127,7 +105,8 @@ const Signin = () => {
     try {
       localStorage.removeItem("loggedInUser");
       localStorage.removeItem("isManagerIn");
-      window.dispatchEvent(new StorageEvent("storage"));
+      setIsLoggedIn(false);
+      setIsManagerIn(false);
     } catch (error) {
       console.error("サインアウトエラー:", error);
     }
@@ -137,7 +116,8 @@ const Signin = () => {
   const handleLoginSuccess = (isManager: boolean) => {
     localStorage.setItem("loggedInUser", "true");
     localStorage.setItem("isManagerIn", String(isManager));
-    window.dispatchEvent(new StorageEvent("storage"));
+    setIsLoggedIn(true);
+    setIsManagerIn(isManager);
   };
 
   return (
