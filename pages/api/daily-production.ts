@@ -16,7 +16,11 @@ export default async function handler(
         .select("*")
         .or("delete.is.null,delete.eq.false")
         .or(
-          `and(shipping_scheduled_start.lte.${today},shipping_scheduled_end.gte.${today}),delivery_date.lt.${today}`,
+          [
+            `and(shipping_scheduled_start.lte.${today},shipping_scheduled_end.gte.${today})`,
+            `and(shipping_scheduled_start.is.null,shipping_scheduled_end.is.null,delivery_date.not.is.null)`,
+            `delivery_date.lt.${today}`,
+          ].join(","),
         )
         .order("customer_name", { ascending: true });
 
