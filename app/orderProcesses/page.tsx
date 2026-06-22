@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import supabase from "@/lib/supabase";
-import { OrderProcess, PostData } from "@/app/type";
+import { OrderProcess, PostData, ProductProcess } from "@/app/type";
 import styles from "../masterCommon.module.css";
 
 const mapPost = (row: Record<string, unknown>): PostData => ({
@@ -44,6 +44,19 @@ const mapOrderProcess = (row: Record<string, unknown>): OrderProcess => ({
   outsourceStatus: String(row.outsource_status || "not_sent"),
   outsourceNote: String(row.outsource_note || ""),
   locked: Boolean(row.locked || false),
+  createdAt: String(row.created_at || ""),
+  updatedAt: String(row.updated_at || ""),
+});
+
+const mapProductProcess = (row: Record<string, unknown>): ProductProcess => ({
+  id: String(row.id || ""),
+  productId: row.product_id ? String(row.product_id) : "",
+  productCode: String(row.product_code || ""),
+  processName: String(row.process_name || ""),
+  processOrder: Number(row.process_order || 0),
+  subcontractorId: row.subcontractor_id ? String(row.subcontractor_id) : null,
+  subcontractorName: String(row.subcontractor_name || ""),
+  outsourcing: Boolean(row.outsourcing || false),
   createdAt: String(row.created_at || ""),
   updatedAt: String(row.updated_at || ""),
 });
@@ -181,6 +194,95 @@ export default function OrderProcessesPage() {
     }
   };
 
+  const syncFromProductMaster = async () => {
+    if (!selectedPost) {
+      alert("受注を選択してください");
+      return;
+    }
+
+    if (!confirm("製品工程マスタの内容を、この受注の工程に反映しますか？")) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from("v_product_processes_with_master")
+        .select("*")
+        .eq("product_code", selectedPost.productCode)
+        .order("process_order", { ascending: true });
+
+      if (error) throw error;
+
+      const masterProcesses = Array.from(
+        new Map(
+          (data || [])
+            .map(mapProductProcess)
+            .map((process) => [process.processOrder, process]),
+        ).values(),
+      ).sort((a, b) => a.processOrder - b.processOrder);
+
+      if (masterProcesses.length === 0) {
+        alert("この製品の製品工程マスタが登録されていません");
+        return;
+      }
+
+      for (const masterProcess of masterProcesses) {
+        const existing = selectedProcesses.find(
+          (process) => process.processOrder === masterProcess.processOrder,
+        );
+
+        if (!existing) {
+          const { error: insertError } = await supabase
+            .from("order_processes")
+            .insert({
+              post_id: selectedPost.id,
+              order_no: selectedPost.orderNo,
+              product_id: selectedPost.productId || masterProcess.productId || null,
+              customer_id: selectedPost.customerId || null,
+              product_process_id: masterProcess.id,
+              product_code: selectedPost.productCode,
+              product_name: selectedPost.productName,
+              customer_name: selectedPost.customerName,
+              process_name: masterProcess.processName,
+              process_order: masterProcess.processOrder,
+              planned_amount: Number(selectedPost.orderAmount || 0),
+              subcontractor_id: masterProcess.subcontractorId || null,
+            });
+
+          if (insertError) throw insertError;
+          continue;
+        }
+
+        if (existing.completedAmount > 0 || existing.locked) {
+          continue;
+        }
+
+        const { error: updateError } = await supabase
+          .from("order_processes")
+          .update({
+            product_process_id: masterProcess.id,
+            process_name: masterProcess.processName,
+            planned_amount: Number(selectedPost.orderAmount || 0),
+            subcontractor_id: masterProcess.subcontractorId || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
+
+        if (updateError) throw updateError;
+      }
+
+      await fetchData();
+      alert("製品工程マスタから受注別工程を更新しました");
+    } catch (error) {
+      console.error(error);
+      alert("製品工程マスタからの更新に失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const deleteProcess = async (id: string) => {
     if (!confirm("工程予定を削除しますか？")) return;
 
@@ -201,9 +303,9 @@ export default function OrderProcessesPage() {
     <div className={styles.container}>
       <div className={styles.headerArea}>
         <Link href="/productionResults" className={styles.backButton}>
-          ← 現場実績登録へ戻る
+          実績登録へ戻る
         </Link>
-        <h1 className={styles.title}>受注別工程予定</h1>
+        <h1 className={styles.title}>受注別工程管理</h1>
       </div>
 
       <div className={styles.formCard}>
@@ -227,6 +329,13 @@ export default function OrderProcessesPage() {
           />
           <button className={styles.addButton} onClick={addProcess}>
             追加
+          </button>
+          <button
+            className={styles.saveButton}
+            onClick={syncFromProductMaster}
+            disabled={!selectedPost || loading}
+          >
+            製品工程マスタから更新
           </button>
         </div>
       </div>

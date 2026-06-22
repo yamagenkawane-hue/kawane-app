@@ -377,7 +377,7 @@ export default function ProductionResultsPage() {
           ← トップへ戻る
         </Link>
         <Link href="/orderProcesses" className={styles.backButton}>
-          工程予定編集
+          受注別工程管理
         </Link>
         <h1 className={styles.title}>現場実績登録</h1>
       </div>
