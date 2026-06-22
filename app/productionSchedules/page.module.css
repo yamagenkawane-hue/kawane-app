@@ -13,9 +13,19 @@
 }
 
 .backButton {
-  color: #2563eb;
-  font-weight: 800;
+  align-items: center;
+  background: #2563eb;
+  border: 1px solid #2563eb;
+  border-radius: 12px;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+  color: #fff;
+  display: inline-flex;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 18px;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .title {
@@ -93,32 +103,39 @@
 .cancelButton,
 .deleteButton {
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   color: #fff;
   cursor: pointer;
-  font-weight: 800;
+  font-weight: 900;
+  min-height: 44px;
   padding: 10px 16px;
+  white-space: nowrap;
 }
 
 .addButton {
   margin-top: 16px;
   background: #2563eb;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
 }
 
 .saveButton {
   background: #16a34a;
+  box-shadow: 0 10px 22px rgba(22, 163, 74, 0.18);
 }
 
 .editButton {
   background: #2563eb;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
 }
 
 .cancelButton {
   background: #64748b;
+  box-shadow: 0 10px 22px rgba(100, 116, 139, 0.18);
 }
 
 .deleteButton {
   background: #dc2626;
+  box-shadow: 0 10px 22px rgba(220, 38, 38, 0.18);
 }
 
 .tableInput:disabled {

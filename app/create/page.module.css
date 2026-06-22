@@ -20,11 +20,21 @@
 }
 
 .backButton {
-  color: #2563eb;
-  font-weight: 800;
+  align-items: center;
+  background: #2563eb;
+  border: 1px solid #2563eb;
+  border-radius: 12px;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+  color: #fff;
+  display: inline-flex;
+  font-weight: 900;
+  justify-content: center;
   left: 0;
+  min-height: 44px;
+  padding: 10px 18px;
   position: absolute;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .formCard {
@@ -78,19 +88,23 @@
 
 .submitButton {
   grid-column: 1 / -1;
-  height: 60px;
+  min-height: 60px;
 
   border: none;
   border-radius: 12px;
 
-  background-color: #8db1ff;
+  background-color: #2563eb;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+  color: #fff;
 
   font-size: 28px;
-  font-weight: bold;
+  font-weight: 900;
 
   cursor: pointer;
+  padding: 10px 18px;
 
   transition: 0.2s;
+  white-space: nowrap;
 }
 
 .submitButton:hover {
