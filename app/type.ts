@@ -148,6 +148,7 @@ export type PostData = {
   inspectionLogs?: ProcessLog[];
   measurementLogs?: ProcessLog[];
   packagingLogs?: ProcessLog[];
+  delete?: boolean;
 };
 
 export type Product = {

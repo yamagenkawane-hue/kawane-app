@@ -245,12 +245,18 @@ export default function ProductionResultsPage() {
       if (resultResult.error) throw resultResult.error;
 
       const dailyRows = await dailyScheduleResult.json();
-      const dailySchedules = (dailyRows || []).map(mapPostToSchedule);
+      const dailySchedules = (dailyRows || [])
+        .filter((row: Record<string, unknown>) => row.delete !== true)
+        .map(mapPostToSchedule);
       const manualSchedules = (scheduleResult.data || []).map(mapScheduleRow);
 
       setSchedules([...dailySchedules, ...manualSchedules]);
       setOrderProcesses((orderProcessResult.data || []).map(mapOrderProcessRow));
-      setPosts((postResult.data || []).map(mapPostRow));
+      setPosts(
+        (postResult.data || [])
+          .filter((row) => row.delete !== true)
+          .map(mapPostRow),
+      );
       setResults((resultResult.data || []).map(mapResultRow));
     } catch (error) {
       console.error(error);

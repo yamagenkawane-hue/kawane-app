@@ -82,7 +82,9 @@ export default function OrderProcessesPage() {
       if (postResult.error) throw postResult.error;
       if (processResult.error) throw processResult.error;
 
-      const mappedPosts = (postResult.data || []).map(mapPost);
+      const mappedPosts = (postResult.data || [])
+        .filter((row) => row.delete !== true)
+        .map(mapPost);
       setPosts(mappedPosts);
       setProcesses((processResult.data || []).map(mapOrderProcess));
 

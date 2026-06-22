@@ -43,6 +43,7 @@ const compareCustomerName = (a: string, b: string) =>
 const OrdersPage = () => {
   const [posts, setPosts] = useState<AdjustedPost[]>([]);
   const [loadingPostId, setLoadingPostId] = useState("");
+  const [deletingPostId, setDeletingPostId] = useState("");
 
   const formatAllocationSource = (allocations: InventoryAllocation[]) => {
     if (allocations.length === 0) return "-";
@@ -127,6 +128,7 @@ const OrdersPage = () => {
 
       const rawData: PostData[] = (data || []).map((row) => ({
           id: row.id,
+          delete: row.delete || false,
           orderNo: row.order_no || "",
           lotNo: row.lot_no || "",
           productCode: row.product_code || "",
@@ -171,6 +173,7 @@ const OrdersPage = () => {
       // =========================
 
       const filtered = rawData.filter((post) => {
+        if (post.delete) return false;
         const completed = post.packagingAmount || 0;
         const shippedAmount = shippedMap.get(post.id) || 0;
         return post.orderAmount - completed > 0 && shippedAmount < post.orderAmount;
@@ -276,6 +279,36 @@ const OrdersPage = () => {
     }
   };
 
+  const handleDeleteOrder = async (post: AdjustedPost) => {
+    if (
+      !confirm(
+        `${post.orderNo} / ${post.productName} を削除します。関連する進捗・工程・実績・引当・出荷データも削除されます。よろしいですか？`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setDeletingPostId(post.id);
+      const { error } = await supabase.rpc("soft_delete_order_post", {
+        p_post_id: post.id,
+      });
+
+      if (error) throw error;
+      await fetchPosts();
+      alert("受注を削除しました");
+    } catch (error) {
+      console.error(error);
+      const message =
+        typeof error === "object" && error !== null && "message" in error
+          ? String(error.message)
+          : "受注の削除に失敗しました";
+      alert(message);
+    } finally {
+      setDeletingPostId("");
+    }
+  };
+
   return (
     <div className={styles.container}>
       {/* ヘッダー */}
@@ -305,6 +338,7 @@ const OrdersPage = () => {
               <th>納期</th>
               <th>出荷予定日</th>
               <th>在庫引当</th>
+              <th>削除</th>
             </tr>
           </thead>
 
@@ -356,6 +390,15 @@ const OrdersPage = () => {
                     ) : (
                       <span className={styles.noInventoryText}>在庫なし</span>
                     )}
+                  </td>
+                  <td>
+                    <button
+                      className={styles.deleteButton}
+                      disabled={deletingPostId === post.id}
+                      onClick={() => handleDeleteOrder(post)}
+                    >
+                      {deletingPostId === post.id ? "削除中" : "削除"}
+                    </button>
                   </td>
                 </tr>
               );

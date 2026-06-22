@@ -107,6 +107,22 @@
   cursor: not-allowed;
 }
 
+.deleteButton {
+  background: #dc2626;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+  padding: 8px 14px;
+  white-space: nowrap;
+}
+
+.deleteButton:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
 .confirmedBadge {
   background: #dbeafe;
   border-radius: 999px;

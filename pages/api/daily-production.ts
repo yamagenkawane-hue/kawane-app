@@ -14,6 +14,7 @@ export default async function handler(
       const { data, error } = await supabase
         .from("v_posts_with_master")
         .select("*")
+        .or("delete.is.null,delete.eq.false")
         .or(
           `and(shipping_scheduled_start.lte.${today},shipping_scheduled_end.gte.${today}),delivery_date.lt.${today}`,
         )
