@@ -199,6 +199,26 @@
   font-size: 20px;
 }
 
+.dragHandle {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  color: #334155;
+  cursor: grab;
+  font-weight: 900;
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.draggingRow {
+  opacity: 0.72;
+  position: relative;
+  z-index: 2;
+}
 @media print {
   .headerArea,
   .formCard,

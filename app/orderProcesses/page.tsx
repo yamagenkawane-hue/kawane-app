@@ -1,6 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
 import supabase from "@/lib/supabase";
 import { OrderProcess, PostData, ProductProcess } from "@/app/type";
@@ -61,13 +78,128 @@ const mapProductProcess = (row: Record<string, unknown>): ProductProcess => ({
   updatedAt: String(row.updated_at || ""),
 });
 
+type SortableProcessRowProps = {
+  process: OrderProcess;
+  updateProcess: (
+    id: string,
+    field: keyof OrderProcess,
+    value: string | number | boolean,
+  ) => void;
+  saveProcess: (process: OrderProcess) => void;
+  deleteProcess: (id: string) => void;
+};
+
+const SortableProcessRow = ({
+  process,
+  updateProcess,
+  saveProcess,
+  deleteProcess,
+}: SortableProcessRowProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: process.id });
+
+  return (
+    <tr
+      ref={setNodeRef}
+      className={isDragging ? styles.draggingRow : undefined}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+    >
+      <td>
+        <button
+          className={styles.dragHandle}
+          type="button"
+          aria-label="工程を並び替え"
+          {...attributes}
+          {...listeners}
+        >
+          移動
+        </button>
+      </td>
+      <td>
+        <span className={styles.badge}>{process.processOrder}</span>
+      </td>
+      <td>
+        <input
+          className={styles.tableInput}
+          value={process.processName}
+          onChange={(e) =>
+            updateProcess(process.id, "processName", e.target.value)
+          }
+        />
+      </td>
+      <td>
+        <input
+          className={styles.tableInput}
+          type="number"
+          value={process.plannedAmount}
+          onChange={(e) =>
+            updateProcess(process.id, "plannedAmount", Number(e.target.value))
+          }
+        />
+      </td>
+      <td>
+        <input
+          className={styles.tableInput}
+          type="number"
+          value={process.completedAmount}
+          onChange={(e) =>
+            updateProcess(process.id, "completedAmount", Number(e.target.value))
+          }
+        />
+      </td>
+      <td>
+        <input
+          className={styles.tableInput}
+          type="date"
+          value={process.completedDate}
+          onChange={(e) =>
+            updateProcess(process.id, "completedDate", e.target.value)
+          }
+        />
+      </td>
+      <td>
+        <input
+          type="checkbox"
+          checked={process.locked}
+          onChange={(e) => updateProcess(process.id, "locked", e.target.checked)}
+        />
+      </td>
+      <td className={styles.actionArea}>
+        <button className={styles.saveButton} onClick={() => saveProcess(process)}>
+          保存
+        </button>
+        <button
+          className={styles.deleteButton}
+          onClick={() => deleteProcess(process.id)}
+        >
+          削除
+        </button>
+      </td>
+    </tr>
+  );
+};
+
 export default function OrderProcessesPage() {
   const [posts, setPosts] = useState<PostData[]>([]);
   const [processes, setProcesses] = useState<OrderProcess[]>([]);
   const [selectedPostId, setSelectedPostId] = useState("");
   const [newProcessName, setNewProcessName] = useState("");
   const [loading, setLoading] = useState(false);
-
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
   const selectedPost = useMemo(
     () => posts.find((post) => post.id === selectedPostId),
     [posts, selectedPostId],
@@ -128,6 +260,81 @@ export default function OrderProcessesPage() {
         process.id === id ? { ...process, [field]: value } : process,
       ),
     );
+  };
+
+  const saveProcessOrder = async (reorderedProcesses: OrderProcess[]) => {
+    try {
+      setLoading(true);
+
+      const tempBase = 10000;
+      for (const [index, process] of reorderedProcesses.entries()) {
+        const { error } = await supabase
+          .from("order_processes")
+          .update({
+            process_order: tempBase + index + 1,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", process.id);
+
+        if (error) throw error;
+      }
+
+      for (const [index, process] of reorderedProcesses.entries()) {
+        const { error } = await supabase
+          .from("order_processes")
+          .update({
+            process_order: index + 1,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", process.id);
+
+        if (error) throw error;
+      }
+
+      await fetchData();
+    } catch (error) {
+      console.error(error);
+      const message =
+        typeof error === "object" && error !== null && "message" in error
+          ? String(error.message)
+          : "工程順の保存に失敗しました";
+      alert(`工程順の保存に失敗しました\n${message}`);
+      await fetchData();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = selectedProcesses.findIndex(
+      (process) => process.id === active.id,
+    );
+    const newIndex = selectedProcesses.findIndex(
+      (process) => process.id === over.id,
+    );
+
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    const reorderedProcesses = arrayMove(
+      selectedProcesses,
+      oldIndex,
+      newIndex,
+    ).map((process, index) => ({
+      ...process,
+      processOrder: index + 1,
+    }));
+
+    setProcesses((prev) =>
+      prev.map((process) => {
+        const reordered = reorderedProcesses.find((item) => item.id === process.id);
+        return reordered || process;
+      }),
+    );
+
+    void saveProcessOrder(reorderedProcesses);
   };
 
   const saveProcess = async (process: OrderProcess) => {
@@ -363,101 +570,42 @@ export default function OrderProcessesPage() {
       {loading && <div className={styles.loading}>読み込み中...</div>}
 
       <div className={styles.tableCard}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>工程順</th>
-              <th>工程名</th>
-              <th>予定数量</th>
-              <th>完了数量</th>
-              <th>完了日</th>
-              <th>確定</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {selectedProcesses.map((process) => (
-              <tr key={process.id}>
-                <td>
-                  <input
-                    className={styles.tableInput}
-                    type="number"
-                    value={process.processOrder}
-                    onChange={(e) =>
-                      updateProcess(process.id, "processOrder", Number(e.target.value))
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    className={styles.tableInput}
-                    value={process.processName}
-                    onChange={(e) =>
-                      updateProcess(process.id, "processName", e.target.value)
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    className={styles.tableInput}
-                    type="number"
-                    value={process.plannedAmount}
-                    onChange={(e) =>
-                      updateProcess(process.id, "plannedAmount", Number(e.target.value))
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    className={styles.tableInput}
-                    type="number"
-                    value={process.completedAmount}
-                    onChange={(e) =>
-                      updateProcess(
-                        process.id,
-                        "completedAmount",
-                        Number(e.target.value),
-                      )
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    className={styles.tableInput}
-                    type="date"
-                    value={process.completedDate}
-                    onChange={(e) =>
-                      updateProcess(process.id, "completedDate", e.target.value)
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={process.locked}
-                    onChange={(e) =>
-                      updateProcess(process.id, "locked", e.target.checked)
-                    }
-                  />
-                </td>
-                <td className={styles.actionArea}>
-                  <button
-                    className={styles.saveButton}
-                    onClick={() => saveProcess(process)}
-                  >
-                    保存
-                  </button>
-                  <button
-                    className={styles.deleteButton}
-                    onClick={() => deleteProcess(process.id)}
-                  >
-                    削除
-                  </button>
-                </td>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>並替</th>
+                <th>工程順</th>
+                <th>工程名</th>
+                <th>予定数量</th>
+                <th>完了数量</th>
+                <th>完了日</th>
+                <th>確定</th>
+                <th>操作</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <SortableContext
+              items={selectedProcesses.map((process) => process.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <tbody>
+                {selectedProcesses.map((process) => (
+                  <SortableProcessRow
+                    key={process.id}
+                    process={process}
+                    updateProcess={updateProcess}
+                    saveProcess={saveProcess}
+                    deleteProcess={deleteProcess}
+                  />
+                ))}
+              </tbody>
+            </SortableContext>
+          </table>
+        </DndContext>
       </div>
     </div>
   );
