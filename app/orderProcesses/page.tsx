@@ -131,13 +131,25 @@ export default function OrderProcessesPage() {
   };
 
   const saveProcess = async (process: OrderProcess) => {
+    const nextOrder = Number(process.processOrder);
+    const duplicate = selectedProcesses.find(
+      (item) => item.id !== process.id && item.processOrder === nextOrder,
+    );
+
+    if (duplicate) {
+      alert(
+        `工程順 ${nextOrder} は既に「${duplicate.processName}」で使用されています。別の工程順を指定してください。`,
+      );
+      return;
+    }
+
     try {
       setLoading(true);
       const { error } = await supabase
         .from("order_processes")
         .update({
           process_name: process.processName,
-          process_order: Number(process.processOrder),
+          process_order: nextOrder,
           planned_amount: Number(process.plannedAmount),
           completed_amount: Number(process.completedAmount),
           completed_date: process.completedDate || null,
@@ -150,7 +162,11 @@ export default function OrderProcessesPage() {
       await fetchData();
     } catch (error) {
       console.error(error);
-      alert("工程予定の保存に失敗しました");
+      const message =
+        typeof error === "object" && error !== null && "message" in error
+          ? String(error.message)
+          : "工程予定の保存に失敗しました";
+      alert(`工程予定の保存に失敗しました\n${message}`);
     } finally {
       setLoading(false);
     }
@@ -188,7 +204,11 @@ export default function OrderProcessesPage() {
       await fetchData();
     } catch (error) {
       console.error(error);
-      alert("工程予定の追加に失敗しました");
+      const message =
+        typeof error === "object" && error !== null && "message" in error
+          ? String(error.message)
+          : "工程予定の追加に失敗しました";
+      alert(`工程予定の追加に失敗しました\n${message}`);
     } finally {
       setLoading(false);
     }

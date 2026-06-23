@@ -22,6 +22,8 @@ export type OutsourceProgressRow = {
   outsource_returned_date?: string | null;
 };
 
+export type OutsourceDisplayStatus = "外注" | "外注済";
+
 export const createEmptyProcessProgress = (): ProcessProgress => ({
   manufacturingLogs: [],
   cleaningLogs: [],
@@ -142,35 +144,21 @@ export const buildOutsourceStatusMap = <T extends OutsourceProgressRow>(
     rowsByPost.set(postId, [...(rowsByPost.get(postId) || []), row]);
   }
 
-  const statusMap = new Map<string, "外注" | "外注済">();
+  const statusMap = new Map<string, OutsourceDisplayStatus>();
 
   for (const [postId, postRows] of rowsByPost.entries()) {
-    const sortedRows = [...postRows].sort(
-      (a, b) => Number(a.process_order || 0) - Number(b.process_order || 0),
-    );
-    const currentRow = sortedRows.find(
+    const activeOutsourceRows = postRows.filter(
       (row) =>
-        Number(row.completed_amount || 0) < Number(row.planned_amount || 0),
-    );
-    const outsourceRows = sortedRows.filter(
-      (row) =>
-        Boolean(row.subcontractor_id) ||
         Boolean(row.outsource_sent_date) ||
         Boolean(row.outsource_returned_date) ||
-        (row.outsource_status || "not_sent") !== "not_sent",
+        row.outsource_status === "sent" ||
+        row.outsource_status === "returned",
     );
 
-    const targetRows = outsourceRows.filter(
-      (row) =>
-        row === currentRow ||
-        row.outsource_status === "sent" ||
-        row.outsource_status === "returned" ||
-        Boolean(row.outsource_sent_date) ||
-        Boolean(row.outsource_returned_date),
-    );
+    if (activeOutsourceRows.length === 0) continue;
 
     if (
-      targetRows.some(
+      activeOutsourceRows.some(
         (row) =>
           row.outsource_status === "returned" ||
           Boolean(row.outsource_returned_date),
@@ -180,9 +168,7 @@ export const buildOutsourceStatusMap = <T extends OutsourceProgressRow>(
       continue;
     }
 
-    if (targetRows.length > 0) {
-      statusMap.set(postId, "外注");
-    }
+    statusMap.set(postId, "外注");
   }
 
   return statusMap;

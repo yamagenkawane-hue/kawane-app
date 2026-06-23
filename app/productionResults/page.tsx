@@ -299,7 +299,23 @@ export default function ProductionResultsPage() {
       .filter((item) => item.processOrder < target.processOrder)
       .sort((a, b) => b.processOrder - a.processOrder)[0];
 
-    return previous?.completedAmount || 0;
+    const previousCompleted = previous?.completedAmount || 0;
+    const isOutsourced =
+      Boolean(target.subcontractorId) ||
+      Boolean(target.outsourceSentDate) ||
+      Boolean(target.outsourceReturnedDate) ||
+      target.outsourceStatus === "sent" ||
+      target.outsourceStatus === "returned";
+
+    if (isOutsourced) {
+      return Math.max(
+        previousCompleted,
+        Number(target.completedAmount || 0),
+        Number(target.plannedAmount || 0),
+      );
+    }
+
+    return previousCompleted;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -365,7 +381,11 @@ export default function ProductionResultsPage() {
       router.push("/manufacturing");
     } catch (error) {
       console.error(error);
-      alert("現場実績の登録に失敗しました");
+      const message =
+        typeof error === "object" && error !== null && "message" in error
+          ? String(error.message)
+          : "現場実績の登録に失敗しました";
+      alert(message);
     } finally {
       setLoading(false);
     }
