@@ -261,6 +261,22 @@ export default function OrderProcessesPage() {
       ),
     );
   };
+  const findMatchingProductProcess = async (process: OrderProcess) => {
+    const { data, error } = await supabase
+      .from("v_product_processes_with_master")
+      .select("*")
+      .eq("product_code", process.productCode)
+      .eq("process_order", process.processOrder)
+      .eq("process_name", process.processName)
+      .limit(1);
+
+    if (error) {
+      console.error(error);
+      return null;
+    }
+
+    return data?.[0] ? mapProductProcess(data[0]) : null;
+  };
 
   const saveProcessOrder = async (reorderedProcesses: OrderProcess[]) => {
     try {
@@ -272,6 +288,7 @@ export default function OrderProcessesPage() {
           .from("order_processes")
           .update({
             process_order: tempBase + index + 1,
+            product_process_id: null,
             updated_at: new Date().toISOString(),
           })
           .eq("id", process.id);
@@ -284,6 +301,7 @@ export default function OrderProcessesPage() {
           .from("order_processes")
           .update({
             process_order: index + 1,
+            product_process_id: null,
             updated_at: new Date().toISOString(),
           })
           .eq("id", process.id);
@@ -352,9 +370,16 @@ export default function OrderProcessesPage() {
 
     try {
       setLoading(true);
+      const matchingProductProcess = await findMatchingProductProcess({
+        ...process,
+        processOrder: nextOrder,
+      });
       const { error } = await supabase
         .from("order_processes")
         .update({
+          product_process_id: matchingProductProcess?.id || null,
+          subcontractor_id:
+            matchingProductProcess?.subcontractorId || process.subcontractorId || null,
           process_name: process.processName,
           process_order: nextOrder,
           planned_amount: Number(process.plannedAmount),
@@ -401,9 +426,13 @@ export default function OrderProcessesPage() {
         product_code: selectedPost.productCode || "",
         product_name: selectedPost.productName,
         customer_name: selectedPost.customerName,
+        product_process_id: null,
+        subcontractor_id: null,
         process_name: newProcessName.trim(),
         process_order: nextOrder,
         planned_amount: Number(selectedPost.orderAmount || 0),
+        completed_amount: 0,
+        locked: false,
       });
 
       if (error) throw error;
