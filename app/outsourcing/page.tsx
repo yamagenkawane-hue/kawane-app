@@ -202,6 +202,12 @@ export default function OutsourcingPage() {
     try {
       setSavingId(row.id);
 
+      const nextStatus = row.outsourceReturnedDate
+        ? "returned"
+        : row.outsourceSentDate && row.outsourceStatus === "not_sent"
+          ? "sent"
+          : row.outsourceStatus || "not_sent";
+
       const { error } = await supabase
         .from("order_processes")
         .update({
@@ -209,7 +215,7 @@ export default function OutsourcingPage() {
           outsource_expected_return_date:
             row.outsourceExpectedReturnDate || null,
           outsource_returned_date: row.outsourceReturnedDate || null,
-          outsource_status: row.outsourceStatus || "not_sent",
+          outsource_status: nextStatus,
           outsource_note: row.outsourceNote || null,
           updated_at: new Date().toISOString(),
         })
