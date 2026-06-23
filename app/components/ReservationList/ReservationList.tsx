@@ -273,6 +273,8 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   if (packaging > 0) status = "梱包中";
   if (packaging >= post.orderAmount) status = "出荷OK";
 
+  const displayStatus = post.status || status;
+
   const quantityProgress =
     post.orderAmount > 0 ? Math.floor((packaging / post.orderAmount) * 100) : 0;
 
@@ -669,8 +671,8 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       </td>
 
       <td>
-        <span className={`${styles.statusBadge} ${styles[status]}`}>
-          {status}
+        <span className={`${styles.statusBadge} ${styles[displayStatus]}`}>
+          {displayStatus}
         </span>
       </td>
 
