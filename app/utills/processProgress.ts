@@ -59,15 +59,6 @@ export const getProcessLogKey = (
   return null;
 };
 
-export const getPreferredLogs = (
-  orderProcessLogs: ProcessLog[],
-  productionResultLogs: ProcessLog[],
-  legacyLogs: ProcessLog[],
-) => {
-  if (orderProcessLogs.length > 0) return orderProcessLogs;
-  if (productionResultLogs.length > 0) return productionResultLogs;
-  return legacyLogs;
-};
 
 export const sumProcessLogs = (logs: ProcessLog[]) =>
   logs.reduce((sum, log) => sum + Number(log.amount || 0), 0);
