@@ -8,6 +8,7 @@ import { CustomerMaster, InventoryAllocation, PostData } from "@/app/type";
 import {
   buildFinalProcessCompletionMap,
   buildOrderProcessProgressMap,
+  buildOutsourceStatusMap,
   buildProductionResultProgressMap,
   createEmptyProcessProgress,
   getPreferredLogs,
@@ -81,7 +82,7 @@ const OrdersPage = () => {
           supabase
             .from("v_order_processes_with_master")
             .select(
-              "post_id,process_name,process_order,completed_amount,completed_date",
+              "post_id,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,outsource_status,outsource_sent_date,outsource_returned_date",
             ),
           supabase
             .from("v_production_results_with_master")
@@ -155,6 +156,9 @@ const OrdersPage = () => {
       const productionResultMap = buildProductionResultProgressMap(
         productionResult.data || [],
       );
+      const outsourceStatusMap = buildOutsourceStatusMap(
+        orderProcessResult.data || [],
+      );
 
       const rawData: PostData[] = (data || []).map((row) => {
         const processProgress =
@@ -186,10 +190,33 @@ const OrdersPage = () => {
           productionProgress.packagingLogs,
           row.packaging_logs || [],
         );
+        const manufacturingAmount = sumProcessLogs(manufacturingLogs);
+        const cleaningAmount = sumProcessLogs(cleaningLogs);
+        const inspectionAmount = sumProcessLogs(inspectionLogs);
+        const measurementAmount = sumProcessLogs(measurementLogs);
         const packagingAmount = Math.max(
           sumProcessLogs(packagingLogs),
           finalProcessCompletionMap.get(row.id) || 0,
         );
+        const shippedAmount = shippedMap.get(row.id) || 0;
+        let status = row.status || "未着手";
+        if (shippedAmount >= Number(row.order_amount || 0) && Number(row.order_amount || 0) > 0) {
+          status = "出荷OK";
+        } else if (outsourceStatusMap.has(row.id)) {
+          status = outsourceStatusMap.get(row.id) || status;
+        } else if (packagingAmount >= Number(row.order_amount || 0) && Number(row.order_amount || 0) > 0) {
+          status = "梱包完了";
+        } else if (packagingAmount > 0) {
+          status = "梱包中";
+        } else if (measurementAmount > 0) {
+          status = "計量中";
+        } else if (inspectionAmount > 0) {
+          status = "検査中";
+        } else if (cleaningAmount > 0) {
+          status = "洗浄中";
+        } else if (manufacturingAmount > 0) {
+          status = "製造中";
+        }
 
         return {
           id: row.id,
@@ -201,7 +228,7 @@ const OrdersPage = () => {
           customerName: row.customer_name || "",
           orderAmount: row.order_amount || 0,
           remainingAmount: row.remaining_amount || 0,
-          status: row.status || "未着手",
+          status,
           completionScheduledDate:
             row.completion_scheduled_date || row.delivery_date || "",
           deliveryDate: row.delivery_date || "",
