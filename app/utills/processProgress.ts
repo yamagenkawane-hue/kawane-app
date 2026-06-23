@@ -157,6 +157,7 @@ export const buildOutsourceStatusMap = <T extends OutsourceProgressRow>(
       (row) =>
         Boolean(row.outsource_sent_date) ||
         Boolean(row.outsource_returned_date) ||
+        Number(row.completed_amount || 0) >= Number(row.planned_amount || 0) ||
         row.outsource_status === "sent" ||
         row.outsource_status === "returned",
     );
@@ -167,7 +168,9 @@ export const buildOutsourceStatusMap = <T extends OutsourceProgressRow>(
       activeOutsourceRows.some(
         (row) =>
           row.outsource_status === "returned" ||
-          Boolean(row.outsource_returned_date),
+          Boolean(row.outsource_returned_date) ||
+          (Number(row.planned_amount || 0) > 0 &&
+            Number(row.completed_amount || 0) >= Number(row.planned_amount || 0)),
       )
     ) {
       statusMap.set(postId, "外注済");

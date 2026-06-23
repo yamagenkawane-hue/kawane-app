@@ -165,7 +165,14 @@ export default function OutsourcingPage() {
   }, []);
 
   const visibleRows = useMemo(
-    () => rows.filter((row) => showCompleted || row.remainingAmount > 0),
+    () =>
+      rows.filter(
+        (row) =>
+          showCompleted ||
+          row.remainingAmount > 0 ||
+          row.outsourceStatus !== "returned" ||
+          !row.outsourceReturnedDate,
+      ),
     [rows, showCompleted],
   );
 
