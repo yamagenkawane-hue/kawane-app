@@ -6,6 +6,7 @@ import supabase from "../../../lib/supabase";
 import { ReservationRowProps } from "@/app/type";
 import Link from "next/link";
 import Numpad from "@/app/components/Numpad/Numpad";
+import { getProcessLogKey } from "@/app/utills/processProgress";
 
 const ReservationList: React.FC<ReservationRowProps> = ({
   post,
@@ -35,27 +36,75 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   const [packagingLogAmount, setPackagingLogAmount] = useState<number | "">("");
   const packagingLogs = post.packagingLogs || [];
 
+  type ProcessLogKey =
+    | "manufacturingLogs"
+    | "cleaningLogs"
+    | "inspectionLogs"
+    | "measurementLogs"
+    | "packagingLogs";
+
+  const registerProcessResult = async (
+    logKey: ProcessLogKey,
+    date: string,
+    amount: number,
+  ) => {
+    await supabase.rpc("create_order_processes_for_post", {
+      p_post_id: post.id,
+    });
+
+    const { data: processes, error: processError } = await supabase
+      .from("v_order_processes_with_master")
+      .select("id,process_name,process_order,completed_amount,planned_amount")
+      .eq("post_id", post.id)
+      .order("process_order", { ascending: true });
+
+    if (processError) throw processError;
+
+    const targetProcess = (processes || []).find(
+      (process) =>
+        getProcessLogKey(
+          process.process_name || "",
+          Number(process.process_order || 0),
+        ) === logKey,
+    );
+
+    if (!targetProcess?.id) {
+      throw new Error("対象の受注別工程が見つかりません");
+    }
+
+    const completedAmount = Number(targetProcess.completed_amount || 0);
+    const plannedAmount = Number(targetProcess.planned_amount || 0);
+    const remainingAmount = Math.max(0, plannedAmount - completedAmount);
+
+    if (amount > remainingAmount) {
+      throw new Error(`登録可能数量は${remainingAmount}です`);
+    }
+
+    const { error: resultError } = await supabase.rpc(
+      "register_order_process_result",
+      {
+        p_order_process_id: targetProcess.id,
+        p_schedule_id: null,
+        p_date: date,
+        p_amount: amount,
+      },
+    );
+
+    if (resultError) throw resultError;
+  };
+
   const handleAddManufacturingLog = async () => {
     if (!manufacturingLogDate || manufacturingLogAmount === "") {
-      alert("ロットと数量を入力してください");
+      alert("日付と数量を入力してください");
       return;
     }
 
     try {
-      const newLogs = [
-        ...manufacturingLogs,
-        { date: manufacturingLogDate, amount: Number(manufacturingLogAmount) },
-      ];
-
-      const { error } = await supabase
-        .from("posts")
-        .update({
-          manufacturing_logs: newLogs,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", post.id);
-
-      if (error) throw error;
+      await registerProcessResult(
+        "manufacturingLogs",
+        manufacturingLogDate,
+        Number(manufacturingLogAmount),
+      );
 
       alert("製造実績を追加しました");
       setManufacturingLogDate("");
@@ -63,31 +112,22 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       window.location.reload();
     } catch (error) {
       console.error(error);
-      alert("追加に失敗しました");
+      alert(error instanceof Error ? error.message : "追加に失敗しました");
     }
   };
 
   const handleAddCleaningLog = async () => {
     if (!cleaningLogDate || cleaningLogAmount === "") {
-      alert("ロットと数量を入力してください");
+      alert("日付と数量を入力してください");
       return;
     }
 
     try {
-      const newLogs = [
-        ...cleaningLogs,
-        { date: cleaningLogDate, amount: Number(cleaningLogAmount) },
-      ];
-
-      const { error } = await supabase
-        .from("posts")
-        .update({
-          cleaning_logs: newLogs,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", post.id);
-
-      if (error) throw error;
+      await registerProcessResult(
+        "cleaningLogs",
+        cleaningLogDate,
+        Number(cleaningLogAmount),
+      );
 
       alert("洗浄実績を追加しました");
       setCleaningLogDate("");
@@ -95,31 +135,22 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       window.location.reload();
     } catch (error) {
       console.error(error);
-      alert("追加失敗");
+      alert(error instanceof Error ? error.message : "追加に失敗しました");
     }
   };
 
   const handleAddInspectionLog = async () => {
     if (!inspectionLogDate || inspectionLogAmount === "") {
-      alert("ロットと数量を入力してください");
+      alert("日付と数量を入力してください");
       return;
     }
 
     try {
-      const newLogs = [
-        ...inspectionLogs,
-        { date: inspectionLogDate, amount: Number(inspectionLogAmount) },
-      ];
-
-      const { error } = await supabase
-        .from("posts")
-        .update({
-          inspection_logs: newLogs,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", post.id);
-
-      if (error) throw error;
+      await registerProcessResult(
+        "inspectionLogs",
+        inspectionLogDate,
+        Number(inspectionLogAmount),
+      );
 
       alert("検査実績を追加しました");
       setInspectionLogDate("");
@@ -127,63 +158,45 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       window.location.reload();
     } catch (error) {
       console.error(error);
-      alert("追加失敗");
+      alert(error instanceof Error ? error.message : "追加に失敗しました");
     }
   };
 
   const handleAddMeasurementLog = async () => {
     if (!measurementLogDate || measurementLogAmount === "") {
-      alert("ロットと数量を入力してください");
+      alert("日付と数量を入力してください");
       return;
     }
 
     try {
-      const newLogs = [
-        ...measurementLogs,
-        { date: measurementLogDate, amount: Number(measurementLogAmount) },
-      ];
+      await registerProcessResult(
+        "measurementLogs",
+        measurementLogDate,
+        Number(measurementLogAmount),
+      );
 
-      const { error } = await supabase
-        .from("posts")
-        .update({
-          measurement_logs: newLogs,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", post.id);
-
-      if (error) throw error;
-
-      alert("測量実績を追加しました");
+      alert("計量実績を追加しました");
       setMeasurementLogDate("");
       setMeasurementLogAmount("");
       window.location.reload();
     } catch (error) {
       console.error(error);
-      alert("追加失敗");
+      alert(error instanceof Error ? error.message : "追加に失敗しました");
     }
   };
 
   const handleAddPackagingLog = async () => {
     if (!packagingLogDate || packagingLogAmount === "") {
-      alert("ロットと数量を入力してください");
+      alert("日付と数量を入力してください");
       return;
     }
 
     try {
-      const newLogs = [
-        ...packagingLogs,
-        { date: packagingLogDate, amount: Number(packagingLogAmount) },
-      ];
-
-      const { error } = await supabase
-        .from("posts")
-        .update({
-          packaging_logs: newLogs,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", post.id);
-
-      if (error) throw error;
+      await registerProcessResult(
+        "packagingLogs",
+        packagingLogDate,
+        Number(packagingLogAmount),
+      );
 
       alert("梱包実績を追加しました");
       setPackagingLogDate("");
@@ -191,10 +204,9 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       window.location.reload();
     } catch (error) {
       console.error(error);
-      alert("追加失敗");
+      alert(error instanceof Error ? error.message : "追加に失敗しました");
     }
   };
-
   const handleSave = async () => {
     try {
       const manufacturing = manufacturingLogs.reduce(
