@@ -88,15 +88,6 @@ export default function ManufacturingPage() {
     const now = new Date().toISOString();
     const today = now.slice(0, 10);
 
-    await supabase.from("production_results").insert({
-      schedule_id: selected.id,
-      process_id: "manufacturing",
-      process_name: "製造",
-      date: today,
-      amount: quantity,
-      created_at: now,
-    });
-
     if (selected.postId) {
       await supabase.rpc("create_order_processes_for_post", {
         p_post_id: selected.postId,
@@ -111,30 +102,45 @@ export default function ManufacturingPage() {
         .maybeSingle();
 
       if (processError) throw processError;
-
-      if (firstProcess?.id) {
-        const completedAmount = Number(firstProcess.completed_amount || 0);
-        const plannedAmount = Number(firstProcess.planned_amount || 0);
-        const nextCompletedAmount = Math.min(
-          plannedAmount || completedAmount + quantity,
-          completedAmount + quantity,
-        );
-
-        const { error: updateProcessError } = await supabase
-          .from("order_processes")
-          .update({
-            completed_amount: nextCompletedAmount,
-            completed_date: today,
-            updated_at: now,
-          })
-          .eq("id", firstProcess.id);
-
-        if (updateProcessError) throw updateProcessError;
+      if (!firstProcess?.id) {
+        throw new Error("製造工程が見つかりません");
       }
+
+      const completedAmount = Number(firstProcess.completed_amount || 0);
+      const plannedAmount = Number(firstProcess.planned_amount || 0);
+      const remainingAmount = Math.max(0, plannedAmount - completedAmount);
+
+      if (quantity > remainingAmount) {
+        throw new Error(`製造工程の登録可能数量は${remainingAmount}です`);
+      }
+
+      const { error: resultError } = await supabase.rpc(
+        "register_order_process_result",
+        {
+          p_order_process_id: firstProcess.id,
+          p_schedule_id: selected.id,
+          p_date: today,
+          p_amount: quantity,
+        },
+      );
+
+      if (resultError) throw resultError;
+    } else {
+      const { error: resultError } = await supabase
+        .from("production_results")
+        .insert({
+          schedule_id: selected.id,
+          process_id: "manufacturing",
+          process_name: "製造",
+          date: today,
+          amount: quantity,
+          created_at: now,
+        });
+
+      if (resultError) throw resultError;
     }
 
-    const { data: existing } = await supabase
-      .from("inventory_items")
+    const { data: existing } = await supabase.from("inventory_items")
       .select("*")
       .eq("product_name", selected.productName)
       .eq("lot_no", lotNo)
