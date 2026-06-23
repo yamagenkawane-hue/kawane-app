@@ -41,7 +41,7 @@ const menus = [
     icon: <ClipboardPen size={30} />,
   },
   {
-    title: "製造管理",
+    title: "計量登録",
     href: "/manufacturing",
     icon: <Factory size={30} />,
   },

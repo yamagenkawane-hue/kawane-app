@@ -136,7 +136,7 @@ export default function UserManagerPage() {
     <div className={styles.container}>
       <div className={styles.header}>
         <Link href="/settings" className={styles.backButton}>
-          ← Settingsへ戻る
+          ← システム設定へ戻る
         </Link>
 
         <div>
