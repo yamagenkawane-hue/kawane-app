@@ -22,6 +22,12 @@ export type OutsourceProgressRow = {
   outsource_returned_date?: string | null;
 };
 
+export type OrderProcessCompletionRow = {
+  post_id?: string | null;
+  process_order?: number | string | null;
+  completed_amount?: number | string | null;
+};
+
 export type OutsourceDisplayStatus = "外注" | "外注済";
 
 export const createEmptyProcessProgress = (): ProcessProgress => ({
@@ -172,4 +178,35 @@ export const buildOutsourceStatusMap = <T extends OutsourceProgressRow>(
   }
 
   return statusMap;
+};
+
+export const buildFinalProcessCompletionMap = <
+  T extends OrderProcessCompletionRow,
+>(
+  rows: T[],
+) => {
+  const completionMap = new Map<
+    string,
+    { processOrder: number; completedAmount: number }
+  >();
+
+  for (const row of rows) {
+    const postId = row.post_id || "";
+    if (!postId) continue;
+
+    const processOrder = Number(row.process_order || 0);
+    const completedAmount = Number(row.completed_amount || 0);
+    const current = completionMap.get(postId);
+
+    if (!current || processOrder > current.processOrder) {
+      completionMap.set(postId, { processOrder, completedAmount });
+    }
+  }
+
+  return new Map(
+    [...completionMap.entries()].map(([postId, value]) => [
+      postId,
+      value.completedAmount,
+    ]),
+  );
 };

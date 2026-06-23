@@ -6,6 +6,7 @@ import supabase from "../../lib/supabase";
 import styles from "./page.module.css";
 import { CustomerMaster, InventoryAllocation, PostData } from "@/app/type";
 import {
+  buildFinalProcessCompletionMap,
   buildOrderProcessProgressMap,
   buildProductionResultProgressMap,
   createEmptyProcessProgress,
@@ -148,6 +149,9 @@ const OrdersPage = () => {
       const processProgressMap = buildOrderProcessProgressMap(
         orderProcessResult.data || [],
       );
+      const finalProcessCompletionMap = buildFinalProcessCompletionMap(
+        orderProcessResult.data || [],
+      );
       const productionResultMap = buildProductionResultProgressMap(
         productionResult.data || [],
       );
@@ -182,6 +186,10 @@ const OrdersPage = () => {
           productionProgress.packagingLogs,
           row.packaging_logs || [],
         );
+        const packagingAmount = Math.max(
+          sumProcessLogs(packagingLogs),
+          finalProcessCompletionMap.get(row.id) || 0,
+        );
 
         return {
           id: row.id,
@@ -202,7 +210,7 @@ const OrdersPage = () => {
           cleaningAmount: sumProcessLogs(cleaningLogs),
           inspectionAmount: sumProcessLogs(inspectionLogs),
           measurementAmount: sumProcessLogs(measurementLogs),
-          packagingAmount: sumProcessLogs(packagingLogs),
+          packagingAmount,
           manufacturingLogs,
           cleaningLogs,
           inspectionLogs,
