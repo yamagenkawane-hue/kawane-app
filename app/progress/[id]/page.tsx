@@ -90,42 +90,13 @@ export default function ProgressDetail() {
   // 実績取得
   // =========================
 
-  const getProcessLogs = (
-    processId: string,
-    currentPost: Post,
-    resultData: ProcessResult[],
-  ) => {
-    const resultLogs = resultData
+  const getProcessLogs = (processId: string, resultData: ProcessResult[]) =>
+    resultData
       .filter((result) => result.processId === processId)
       .map((result) => ({
         date: result.date,
         amount: result.amount,
       }));
-
-    let postLogs: { date: string; amount: number }[] = [];
-
-    switch (processId) {
-      case "manufacturing":
-        postLogs = currentPost.manufacturingLogs || [];
-        break;
-      case "cleaning":
-        postLogs = currentPost.cleaningLogs || [];
-        break;
-      case "inspection":
-        postLogs = currentPost.inspectionLogs || [];
-        break;
-      case "measurement":
-        postLogs = currentPost.measurementLogs || [];
-        break;
-      case "packaging":
-        postLogs = currentPost.packagingLogs || [];
-        break;
-      default:
-        postLogs = [];
-    }
-
-    return [...postLogs, ...resultLogs];
-  };
 
   const getOrderProcessLogs = (
     orderProcessId: string,
@@ -184,11 +155,11 @@ export default function ProgressDetail() {
           remainingAmount: postRow.remaining_amount || 0,
           deliveryDate: postRow.delivery_date || "",
           remark: postRow.remark || "",
-          manufacturingLogs: postRow.manufacturing_logs || [],
-          cleaningLogs: postRow.cleaning_logs || [],
-          inspectionLogs: postRow.inspection_logs || [],
-          measurementLogs: postRow.measurement_logs || [],
-          packagingLogs: postRow.packaging_logs || [],
+          manufacturingLogs: [],
+          cleaningLogs: [],
+          inspectionLogs: [],
+          measurementLogs: [],
+          packagingLogs: [],
           days: postRow.days || [],
           status: postRow.status || "未着手",
           delete: postRow.delete || false,
@@ -480,11 +451,7 @@ export default function ProgressDetail() {
             dailyCapacity * (operationRate / 100),
           );
 
-          const processResults = getProcessLogs(
-            process.processId,
-            currentPost,
-            resultData,
-          );
+          const processResults = getProcessLogs(process.processId, resultData);
           processResults.sort((a, b) => a.date.localeCompare(b.date));
 
           const totalActual = processResults.reduce(
