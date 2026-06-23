@@ -11,7 +11,6 @@ import {
   buildOutsourceStatusMap,
   buildProductionResultProgressMap,
   createEmptyProcessProgress,
-  getPreferredLogs,
   sumProcessLogs,
 } from "@/app/utills/processProgress";
 
@@ -165,31 +164,26 @@ const OrdersPage = () => {
           processProgressMap.get(row.id) || createEmptyProcessProgress();
         const productionProgress =
           productionResultMap.get(row.id) || createEmptyProcessProgress();
-        const manufacturingLogs = getPreferredLogs(
-          processProgress.manufacturingLogs,
-          productionProgress.manufacturingLogs,
-          row.manufacturing_logs || [],
-        );
-        const cleaningLogs = getPreferredLogs(
-          processProgress.cleaningLogs,
-          productionProgress.cleaningLogs,
-          row.cleaning_logs || [],
-        );
-        const inspectionLogs = getPreferredLogs(
-          processProgress.inspectionLogs,
-          productionProgress.inspectionLogs,
-          row.inspection_logs || [],
-        );
-        const measurementLogs = getPreferredLogs(
-          processProgress.measurementLogs,
-          productionProgress.measurementLogs,
-          row.measurement_logs || [],
-        );
-        const packagingLogs = getPreferredLogs(
-          processProgress.packagingLogs,
-          productionProgress.packagingLogs,
-          row.packaging_logs || [],
-        );
+        const manufacturingLogs =
+          processProgress.manufacturingLogs.length > 0
+            ? processProgress.manufacturingLogs
+            : productionProgress.manufacturingLogs;
+        const cleaningLogs =
+          processProgress.cleaningLogs.length > 0
+            ? processProgress.cleaningLogs
+            : productionProgress.cleaningLogs;
+        const inspectionLogs =
+          processProgress.inspectionLogs.length > 0
+            ? processProgress.inspectionLogs
+            : productionProgress.inspectionLogs;
+        const measurementLogs =
+          processProgress.measurementLogs.length > 0
+            ? processProgress.measurementLogs
+            : productionProgress.measurementLogs;
+        const packagingLogs =
+          processProgress.packagingLogs.length > 0
+            ? processProgress.packagingLogs
+            : productionProgress.packagingLogs;
         const manufacturingAmount = sumProcessLogs(manufacturingLogs);
         const cleaningAmount = sumProcessLogs(cleaningLogs);
         const inspectionAmount = sumProcessLogs(inspectionLogs);
