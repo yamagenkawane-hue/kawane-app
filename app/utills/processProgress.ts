@@ -153,14 +153,24 @@ export const buildOutsourceStatusMap = <T extends OutsourceProgressRow>(
   const statusMap = new Map<string, OutsourceDisplayStatus>();
 
   for (const [postId, postRows] of rowsByPost.entries()) {
-    const activeOutsourceRows = postRows.filter(
-      (row) =>
+    const activeOutsourceRows = postRows.filter((row) => {
+      const hasOutsourceMarker =
+        Boolean(row.subcontractor_id) ||
         Boolean(row.outsource_sent_date) ||
         Boolean(row.outsource_returned_date) ||
-        Number(row.completed_amount || 0) >= Number(row.planned_amount || 0) ||
         row.outsource_status === "sent" ||
-        row.outsource_status === "returned",
-    );
+        row.outsource_status === "returned";
+
+      if (!hasOutsourceMarker) return false;
+
+      return (
+        Boolean(row.outsource_sent_date) ||
+        Boolean(row.outsource_returned_date) ||
+        row.outsource_status === "sent" ||
+        row.outsource_status === "returned" ||
+        Number(row.completed_amount || 0) >= Number(row.planned_amount || 0)
+      );
+    });
 
     if (activeOutsourceRows.length === 0) continue;
 

@@ -10,6 +10,8 @@ export type StatusType =
   | "計量完了"
   | "梱包中"
   | "梱包完了"
+  | "外注"
+  | "外注済"
   | "出荷OK";
 
 export type DailyProgress = {

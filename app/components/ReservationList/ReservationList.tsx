@@ -299,7 +299,7 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   const diffDays = Math.ceil(
     (delivery.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
   );
-  const isDelay = diffDays <= 1 && processProgress < 80 && status !== "出荷OK";
+  const isDelay = diffDays <= 1 && processProgress < 80 && displayStatus !== "出荷OK";
 
   const deliveryClass = (() => {
     const t = new Date();
