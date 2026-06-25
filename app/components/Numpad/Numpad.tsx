@@ -12,6 +12,21 @@ type NumpadProps = {
 
 const keys = ["7", "8", "9", "4", "5", "6", "1", "2", "3", "0", ".", "C"];
 
+const appendKey = (currentValue: string, key: string) => {
+  if (key === ".") {
+    if (currentValue.includes(".")) return currentValue;
+    return currentValue ? `${currentValue}.` : "0.";
+  }
+
+  if (currentValue === "0") return key;
+  return `${currentValue}${key}`;
+};
+
+const deleteLast = (currentValue: string) => {
+  if (!currentValue || currentValue === "0") return "";
+  return currentValue.slice(0, -1);
+};
+
 export default function Numpad({ value, onChange, onClose, open }: NumpadProps) {
   const handlePress = (key: string) => {
     if (key === "C") {
@@ -19,8 +34,8 @@ export default function Numpad({ value, onChange, onClose, open }: NumpadProps) 
       return;
     }
 
-    if (key === "." && value.includes(".")) return;
-    onChange(`${value}${key}`);
+    const nextValue = appendKey(value, key);
+    if (nextValue !== value) onChange(nextValue);
   };
 
   useEffect(() => {
@@ -29,19 +44,19 @@ export default function Numpad({ value, onChange, onClose, open }: NumpadProps) 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (/^[0-9]$/.test(event.key)) {
         event.preventDefault();
-        onChange(`${value}${event.key}`);
+        onChange(appendKey(value, event.key));
         return;
       }
 
       if (event.key === "." && !value.includes(".")) {
         event.preventDefault();
-        onChange(`${value}.`);
+        onChange(appendKey(value, "."));
         return;
       }
 
       if (event.key === "Backspace") {
         event.preventDefault();
-        onChange(value.slice(0, -1));
+        onChange(deleteLast(value));
         return;
       }
 
