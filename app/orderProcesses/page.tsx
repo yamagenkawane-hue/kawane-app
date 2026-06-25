@@ -19,6 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
+import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
 import { OrderProcess, PostData, ProductProcess } from "@/app/type";
 import styles from "../masterCommon.module.css";
@@ -78,6 +79,11 @@ const mapProductProcess = (row: Record<string, unknown>): ProductProcess => ({
   updatedAt: String(row.updated_at || ""),
 });
 
+type NumpadTarget = {
+  id: string;
+  field: "plannedAmount" | "completedAmount";
+} | null;
+
 type SortableProcessRowProps = {
   process: OrderProcess;
   updateProcess: (
@@ -87,6 +93,7 @@ type SortableProcessRowProps = {
   ) => void;
   saveProcess: (process: OrderProcess) => void;
   deleteProcess: (id: string) => void;
+  openNumpad: (target: Exclude<NumpadTarget, null>) => void;
 };
 
 const SortableProcessRow = ({
@@ -94,6 +101,7 @@ const SortableProcessRow = ({
   updateProcess,
   saveProcess,
   deleteProcess,
+  openNumpad,
 }: SortableProcessRowProps) => {
   const {
     attributes,
@@ -139,20 +147,26 @@ const SortableProcessRow = ({
       <td>
         <input
           className={styles.tableInput}
-          type="number"
-          value={process.plannedAmount}
+          inputMode="numeric"
+          value={process.plannedAmount || ""}
+          onFocus={() =>
+            openNumpad({ id: process.id, field: "plannedAmount" })
+          }
           onChange={(e) =>
-            updateProcess(process.id, "plannedAmount", Number(e.target.value))
+            updateProcess(process.id, "plannedAmount", Number(e.target.value || 0))
           }
         />
       </td>
       <td>
         <input
           className={styles.tableInput}
-          type="number"
-          value={process.completedAmount}
+          inputMode="numeric"
+          value={process.completedAmount || ""}
+          onFocus={() =>
+            openNumpad({ id: process.id, field: "completedAmount" })
+          }
           onChange={(e) =>
-            updateProcess(process.id, "completedAmount", Number(e.target.value))
+            updateProcess(process.id, "completedAmount", Number(e.target.value || 0))
           }
         />
       </td>
@@ -194,6 +208,7 @@ export default function OrderProcessesPage() {
   const [selectedPostId, setSelectedPostId] = useState("");
   const [newProcessName, setNewProcessName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [numpadTarget, setNumpadTarget] = useState<NumpadTarget>(null);
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -260,6 +275,17 @@ export default function OrderProcessesPage() {
         process.id === id ? { ...process, [field]: value } : process,
       ),
     );
+  };
+
+  const currentNumpadValue = () => {
+    if (!numpadTarget) return "";
+    const process = processes.find((item) => item.id === numpadTarget.id);
+    return process ? String(process[numpadTarget.field] || "") : "";
+  };
+
+  const handleNumpadChange = (value: string) => {
+    if (!numpadTarget) return;
+    updateProcess(numpadTarget.id, numpadTarget.field, Number(value || 0));
   };
   const findMatchingProductProcess = async (process: OrderProcess) => {
     const { data, error } = await supabase
@@ -640,6 +666,7 @@ export default function OrderProcessesPage() {
                     updateProcess={updateProcess}
                     saveProcess={saveProcess}
                     deleteProcess={deleteProcess}
+                    openNumpad={setNumpadTarget}
                   />
                 ))}
               </tbody>
@@ -647,6 +674,13 @@ export default function OrderProcessesPage() {
           </table>
         </DndContext>
       </div>
+
+      <Numpad
+        open={Boolean(numpadTarget)}
+        value={currentNumpadValue()}
+        onChange={handleNumpadChange}
+        onClose={() => setNumpadTarget(null)}
+      />
     </div>
   );
 }
