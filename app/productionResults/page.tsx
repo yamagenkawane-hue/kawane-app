@@ -22,6 +22,7 @@ const getPostIdFromScheduleId = (id: string) =>
 
 const mapScheduleRow = (row: Record<string, unknown>): ProductionSchedule => ({
   id: String(row.id || ""),
+  postId: row.post_id ? String(row.post_id) : "",
   orderNo: String(row.order_no || ""),
   customerName: String(row.customer_name || ""),
   productName: String(row.product_name || ""),
@@ -51,6 +52,7 @@ const mapPostRow = (row: Record<string, unknown>): PostData => ({
 
 const mapPostToSchedule = (row: Record<string, unknown>): ProductionSchedule => ({
   id: postScheduleId(String(row.id || "")),
+  postId: String(row.id || ""),
   orderNo: String(row.order_no || ""),
   customerName: String(row.customer_name || ""),
   productName: String(row.product_name || ""),
@@ -122,6 +124,8 @@ export default function ProductionResultsPage() {
 
   const selectedPostId = useMemo(() => {
     if (!selectedSchedule) return "";
+    if (selectedSchedule.postId) return selectedSchedule.postId;
+
     const schedulePostId = getPostIdFromScheduleId(selectedSchedule.id);
     if (schedulePostId) return schedulePostId;
 
@@ -130,11 +134,8 @@ export default function ProductionResultsPage() {
         selectedSchedule.orderNo && post.orderNo === selectedSchedule.orderNo;
       const sameLot =
         selectedSchedule.lotNo && post.lotNo === selectedSchedule.lotNo;
-      const sameProduct =
-        post.productName === selectedSchedule.productName &&
-        post.customerName === selectedSchedule.customerName;
 
-      return sameOrder || sameLot || sameProduct;
+      return Boolean(sameOrder || sameLot);
     });
 
     return matched?.id || "";
@@ -157,17 +158,16 @@ export default function ProductionResultsPage() {
     schedule: ProductionSchedule,
     postList = posts,
   ) => {
+    if (schedule.postId) return schedule.postId;
+
     const schedulePostId = getPostIdFromScheduleId(schedule.id);
     if (schedulePostId) return schedulePostId;
 
     const matched = postList.find((post) => {
       const sameOrder = schedule.orderNo && post.orderNo === schedule.orderNo;
       const sameLot = schedule.lotNo && post.lotNo === schedule.lotNo;
-      const sameProduct =
-        post.productName === schedule.productName &&
-        post.customerName === schedule.customerName;
 
-      return sameOrder || sameLot || sameProduct;
+      return Boolean(sameOrder || sameLot);
     });
 
     return matched?.id || "";
@@ -220,7 +220,7 @@ export default function ProductionResultsPage() {
       ] =
         await Promise.all([
           supabase
-            .from("production_schedules")
+            .from("v_production_schedules_with_master")
             .select("*")
             .order("created_at", { ascending: false }),
           fetch("/api/daily-production"),

@@ -29,6 +29,7 @@ type EditingRow =
 
 const mapSchedule = (row: Record<string, unknown>): ProductionSchedule => ({
   id: String(row.id || ""),
+  postId: row.post_id ? String(row.post_id) : "",
   orderNo: String(row.order_no || ""),
   customerName: String(row.customer_name || ""),
   productName: String(row.product_name || ""),
@@ -105,7 +106,7 @@ export default function ProductionSchedulesPage() {
 
       const [scheduleResult, dailyResult] = await Promise.all([
         supabase
-          .from("production_schedules")
+          .from("v_production_schedules_with_master")
           .select("*")
           .order("created_at", { ascending: false }),
         fetch("/api/daily-production"),
@@ -240,15 +241,19 @@ export default function ProductionSchedulesPage() {
 
       if (error) throw error;
 
-      if (orderNo && schedule.pressCompletedDate && !orderNo.startsWith("PS-")) {
-        const { error: postError } = await supabase
+      if ((schedule.postId || orderNo) && schedule.pressCompletedDate && !orderNo.startsWith("PS-")) {
+        let postUpdate = supabase
           .from("posts")
           .update({
             completion_scheduled_date: schedule.pressCompletedDate,
             updated_at: new Date().toISOString(),
-          })
-          .eq("order_no", orderNo);
+          });
 
+        postUpdate = schedule.postId
+          ? postUpdate.eq("id", schedule.postId)
+          : postUpdate.eq("order_no", orderNo);
+
+        const { error: postError } = await postUpdate;
         if (postError) throw postError;
       }
 
