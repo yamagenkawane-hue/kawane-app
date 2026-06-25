@@ -1,6 +1,8 @@
 -- Restore schedule columns required by daily production after v_posts_with_master
 -- was changed from p.* to explicit columns.
 
+drop view if exists v_posts_with_master;
+
 create or replace view v_posts_with_master as
 select
   p.id,
