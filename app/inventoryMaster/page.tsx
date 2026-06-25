@@ -80,12 +80,24 @@ export default function InventoryMasterPage() {
       alert("製品名を入力してください");
       return;
     }
+
+    const currentStock = Number(form.currentStock);
+    const allocatedStock = Number(form.allocatedStock);
+    if (currentStock < 0 || allocatedStock < 0) {
+      alert("現在個数と引き当て済み数は0以上で入力してください");
+      return;
+    }
+    if (allocatedStock > currentStock) {
+      alert("引き当て済み数は現在個数以下で入力してください");
+      return;
+    }
+
     await supabase.from("inventory_items").insert({
       product_code: form.productCode,
       product_name: form.productName,
       lot_no: form.lotNo,
-      current_stock: Number(form.currentStock),
-      allocated_stock: Number(form.allocatedStock),
+      current_stock: currentStock,
+      allocated_stock: allocatedStock,
       updated_at: new Date().toISOString(),
     });
     setForm({
@@ -109,14 +121,25 @@ export default function InventoryMasterPage() {
   };
 
   const handleSave = async (item: InventoryItem) => {
+    const currentStock = Number(item.currentStock);
+    const allocatedStock = Number(item.allocatedStock);
+    if (currentStock < 0 || allocatedStock < 0) {
+      alert("現在個数と引き当て済み数は0以上で入力してください");
+      return;
+    }
+    if (allocatedStock > currentStock) {
+      alert("引き当て済み数は現在個数以下で入力してください");
+      return;
+    }
+
     await supabase
       .from("inventory_items")
       .update({
         product_code: item.productCode,
         product_name: item.productName,
         lot_no: item.lotNo,
-        current_stock: Number(item.currentStock),
-        allocated_stock: Number(item.allocatedStock),
+        current_stock: currentStock,
+        allocated_stock: allocatedStock,
         updated_at: new Date().toISOString(),
       })
       .eq("id", item.id);

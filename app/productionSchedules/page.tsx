@@ -167,6 +167,17 @@ export default function ProductionSchedulesPage() {
 
     try {
       setLoading(true);
+      const planAmount = Number(form.planAmount);
+      const pressCompletedAmount = Number(form.pressCompletedAmount);
+      if (planAmount < 0 || pressCompletedAmount < 0) {
+        alert("予定数と完了数は0以上で入力してください");
+        return;
+      }
+      if (pressCompletedAmount > planAmount) {
+        alert("完了数は予定数以下で入力してください");
+        return;
+      }
+
       const orderNo = form.orderNo || createScheduleNo(schedules);
       const response = await fetch("/api/daily-production", {
         method: "POST",
@@ -177,8 +188,8 @@ export default function ProductionSchedulesPage() {
           order_no: orderNo,
           press_number: form.pressNumber,
           lot_no: form.lotNo,
-          plan_amount: Number(form.planAmount),
-          press_completed_amount: Number(form.pressCompletedAmount),
+          plan_amount: planAmount,
+          press_completed_amount: pressCompletedAmount,
           press_completed_date: form.pressCompletedDate || null,
         }),
       });
@@ -222,6 +233,17 @@ export default function ProductionSchedulesPage() {
   const handleSave = async (schedule: ProductionSchedule) => {
     try {
       setLoading(true);
+      const planAmount = Number(schedule.planAmount);
+      const pressCompletedAmount = Number(schedule.pressCompletedAmount);
+      if (planAmount < 0 || pressCompletedAmount < 0) {
+        alert("予定数と完了数は0以上で入力してください");
+        return;
+      }
+      if (pressCompletedAmount > planAmount) {
+        alert("完了数は予定数以下で入力してください");
+        return;
+      }
+
       const orderNo = schedule.orderNo || createScheduleNo(schedules);
 
       const { error } = await supabase
@@ -232,8 +254,8 @@ export default function ProductionSchedulesPage() {
           product_name: schedule.productName,
           press_number: schedule.pressNumber,
           lot_no: schedule.lotNo,
-          plan_amount: Number(schedule.planAmount),
-          press_completed_amount: Number(schedule.pressCompletedAmount),
+          plan_amount: planAmount,
+          press_completed_amount: pressCompletedAmount,
           press_completed_date: schedule.pressCompletedDate || null,
           updated_at: new Date().toISOString(),
         })

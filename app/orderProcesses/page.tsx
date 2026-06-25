@@ -368,6 +368,17 @@ export default function OrderProcessesPage() {
       return;
     }
 
+    const plannedAmount = Number(process.plannedAmount);
+    const completedAmount = Number(process.completedAmount);
+    if (plannedAmount < 0 || completedAmount < 0) {
+      alert("予定数と完了数は0以上で入力してください");
+      return;
+    }
+    if (completedAmount > plannedAmount) {
+      alert("完了数は予定数以下で入力してください");
+      return;
+    }
+
     try {
       setLoading(true);
       const matchingProductProcess = await findMatchingProductProcess({
@@ -382,8 +393,8 @@ export default function OrderProcessesPage() {
             matchingProductProcess?.subcontractorId || process.subcontractorId || null,
           process_name: process.processName,
           process_order: nextOrder,
-          planned_amount: Number(process.plannedAmount),
-          completed_amount: Number(process.completedAmount),
+          planned_amount: plannedAmount,
+          completed_amount: completedAmount,
           completed_date: process.completedDate || null,
           locked: process.locked,
           updated_at: new Date().toISOString(),
