@@ -12,6 +12,16 @@ type NumpadTarget =
   | { kind: "item"; id: string; field: "currentStock" | "allocatedStock" }
   | null;
 
+const mapInventoryItem = (row: Record<string, unknown>): InventoryItem => ({
+  id: String(row.id || ""),
+  productCode: String(row.product_code || ""),
+  productName: String(row.product_name || ""),
+  lotNo: String(row.lot_no || ""),
+  currentStock: Number(row.current_stock || 0),
+  allocatedStock: Number(row.allocated_stock || 0),
+  updatedAt: String(row.updated_at || ""),
+});
+
 export default function InventoryMasterPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [form, setForm] = useState({
@@ -28,21 +38,13 @@ export default function InventoryMasterPage() {
       .from("v_inventory_items_with_master")
       .select("*")
       .order("updated_at", { ascending: false });
+
     if (error) {
       alert("在庫マスタの取得に失敗しました");
       return;
     }
-    setItems(
-      (data || []).map((row) => ({
-        id: row.id,
-        productCode: row.product_code || "",
-        productName: row.product_name || "",
-        lotNo: row.lot_no || "",
-        currentStock: row.current_stock || 0,
-        allocatedStock: row.allocated_stock || 0,
-        updatedAt: row.updated_at || "",
-      })),
-    );
+
+    setItems((data || []).map(mapInventoryItem));
   };
 
   useEffect(() => {
@@ -50,30 +52,32 @@ export default function InventoryMasterPage() {
       const { data, error } = await supabase
         .from("v_inventory_items_with_master")
         .select("*")
-        .order("updated_at", {
-          ascending: false,
-        });
+        .order("updated_at", { ascending: false });
 
       if (error) {
         alert("在庫マスタの取得に失敗しました");
         return;
       }
 
-      const mappedItems: InventoryItem[] = (data || []).map((row) => ({
-        id: row.id,
-        productCode: row.product_code || "",
-        productName: row.product_name || "",
-        lotNo: row.lot_no || "",
-        currentStock: row.current_stock || 0,
-        allocatedStock: row.allocated_stock || 0,
-        updatedAt: row.updated_at || "",
-      }));
-
-      setItems(mappedItems);
+      setItems((data || []).map(mapInventoryItem));
     };
 
     void loadItems();
   }, []);
+
+  const validateStock = (currentStock: number, allocatedStock: number) => {
+    if (currentStock < 0 || allocatedStock < 0) {
+      alert("現在庫数と引き当て済み数は0以上で入力してください");
+      return false;
+    }
+
+    if (allocatedStock > currentStock) {
+      alert("引き当て済み数は現在庫数以下で入力してください");
+      return false;
+    }
+
+    return true;
+  };
 
   const handleAdd = async () => {
     if (!form.productName) {
@@ -83,16 +87,9 @@ export default function InventoryMasterPage() {
 
     const currentStock = Number(form.currentStock);
     const allocatedStock = Number(form.allocatedStock);
-    if (currentStock < 0 || allocatedStock < 0) {
-      alert("現在個数と引き当て済み数は0以上で入力してください");
-      return;
-    }
-    if (allocatedStock > currentStock) {
-      alert("引き当て済み数は現在個数以下で入力してください");
-      return;
-    }
+    if (!validateStock(currentStock, allocatedStock)) return;
 
-    await supabase.from("inventory_items").insert({
+    const { error } = await supabase.from("inventory_items").insert({
       product_code: form.productCode,
       product_name: form.productName,
       lot_no: form.lotNo,
@@ -100,6 +97,12 @@ export default function InventoryMasterPage() {
       allocated_stock: allocatedStock,
       updated_at: new Date().toISOString(),
     });
+
+    if (error) {
+      alert("在庫の追加に失敗しました");
+      return;
+    }
+
     setForm({
       productCode: "",
       productName: "",
@@ -108,6 +111,7 @@ export default function InventoryMasterPage() {
       allocatedStock: 0,
     });
     await fetchItems();
+    alert("在庫を追加しました");
   };
 
   const updateItem = (
@@ -123,16 +127,9 @@ export default function InventoryMasterPage() {
   const handleSave = async (item: InventoryItem) => {
     const currentStock = Number(item.currentStock);
     const allocatedStock = Number(item.allocatedStock);
-    if (currentStock < 0 || allocatedStock < 0) {
-      alert("現在個数と引き当て済み数は0以上で入力してください");
-      return;
-    }
-    if (allocatedStock > currentStock) {
-      alert("引き当て済み数は現在個数以下で入力してください");
-      return;
-    }
+    if (!validateStock(currentStock, allocatedStock)) return;
 
-    await supabase
+    const { error } = await supabase
       .from("inventory_items")
       .update({
         product_code: item.productCode,
@@ -143,7 +140,41 @@ export default function InventoryMasterPage() {
         updated_at: new Date().toISOString(),
       })
       .eq("id", item.id);
+
+    if (error) {
+      alert("在庫の保存に失敗しました");
+      return;
+    }
+
     await fetchItems();
+    alert("在庫を保存しました");
+  };
+
+  const handleDelete = async (item: InventoryItem) => {
+    const label = item.productName || item.productCode || item.lotNo || "この在庫";
+    const allocationNote =
+      Number(item.allocatedStock) > 0
+        ? "\n引き当て済み数がある在庫です。削除すると引当情報から参照できなくなる可能性があります。"
+        : "";
+
+    if (!confirm(`${label} を削除しますか？${allocationNote}`)) return;
+
+    const { error } = await supabase
+      .from("inventory_items")
+      .delete()
+      .eq("id", item.id);
+
+    if (error) {
+      alert("在庫の削除に失敗しました");
+      return;
+    }
+
+    if (numpadTarget?.kind === "item" && numpadTarget.id === item.id) {
+      setNumpadTarget(null);
+    }
+
+    await fetchItems();
+    alert("在庫を削除しました");
   };
 
   const currentNumpadValue = () => {
@@ -211,7 +242,7 @@ export default function InventoryMasterPage() {
           <input
             className={styles.input}
             inputMode="numeric"
-            placeholder="引当済み数"
+            placeholder="引き当て済み数"
             value={form.allocatedStock}
             onFocus={() =>
               setNumpadTarget({ kind: "form", field: "allocatedStock" })
@@ -235,8 +266,8 @@ export default function InventoryMasterPage() {
               <th>製品名</th>
               <th>ロットNo</th>
               <th>現在庫数</th>
-              <th>引当済み数</th>
-              <th>引当可能数</th>
+              <th>引き当て済み数</th>
+              <th>引き当て可能数</th>
               <th>更新日時</th>
               <th>操作</th>
             </tr>
@@ -326,6 +357,12 @@ export default function InventoryMasterPage() {
                     onClick={() => handleSave(item)}
                   >
                     保存
+                  </button>
+                  <button
+                    className={styles.deleteButton}
+                    onClick={() => handleDelete(item)}
+                  >
+                    削除
                   </button>
                 </td>
               </tr>
