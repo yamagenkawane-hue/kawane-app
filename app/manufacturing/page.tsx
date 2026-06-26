@@ -38,6 +38,8 @@ type MeasurementSchedule = {
   availableAmount: number;
   previousProcessName: string;
   previousCompletedAmount: number;
+  insertProcessOrder: number;
+  generatedProcess: boolean;
 };
 
 const mapOrderProcessRow = (row: Record<string, unknown>): OrderProcessRow => ({
@@ -73,43 +75,84 @@ const buildMeasurementSchedules = (
     const orderedProcesses = [...postProcesses].sort(
       (a, b) => a.processOrder - b.processOrder,
     );
-    const measurementProcess = orderedProcesses.find(
-      (process) =>
-        process.processName.includes("計量") &&
-        process.completedAmount < process.plannedAmount,
+    const measurementProcesses = orderedProcesses.filter((process) =>
+      process.processName.includes("計量"),
+    );
+    const measurementProcess = measurementProcesses.find(
+      (process) => process.completedAmount < process.plannedAmount,
     );
 
-    if (!measurementProcess) continue;
+    if (measurementProcess) {
+      const previousProcess = [...orderedProcesses]
+        .filter((process) => process.processOrder < measurementProcess.processOrder)
+        .sort((a, b) => b.processOrder - a.processOrder)[0];
+      const previousCompletedAmount = previousProcess?.completedAmount || 0;
+      const allowance =
+        measurementProcess.processOrder === 1
+          ? measurementProcess.plannedAmount
+          : previousCompletedAmount;
+      const availableAmount = Math.max(
+        0,
+        allowance - measurementProcess.completedAmount,
+      );
 
-    const previousProcess = [...orderedProcesses]
-      .filter((process) => process.processOrder < measurementProcess.processOrder)
+      if (availableAmount <= 0) continue;
+
+      schedules.push({
+        id: measurementProcess.id,
+        postId,
+        orderProcessId: measurementProcess.id,
+        orderNo: measurementProcess.orderNo,
+        productCode: measurementProcess.productCode,
+        productName: measurementProcess.productName,
+        customerName: measurementProcess.customerName,
+        lotNo: lotMap.get(postId) || "",
+        planAmount: measurementProcess.plannedAmount,
+        completedAmount: measurementProcess.completedAmount,
+        availableAmount,
+        previousProcessName: previousProcess?.processName || "",
+        previousCompletedAmount,
+        insertProcessOrder: measurementProcess.processOrder,
+        generatedProcess: false,
+      });
+      continue;
+    }
+
+    const completedInspectionProcess = [...orderedProcesses]
+      .filter(
+        (process) =>
+          process.processName.includes("検査") &&
+          process.plannedAmount > 0 &&
+          process.completedAmount >= process.plannedAmount,
+      )
       .sort((a, b) => b.processOrder - a.processOrder)[0];
-    const previousCompletedAmount = previousProcess?.completedAmount || 0;
-    const allowance =
-      measurementProcess.processOrder === 1
-        ? measurementProcess.plannedAmount
-        : previousCompletedAmount;
-    const availableAmount = Math.max(
-      0,
-      allowance - measurementProcess.completedAmount,
+
+    if (!completedInspectionProcess) continue;
+
+    const nextProcess = orderedProcesses.find(
+      (process) => process.processOrder > completedInspectionProcess.processOrder,
     );
+    const availableAmount = completedInspectionProcess.completedAmount;
 
     if (availableAmount <= 0) continue;
 
     schedules.push({
-      id: measurementProcess.id,
+      id: `generated-measurement-${postId}`,
       postId,
-      orderProcessId: measurementProcess.id,
-      orderNo: measurementProcess.orderNo,
-      productCode: measurementProcess.productCode,
-      productName: measurementProcess.productName,
-      customerName: measurementProcess.customerName,
+      orderProcessId: "",
+      orderNo: completedInspectionProcess.orderNo,
+      productCode: completedInspectionProcess.productCode,
+      productName: completedInspectionProcess.productName,
+      customerName: completedInspectionProcess.customerName,
       lotNo: lotMap.get(postId) || "",
-      planAmount: measurementProcess.plannedAmount,
-      completedAmount: measurementProcess.completedAmount,
+      planAmount: completedInspectionProcess.plannedAmount,
+      completedAmount: 0,
       availableAmount,
-      previousProcessName: previousProcess?.processName || "",
-      previousCompletedAmount,
+      previousProcessName: completedInspectionProcess.processName,
+      previousCompletedAmount: completedInspectionProcess.completedAmount,
+      insertProcessOrder:
+        nextProcess?.processOrder || completedInspectionProcess.processOrder + 1,
+      generatedProcess: true,
     });
   }
 
@@ -136,7 +179,7 @@ export default function ManufacturingPage() {
           "id,post_id,order_no,product_code,product_name,customer_name,process_name,process_order,planned_amount,completed_amount",
         )
         .order("process_order", { ascending: true }),
-      supabase.from("posts").select("id,lot_no").eq("delete", false),
+      supabase.from("posts").select("id,lot_no"),
     ]);
 
     if (processResult.error) {
@@ -185,6 +228,55 @@ export default function ManufacturingPage() {
     };
   }, []);
 
+  const createGeneratedMeasurementProcess = async (
+    schedule: MeasurementSchedule,
+  ) => {
+    const { data: shiftedProcesses, error: shiftSelectError } = await supabase
+      .from("order_processes")
+      .select("id,process_order")
+      .eq("post_id", schedule.postId)
+      .gte("process_order", schedule.insertProcessOrder)
+      .order("process_order", { ascending: false });
+
+    if (shiftSelectError) throw shiftSelectError;
+
+    for (const process of shiftedProcesses || []) {
+      const { error: shiftError } = await supabase
+        .from("order_processes")
+        .update({
+          process_order: Number(process.process_order || 0) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", process.id);
+
+      if (shiftError) throw shiftError;
+    }
+
+    const { data: insertedProcess, error: insertError } = await supabase
+      .from("order_processes")
+      .insert({
+        post_id: schedule.postId,
+        order_no: schedule.orderNo,
+        product_code: schedule.productCode,
+        product_name: schedule.productName,
+        customer_name: schedule.customerName,
+        process_name: "計量",
+        process_order: schedule.insertProcessOrder,
+        planned_amount: schedule.planAmount,
+        completed_amount: 0,
+        locked: false,
+      })
+      .select("id")
+      .single();
+
+    if (insertError) throw insertError;
+    if (!insertedProcess?.id) {
+      throw new Error("計量工程の作成に失敗しました");
+    }
+
+    return String(insertedProcess.id);
+  };
+
   const handleConfirm = async () => {
     if (!selected || finalQuantity === "") {
       alert("計量する予定と最終確定数量を入力してください");
@@ -210,10 +302,14 @@ export default function ManufacturingPage() {
       return;
     }
 
+    const orderProcessId = selected.orderProcessId
+      ? selected.orderProcessId
+      : await createGeneratedMeasurementProcess(selected);
+
     const { error: resultError } = await supabase.rpc(
       "register_order_process_result",
       {
-        p_order_process_id: selected.orderProcessId,
+        p_order_process_id: orderProcessId,
         p_schedule_id: null,
         p_date: today,
         p_amount: quantity,
@@ -300,6 +396,7 @@ export default function ManufacturingPage() {
             {schedules.map((schedule) => (
               <option key={schedule.id} value={schedule.id}>
                 {schedule.orderNo} / {schedule.productName} / {schedule.productCode} / 残{schedule.availableAmount}
+                {schedule.generatedProcess ? " / 計量工程を自動作成" : ""}
               </option>
             ))}
           </select>
