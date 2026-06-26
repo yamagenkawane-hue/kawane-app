@@ -73,6 +73,16 @@ export type ProcessDisplayStatus =
   | "梱包中"
   | "梱包完了";
 
+export type ProcessStatusValue = {
+  status: ProcessDisplayStatus;
+  processOrder: number;
+};
+
+export type OutsourceStatusValue = {
+  status: OutsourceDisplayStatus;
+  processOrder: number;
+};
+
 export type OrderProcessStatusRow = {
   post_id?: string | null;
   process_name?: string | null;
@@ -104,7 +114,7 @@ export const buildOrderProcessStatusMap = <T extends OrderProcessStatusRow>(
     rowsByPost.set(postId, [...(rowsByPost.get(postId) || []), row]);
   }
 
-  const statusMap = new Map<string, ProcessDisplayStatus>();
+  const statusMap = new Map<string, ProcessStatusValue>();
 
   for (const [postId, postRows] of rowsByPost.entries()) {
     const orderedRows = [...postRows].sort(
@@ -123,12 +133,13 @@ export const buildOrderProcessStatusMap = <T extends OrderProcessStatusRow>(
 
       const plannedAmount = Number(row.planned_amount || 0);
       const labels = processStatusLabels[logKey];
-      statusMap.set(
-        postId,
-        plannedAmount > 0 && completedAmount >= plannedAmount
-          ? labels.completed
-          : labels.inProgress,
-      );
+      statusMap.set(postId, {
+        status:
+          plannedAmount > 0 && completedAmount >= plannedAmount
+            ? labels.completed
+            : labels.inProgress,
+        processOrder: Number(row.process_order || 0),
+      });
     }
   }
 
@@ -203,6 +214,62 @@ export const buildProductionResultProgressMap = <
   return progressMap;
 };
 
+export const buildOutsourceStatusDetailMap = <T extends OutsourceProgressRow>(
+  rows: T[],
+) => {
+  const rowsByPost = new Map<string, T[]>();
+
+  for (const row of rows) {
+    const postId = row.post_id || "";
+    if (!postId) continue;
+
+    rowsByPost.set(postId, [...(rowsByPost.get(postId) || []), row]);
+  }
+
+  const statusMap = new Map<string, OutsourceStatusValue>();
+
+  for (const [postId, postRows] of rowsByPost.entries()) {
+    const activeOutsourceRows = postRows.filter((row) => {
+      const hasOutsourceMarker =
+        Boolean(row.subcontractor_id) ||
+        Boolean(row.outsource_sent_date) ||
+        Boolean(row.outsource_returned_date) ||
+        row.outsource_status === "sent" ||
+        row.outsource_status === "returned";
+
+      if (!hasOutsourceMarker) return false;
+
+      return (
+        Boolean(row.outsource_sent_date) ||
+        Boolean(row.outsource_returned_date) ||
+        row.outsource_status === "sent" ||
+        row.outsource_status === "returned" ||
+        Number(row.completed_amount || 0) >= Number(row.planned_amount || 0)
+      );
+    });
+
+    if (activeOutsourceRows.length === 0) continue;
+
+    const latestOutsourceRow = [...activeOutsourceRows].sort(
+      (a, b) => Number(b.process_order || 0) - Number(a.process_order || 0),
+    )[0];
+
+    const isReturnedOrCompleted = activeOutsourceRows.some(
+      (row) =>
+        row.outsource_status === "returned" ||
+        Boolean(row.outsource_returned_date) ||
+        (Number(row.planned_amount || 0) > 0 &&
+          Number(row.completed_amount || 0) >= Number(row.planned_amount || 0)),
+    );
+
+    statusMap.set(postId, {
+      status: isReturnedOrCompleted ? "外注済" : "外注",
+      processOrder: Number(latestOutsourceRow?.process_order || 0),
+    });
+  }
+
+  return statusMap;
+};
 export const buildOutsourceStatusMap = <T extends OutsourceProgressRow>(
   rows: T[],
 ) => {

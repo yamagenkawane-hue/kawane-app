@@ -4,6 +4,7 @@ import { Post } from "../type";
 import {
   buildOrderProcessProgressMap,
   buildOrderProcessStatusMap,
+  buildOutsourceStatusDetailMap,
   buildOutsourceStatusMap,
   buildProductionResultProgressMap,
   createEmptyProcessProgress,
@@ -60,6 +61,9 @@ export const useFetchPosts = () => {
           orderProcessResult.data || [],
         );
         const outsourceStatusMap = buildOutsourceStatusMap(
+          orderProcessResult.data || [],
+        );
+        const outsourceStatusDetailMap = buildOutsourceStatusDetailMap(
           orderProcessResult.data || [],
         );
         const orderProcessStatusMap = buildOrderProcessStatusMap(
@@ -121,13 +125,22 @@ export const useFetchPosts = () => {
           // =========================
           // 状態
           // =========================
+          const processStatus = orderProcessStatusMap.get(row.id);
+          const outsourceStatus = outsourceStatusDetailMap.get(row.id);
           let status: Post["status"] = "未着手";
           if (packagingAmount >= orderAmount && orderAmount > 0) {
             status = "出荷OK";
+          } else if (
+            processStatus &&
+            (!outsourceStatus || processStatus.processOrder > outsourceStatus.processOrder)
+          ) {
+            status = processStatus.status as Post["status"];
+          } else if (outsourceStatus) {
+            status = outsourceStatus.status as Post["status"];
+          } else if (processStatus) {
+            status = processStatus.status as Post["status"];
           } else if (outsourceStatusMap.has(row.id)) {
             status = outsourceStatusMap.get(row.id) as Post["status"];
-          } else if (orderProcessStatusMap.has(row.id)) {
-            status = orderProcessStatusMap.get(row.id) as Post["status"];
           }
 
           return {
