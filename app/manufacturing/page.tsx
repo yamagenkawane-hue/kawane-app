@@ -1,86 +1,198 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
-import { ProductionSchedule } from "@/app/type";
 import styles from "../masterCommon.module.css";
 
+type OrderProcessRow = {
+  id: string;
+  postId: string;
+  orderNo: string;
+  productCode: string;
+  productName: string;
+  customerName: string;
+  processName: string;
+  processOrder: number;
+  plannedAmount: number;
+  completedAmount: number;
+};
+
+type PostLotRow = {
+  id: string;
+  lot_no?: string;
+};
+
+type MeasurementSchedule = {
+  id: string;
+  postId: string;
+  orderProcessId: string;
+  orderNo: string;
+  productCode: string;
+  productName: string;
+  customerName: string;
+  lotNo: string;
+  planAmount: number;
+  completedAmount: number;
+  availableAmount: number;
+  previousProcessName: string;
+  previousCompletedAmount: number;
+};
+
+const mapOrderProcessRow = (row: Record<string, unknown>): OrderProcessRow => ({
+  id: String(row.id || ""),
+  postId: String(row.post_id || ""),
+  orderNo: String(row.order_no || ""),
+  productCode: String(row.product_code || ""),
+  productName: String(row.product_name || ""),
+  customerName: String(row.customer_name || ""),
+  processName: String(row.process_name || ""),
+  processOrder: Number(row.process_order || 0),
+  plannedAmount: Number(row.planned_amount || 0),
+  completedAmount: Number(row.completed_amount || 0),
+});
+
+const buildMeasurementSchedules = (
+  processes: OrderProcessRow[],
+  lotMap: Map<string, string>,
+): MeasurementSchedule[] => {
+  const processesByPost = new Map<string, OrderProcessRow[]>();
+
+  for (const process of processes) {
+    if (!process.postId) continue;
+    processesByPost.set(process.postId, [
+      ...(processesByPost.get(process.postId) || []),
+      process,
+    ]);
+  }
+
+  const schedules: MeasurementSchedule[] = [];
+
+  for (const [postId, postProcesses] of processesByPost.entries()) {
+    const orderedProcesses = [...postProcesses].sort(
+      (a, b) => a.processOrder - b.processOrder,
+    );
+    const measurementProcess = orderedProcesses.find(
+      (process) =>
+        process.processName.includes("計量") &&
+        process.completedAmount < process.plannedAmount,
+    );
+
+    if (!measurementProcess) continue;
+
+    const previousProcess = [...orderedProcesses]
+      .filter((process) => process.processOrder < measurementProcess.processOrder)
+      .sort((a, b) => b.processOrder - a.processOrder)[0];
+    const previousCompletedAmount = previousProcess?.completedAmount || 0;
+    const allowance =
+      measurementProcess.processOrder === 1
+        ? measurementProcess.plannedAmount
+        : previousCompletedAmount;
+    const availableAmount = Math.max(
+      0,
+      allowance - measurementProcess.completedAmount,
+    );
+
+    if (availableAmount <= 0) continue;
+
+    schedules.push({
+      id: measurementProcess.id,
+      postId,
+      orderProcessId: measurementProcess.id,
+      orderNo: measurementProcess.orderNo,
+      productCode: measurementProcess.productCode,
+      productName: measurementProcess.productName,
+      customerName: measurementProcess.customerName,
+      lotNo: lotMap.get(postId) || "",
+      planAmount: measurementProcess.plannedAmount,
+      completedAmount: measurementProcess.completedAmount,
+      availableAmount,
+      previousProcessName: previousProcess?.processName || "",
+      previousCompletedAmount,
+    });
+  }
+
+  return schedules.sort((a, b) => a.orderNo.localeCompare(b.orderNo, "ja"));
+};
+
 export default function ManufacturingPage() {
-  const [schedules, setSchedules] = useState<ProductionSchedule[]>([]);
+  const [schedules, setSchedules] = useState<MeasurementSchedule[]>([]);
   const [scheduleId, setScheduleId] = useState("");
   const [finalQuantity, setFinalQuantity] = useState<number | "">("");
   const [lotNo, setLotNo] = useState("");
   const [numpadOpen, setNumpadOpen] = useState(false);
 
-  const selected = schedules.find((item) => item.id === scheduleId);
+  const selected = useMemo(
+    () => schedules.find((item) => item.id === scheduleId),
+    [scheduleId, schedules],
+  );
+
+  const loadMeasurementSchedules = async () => {
+    const [processResult, postResult] = await Promise.all([
+      supabase
+        .from("v_order_processes_with_master")
+        .select(
+          "id,post_id,order_no,product_code,product_name,customer_name,process_name,process_order,planned_amount,completed_amount",
+        )
+        .order("process_order", { ascending: true }),
+      supabase.from("posts").select("id,lot_no").eq("delete", false),
+    ]);
+
+    if (processResult.error) {
+      throw processResult.error;
+    }
+    if (postResult.error) {
+      throw postResult.error;
+    }
+
+    const lotMap = new Map(
+      ((postResult.data || []) as PostLotRow[]).map((post) => [
+        post.id,
+        post.lot_no || "",
+      ]),
+    );
+    const mappedProcesses = (processResult.data || []).map(mapOrderProcessRow);
+    return buildMeasurementSchedules(mappedProcesses, lotMap);
+  };
 
   const fetchSchedules = async () => {
-    const { data, error } = await supabase
-      .from("v_production_schedules_with_master")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) {
-      alert("生産予定の取得に失敗しました");
-      return;
+    try {
+      setSchedules(await loadMeasurementSchedules());
+    } catch (error) {
+      console.error(error);
+      alert("計量予定の取得に失敗しました");
     }
-    setSchedules(
-      (data || []).map((row) => ({
-        id: row.id,
-        postId: row.post_id || "",
-        orderNo: row.order_no || "",
-        customerName: row.customer_name || "",
-        productName: row.product_name || "",
-        pressNumber: row.press_number || "",
-        lotNo: row.lot_no || "",
-        planAmount: row.plan_amount || 0,
-        pressCompletedAmount: row.press_completed_amount || 0,
-        pressCompletedDate: row.press_completed_date || "",
-        createdAt: row.created_at || "",
-        updatedAt: row.updated_at || "",
-      })),
-    );
   };
 
   useEffect(() => {
-    const loadSchedules = async () => {
-      const { data, error } = await supabase
-        .from("v_production_schedules_with_master")
-        .select("*")
-        .order("created_at", {
-          ascending: false,
-        });
+    let mounted = true;
 
-      if (error) {
-        alert("生産予定の取得に失敗しました");
-        return;
+    const load = async () => {
+      try {
+        const loadedSchedules = await loadMeasurementSchedules();
+        if (mounted) setSchedules(loadedSchedules);
+      } catch (error) {
+        console.error(error);
+        alert("計量予定の取得に失敗しました");
       }
-
-      const mappedSchedules: ProductionSchedule[] = (data || []).map((row) => ({
-        id: row.id,
-        postId: row.post_id || "",
-        orderNo: row.order_no || "",
-        customerName: row.customer_name || "",
-        productName: row.product_name || "",
-        pressNumber: row.press_number || "",
-        lotNo: row.lot_no || "",
-        planAmount: row.plan_amount || 0,
-        pressCompletedAmount: row.press_completed_amount || 0,
-        pressCompletedDate: row.press_completed_date || "",
-        createdAt: row.created_at || "",
-        updatedAt: row.updated_at || "",
-      }));
-
-      setSchedules(mappedSchedules);
     };
 
-    void loadSchedules();
+    void load();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const handleConfirm = async () => {
     if (!selected || finalQuantity === "") {
-      alert("製品と最終確定数量を入力してください");
+      alert("計量する予定と最終確定数量を入力してください");
+      return;
+    }
+
+    if (!lotNo.trim()) {
+      alert("ロットNoを入力してください");
       return;
     }
 
@@ -88,91 +200,72 @@ export default function ManufacturingPage() {
     const now = new Date().toISOString();
     const today = now.slice(0, 10);
 
-    if (selected.postId) {
-      await supabase.rpc("create_order_processes_for_post", {
-        p_post_id: selected.postId,
-      });
-
-      const { data: firstProcess, error: processError } = await supabase
-        .from("v_order_processes_with_master")
-        .select("id,completed_amount,planned_amount")
-        .eq("post_id", selected.postId)
-        .order("process_order", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (processError) throw processError;
-      if (!firstProcess?.id) {
-        throw new Error("製造工程が見つかりません");
-      }
-
-      const completedAmount = Number(firstProcess.completed_amount || 0);
-      const plannedAmount = Number(firstProcess.planned_amount || 0);
-      const remainingAmount = Math.max(0, plannedAmount - completedAmount);
-
-      if (quantity > remainingAmount) {
-        throw new Error(`製造工程の登録可能数量は${remainingAmount}です`);
-      }
-
-      const { error: resultError } = await supabase.rpc(
-        "register_order_process_result",
-        {
-          p_order_process_id: firstProcess.id,
-          p_schedule_id: selected.id,
-          p_date: today,
-          p_amount: quantity,
-        },
-      );
-
-      if (resultError) throw resultError;
-    } else {
-      const { error: resultError } = await supabase
-        .from("production_results")
-        .insert({
-          schedule_id: selected.id,
-          process_id: "manufacturing",
-          process_name: "製造",
-          date: today,
-          amount: quantity,
-          created_at: now,
-        });
-
-      if (resultError) throw resultError;
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      alert("数量は1以上で入力してください");
+      return;
     }
 
-    const { data: existing } = await supabase.from("inventory_items")
+    if (quantity > selected.availableAmount) {
+      alert(`登録可能数量は${selected.availableAmount}です`);
+      return;
+    }
+
+    const { error: resultError } = await supabase.rpc(
+      "register_order_process_result",
+      {
+        p_order_process_id: selected.orderProcessId,
+        p_schedule_id: null,
+        p_date: today,
+        p_amount: quantity,
+      },
+    );
+
+    if (resultError) {
+      alert("計量実績の登録に失敗しました");
+      throw resultError;
+    }
+
+    const { data: existing, error: inventorySelectError } = await supabase
+      .from("inventory_items")
       .select("*")
-      .eq("product_name", selected.productName)
-      .eq("lot_no", lotNo)
+      .eq("product_code", selected.productCode)
+      .eq("lot_no", lotNo.trim())
       .maybeSingle();
 
+    if (inventorySelectError) throw inventorySelectError;
+
     if (existing) {
-      await supabase
+      const { error: inventoryUpdateError } = await supabase
         .from("inventory_items")
         .update({
           current_stock: Number(existing.current_stock || 0) + quantity,
           updated_at: now,
         })
         .eq("id", existing.id);
+
+      if (inventoryUpdateError) throw inventoryUpdateError;
     } else {
-      await supabase.from("inventory_items").insert({
-        product_code: selected.pressNumber,
-        product_name: selected.productName,
-        lot_no: lotNo,
-        current_stock: quantity,
-        updated_at: now,
-      });
+      const { error: inventoryInsertError } = await supabase
+        .from("inventory_items")
+        .insert({
+          product_code: selected.productCode,
+          product_name: selected.productName,
+          lot_no: lotNo.trim(),
+          current_stock: quantity,
+          allocated_stock: 0,
+          updated_at: now,
+        });
+
+      if (inventoryInsertError) throw inventoryInsertError;
     }
 
     await supabase
-      .from("production_schedules")
+      .from("posts")
       .update({
-        press_completed_amount: quantity,
-        press_completed_date: today,
-        lot_no: lotNo,
+        lot_no: lotNo.trim(),
         updated_at: now,
       })
-      .eq("id", selected.id);
+      .eq("id", selected.postId);
 
     setFinalQuantity("");
     await fetchSchedules();
@@ -203,11 +296,10 @@ export default function ManufacturingPage() {
               setLotNo(schedule?.lotNo || "");
             }}
           >
-            <option value="">製造する予定を選択</option>
+            <option value="">計量する予定を選択</option>
             {schedules.map((schedule) => (
               <option key={schedule.id} value={schedule.id}>
-                {schedule.productName} / {schedule.pressNumber} /{" "}
-                {schedule.lotNo || "ロット未設定"}
+                {schedule.orderNo} / {schedule.productName} / {schedule.productCode} / 残{schedule.availableAmount}
               </option>
             ))}
           </select>
@@ -240,7 +332,7 @@ export default function ManufacturingPage() {
       {selected && (
         <div className={styles.summaryCard}>
           <div>
-            <span>取引先</span>
+            <span>得意先</span>
             <strong>{selected.customerName}</strong>
           </div>
           <div>
@@ -248,12 +340,18 @@ export default function ManufacturingPage() {
             <strong>{selected.planAmount}</strong>
           </div>
           <div>
-            <span>プレス完了数</span>
-            <strong>{selected.pressCompletedAmount}</strong>
+            <span>計量済数</span>
+            <strong>{selected.completedAmount}</strong>
           </div>
           <div>
-            <span>完了日</span>
-            <strong>{selected.pressCompletedDate || "-"}</strong>
+            <span>登録可能数</span>
+            <strong>{selected.availableAmount}</strong>
+          </div>
+          <div>
+            <span>前工程</span>
+            <strong>
+              {selected.previousProcessName || "-"} / {selected.previousCompletedAmount}
+            </strong>
           </div>
         </div>
       )}
