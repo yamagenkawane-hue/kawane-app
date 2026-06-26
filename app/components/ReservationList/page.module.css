@@ -154,7 +154,7 @@
   background-color: #fff3e0;
 }
 
-/* 測量 */
+/* 計量 */
 
 .measurementCell {
   background-color: #e1bee7;
@@ -352,7 +352,7 @@
   color: #ef6c00;
 }
 
-/* 測量 */
+/* 計量 */
 
 .measurementAverageCell .averageRow {
   background: #f3e5f5;
@@ -517,13 +517,13 @@
   background-color: #ffb74d;
 }
 
-/* 測量 */
+/* 計量 */
 
-.測量中 {
+.計量中 {
   background-color: #8e24aa;
 }
 
-.測量完了 {
+.計量完了 {
   background-color: #ba68c8;
 }
 

@@ -60,6 +60,80 @@ export const getProcessLogKey = (
 };
 
 
+export type ProcessDisplayStatus =
+  | "未着手"
+  | "製造中"
+  | "製造完了"
+  | "洗浄中"
+  | "洗浄完了"
+  | "検査中"
+  | "検査完了"
+  | "計量中"
+  | "計量完了"
+  | "梱包中"
+  | "梱包完了";
+
+export type OrderProcessStatusRow = {
+  post_id?: string | null;
+  process_name?: string | null;
+  process_order?: number | string | null;
+  planned_amount?: number | string | null;
+  completed_amount?: number | string | null;
+};
+
+const processStatusLabels: Record<
+  keyof ProcessProgress,
+  { inProgress: ProcessDisplayStatus; completed: ProcessDisplayStatus }
+> = {
+  manufacturingLogs: { inProgress: "製造中", completed: "製造完了" },
+  cleaningLogs: { inProgress: "洗浄中", completed: "洗浄完了" },
+  inspectionLogs: { inProgress: "検査中", completed: "検査完了" },
+  measurementLogs: { inProgress: "計量中", completed: "計量完了" },
+  packagingLogs: { inProgress: "梱包中", completed: "梱包完了" },
+};
+
+export const buildOrderProcessStatusMap = <T extends OrderProcessStatusRow>(
+  rows: T[],
+) => {
+  const rowsByPost = new Map<string, T[]>();
+
+  for (const row of rows) {
+    const postId = row.post_id || "";
+    if (!postId) continue;
+
+    rowsByPost.set(postId, [...(rowsByPost.get(postId) || []), row]);
+  }
+
+  const statusMap = new Map<string, ProcessDisplayStatus>();
+
+  for (const [postId, postRows] of rowsByPost.entries()) {
+    const orderedRows = [...postRows].sort(
+      (a, b) => Number(a.process_order || 0) - Number(b.process_order || 0),
+    );
+
+    for (const row of orderedRows) {
+      const completedAmount = Number(row.completed_amount || 0);
+      if (completedAmount <= 0) continue;
+
+      const logKey = getProcessLogKey(
+        row.process_name || "",
+        Number(row.process_order || 0),
+      );
+      if (!logKey) continue;
+
+      const plannedAmount = Number(row.planned_amount || 0);
+      const labels = processStatusLabels[logKey];
+      statusMap.set(
+        postId,
+        plannedAmount > 0 && completedAmount >= plannedAmount
+          ? labels.completed
+          : labels.inProgress,
+      );
+    }
+  }
+
+  return statusMap;
+};
 export const sumProcessLogs = (logs: ProcessLog[]) =>
   logs.reduce((sum, log) => sum + Number(log.amount || 0), 0);
 

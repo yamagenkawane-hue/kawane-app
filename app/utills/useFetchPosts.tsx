@@ -3,6 +3,7 @@ import supabase from "../../lib/supabase";
 import { Post } from "../type";
 import {
   buildOrderProcessProgressMap,
+  buildOrderProcessStatusMap,
   buildOutsourceStatusMap,
   buildProductionResultProgressMap,
   createEmptyProcessProgress,
@@ -59,6 +60,9 @@ export const useFetchPosts = () => {
           orderProcessResult.data || [],
         );
         const outsourceStatusMap = buildOutsourceStatusMap(
+          orderProcessResult.data || [],
+        );
+        const orderProcessStatusMap = buildOrderProcessStatusMap(
           orderProcessResult.data || [],
         );
         const productionResultMap = buildProductionResultProgressMap(
@@ -122,16 +126,8 @@ export const useFetchPosts = () => {
             status = "出荷OK";
           } else if (outsourceStatusMap.has(row.id)) {
             status = outsourceStatusMap.get(row.id) as Post["status"];
-          } else if (packagingAmount > 0) {
-            status = "梱包中";
-          } else if (measurementAmount > 0) {
-            status = "計量中";
-          } else if (inspectionAmount > 0) {
-            status = "検査中";
-          } else if (cleaningAmount > 0) {
-            status = "洗浄中";
-          } else if (manufacturingAmount > 0) {
-            status = "製造中";
+          } else if (orderProcessStatusMap.has(row.id)) {
+            status = orderProcessStatusMap.get(row.id) as Post["status"];
           }
 
           return {

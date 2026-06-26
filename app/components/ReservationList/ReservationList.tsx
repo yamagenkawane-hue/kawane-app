@@ -231,8 +231,8 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       if (cleaning >= post.orderAmount) status = "洗浄完了";
       if (inspection > 0) status = "検査中";
       if (inspection >= post.orderAmount) status = "検査完了";
-      if (measurement > 0) status = "測量中";
-      if (measurement >= post.orderAmount) status = "測量完了";
+      if (measurement > 0) status = "計量中";
+      if (measurement >= post.orderAmount) status = "計量完了";
       if (packaging > 0) status = "梱包中";
       if (packaging >= post.orderAmount) status = "出荷OK";
 
@@ -280,8 +280,8 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   if (cleaning >= post.orderAmount) status = "洗浄完了";
   if (inspection > 0) status = "検査中";
   if (inspection >= post.orderAmount) status = "検査完了";
-  if (measurement > 0) status = "測量中";
-  if (measurement >= post.orderAmount) status = "測量完了";
+  if (measurement > 0) status = "計量中";
+  if (measurement >= post.orderAmount) status = "計量完了";
   if (packaging > 0) status = "梱包中";
   if (packaging >= post.orderAmount) status = "出荷OK";
 
