@@ -48,7 +48,7 @@ Remaining references for the process date columns exist in migration history and
 
 - multiple `v_posts_with_master` migration definitions
 
-Decision: `supabase/migrations/20260629_trim_posts_view_process_dates.sql` removes `cleaning_date`, `inspection_date`, `measurement_date`, and `packaging_date` from the current `v_posts_with_master` definition, while keeping `manufacturing_date` temporarily as the legacy schedule-start fallback. After confirming the view exposes only `manufacturing_date`, `supabase/migrations/20260629_drop_unused_post_process_dates.sql` can drop the four unused table columns.
+Decision: `supabase/migrations/20260629_trim_posts_view_process_dates.sql` removed `cleaning_date`, `inspection_date`, `measurement_date`, and `packaging_date` from the current `v_posts_with_master` definition, while keeping `manufacturing_date` temporarily as the legacy schedule-start fallback. `supabase/migrations/20260629_drop_unused_post_process_dates.sql` then dropped the four unused table columns. Supabase checks confirmed only `manufacturing_date` remains in both the view and `posts` table.
 
 ### Press completion columns
 
