@@ -16,6 +16,24 @@ import {
   OrderProcess,
 } from "@/app/type";
 
+const POST_SELECT_COLUMNS =
+  "id,order_no,product_code,lot_no,product_name,customer_name,order_amount,manufacturing_date,cleaning_date,inspection_date,measurement_date,packaging_date,remaining_amount,delivery_date,remark,days,status,delete,created_by,updated_by,created_at,updated_at";
+
+const PROCESS_SELECT_COLUMNS =
+  "id,process_id,name,days,sort,enabled,outsourcing";
+
+const CALENDAR_SELECT_COLUMNS =
+  "id,date,name,is_holiday,type";
+
+const LINE_SELECT_COLUMNS =
+  "id,line_name,process_id,daily_capacity,operation_rate,enabled";
+
+const RESULT_SELECT_COLUMNS =
+  "id,post_id,schedule_id,order_process_id,process_id,process_name,date,amount,created_at";
+
+const ORDER_PROCESS_SELECT_COLUMNS =
+  "id,post_id,product_id,customer_id,product_process_id,order_no,product_code,product_name,customer_name,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,subcontractor_name,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,outsource_status,outsource_note,locked,created_at,updated_at";
+
 export default function ProgressDetail() {
   const params = useParams();
   const id = Array.isArray(params?.id) ? params.id[0] : params?.id || "";
@@ -128,7 +146,7 @@ export default function ProgressDetail() {
 
         const { data: postRow, error: postError } = await supabase
           .from("posts")
-          .select("*")
+          .select(POST_SELECT_COLUMNS)
           .eq("id", id)
           .single();
 
@@ -177,7 +195,7 @@ export default function ProgressDetail() {
 
         const { data: processRows, error: processError } = await supabase
           .from("process_master")
-          .select("*");
+          .select(PROCESS_SELECT_COLUMNS);
 
         if (processError) throw processError;
 
@@ -201,7 +219,7 @@ export default function ProgressDetail() {
 
         const { data: calendarRows, error: calendarError } = await supabase
           .from("company_calendar")
-          .select("*");
+          .select(CALENDAR_SELECT_COLUMNS);
 
         if (calendarError) throw calendarError;
 
@@ -221,7 +239,7 @@ export default function ProgressDetail() {
 
         const { data: lineRows, error: lineError } = await supabase
           .from("line_master")
-          .select("*");
+          .select(LINE_SELECT_COLUMNS);
 
         if (lineError) throw lineError;
 
@@ -242,7 +260,7 @@ export default function ProgressDetail() {
 
         const { data: resultRows, error: resultError } = await supabase
           .from("production_results")
-          .select("*")
+          .select(RESULT_SELECT_COLUMNS)
           .eq("post_id", id);
 
         if (!resultError) {
@@ -262,7 +280,7 @@ export default function ProgressDetail() {
         const { data: orderProcessRows, error: orderProcessError } =
           await supabase
             .from("v_order_processes_with_master")
-            .select("*")
+            .select(ORDER_PROCESS_SELECT_COLUMNS)
             .eq("post_id", id)
             .order("process_order", { ascending: true });
 
