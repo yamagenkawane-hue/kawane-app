@@ -12,6 +12,9 @@ type OutsourceRow = OrderProcess & {
   outsourcing: boolean;
 };
 
+const ORDER_PROCESS_SELECT_COLUMNS =
+  "id,post_id,product_id,customer_id,product_process_id,order_no,product_code,product_name,customer_name,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,subcontractor_name,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,outsource_status,outsource_note,locked,created_at,updated_at,delivery_date";
+
 const outsourceStatusOptions = [
   { value: "not_sent", label: "未出し" },
   { value: "sent", label: "外注中" },
@@ -99,7 +102,7 @@ export default function OutsourcingPage() {
       const [orderProcessResult, productProcessResponse] = await Promise.all([
         supabase
           .from("v_order_processes_with_master")
-          .select("*")
+          .select(ORDER_PROCESS_SELECT_COLUMNS)
           .order("delivery_date", { ascending: true })
           .order("customer_name", { ascending: true })
           .order("process_order", { ascending: true }),
