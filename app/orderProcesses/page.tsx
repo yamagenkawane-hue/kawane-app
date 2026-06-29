@@ -24,6 +24,15 @@ import supabase from "@/lib/supabase";
 import { OrderProcess, PostData, ProductProcess } from "@/app/type";
 import styles from "../masterCommon.module.css";
 
+const POST_SELECT_COLUMNS =
+  "id,product_id,customer_id,order_no,lot_no,product_code,product_name,customer_name,order_amount,remaining_amount,status,delivery_date,delete";
+
+const ORDER_PROCESS_SELECT_COLUMNS =
+  "id,post_id,product_id,customer_id,product_process_id,order_no,product_code,product_name,customer_name,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,subcontractor_name,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,outsource_status,outsource_note,locked,created_at,updated_at";
+
+const PRODUCT_PROCESS_SELECT_COLUMNS =
+  "id,product_id,product_code,process_name,process_order,subcontractor_id,subcontractor_name,outsourcing,created_at,updated_at";
+
 const mapPost = (row: Record<string, unknown>): PostData => ({
   id: String(row.id || ""),
   productId: row.product_id ? String(row.product_id) : "",
@@ -232,10 +241,13 @@ export default function OrderProcessesPage() {
     try {
       setLoading(true);
       const [postResult, processResult] = await Promise.all([
-        supabase.from("v_posts_with_master").select("*").order("order_no", { ascending: true }),
+        supabase
+          .from("v_posts_with_master")
+          .select(POST_SELECT_COLUMNS)
+          .order("order_no", { ascending: true }),
         supabase
           .from("v_order_processes_with_master")
-          .select("*")
+          .select(ORDER_PROCESS_SELECT_COLUMNS)
           .order("process_order", { ascending: true }),
       ]);
 
@@ -290,7 +302,7 @@ export default function OrderProcessesPage() {
   const findMatchingProductProcess = async (process: OrderProcess) => {
     const { data, error } = await supabase
       .from("v_product_processes_with_master")
-      .select("*")
+      .select(PRODUCT_PROCESS_SELECT_COLUMNS)
       .eq("product_code", process.productCode)
       .eq("process_order", process.processOrder)
       .eq("process_name", process.processName)
@@ -502,7 +514,7 @@ export default function OrderProcessesPage() {
 
       const { data, error } = await supabase
         .from("v_product_processes_with_master")
-        .select("*")
+        .select(PRODUCT_PROCESS_SELECT_COLUMNS)
         .eq("product_code", selectedPost.productCode)
         .order("process_order", { ascending: true });
 
