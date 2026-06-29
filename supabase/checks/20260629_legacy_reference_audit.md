@@ -38,12 +38,11 @@ These process date columns are no longer read by active app code:
 - `measurement_date`
 - `packaging_date`
 
-Remaining references for the process date columns exist only in migration history and check documentation:
+Remaining references for the process date columns exist only in migration history:
 
 - older `v_posts_with_master` migration definitions
-- `supabase/checks/*process_dates_check.sql`
 
-Decision: `supabase/migrations/20260629_trim_posts_view_process_dates.sql` removed `cleaning_date`, `inspection_date`, `measurement_date`, and `packaging_date` from the current `v_posts_with_master` definition. `supabase/migrations/20260629_drop_unused_post_process_dates.sql` then dropped the four unused table columns. `supabase/migrations/20260629_drop_manufacturing_date.sql` removed the remaining `manufacturing_date` view/table column after the app-side fallback was switched to `completion_scheduled_date` / `delivery_date`. `supabase/checks/20260629_no_post_process_dates_check.sql` returned no rows, confirming that no legacy process date columns remain in `posts` or `v_posts_with_master`.
+Decision: `supabase/migrations/20260629_trim_posts_view_process_dates.sql` removed `cleaning_date`, `inspection_date`, `measurement_date`, and `packaging_date` from the current `v_posts_with_master` definition. `supabase/migrations/20260629_drop_unused_post_process_dates.sql` then dropped the four unused table columns. `supabase/migrations/20260629_drop_manufacturing_date.sql` removed the remaining `manufacturing_date` view/table column after the app-side fallback was switched to `completion_scheduled_date` / `delivery_date`. The final Supabase check returned no rows, confirming that no legacy process date columns remain in `posts` or `v_posts_with_master`.
 
 ### Press completion columns
 
