@@ -19,7 +19,7 @@ export const useChildFetchPosts = (
       try {
         const [postResult, orderProcessResult, productionResult] =
           await Promise.all([
-            supabase.from("posts").select("*").order("first_date", {
+            supabase.from("posts").select("*").order("created_at", {
               ascending: true,
             }),
             supabase

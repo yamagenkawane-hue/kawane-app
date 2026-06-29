@@ -321,40 +321,6 @@ export default function ManufacturingPage() {
       throw resultError;
     }
 
-    const { data: existing, error: inventorySelectError } = await supabase
-      .from("inventory_items")
-      .select("*")
-      .eq("product_code", selected.productCode)
-      .eq("lot_no", lotNo.trim())
-      .maybeSingle();
-
-    if (inventorySelectError) throw inventorySelectError;
-
-    if (existing) {
-      const { error: inventoryUpdateError } = await supabase
-        .from("inventory_items")
-        .update({
-          current_stock: Number(existing.current_stock || 0) + quantity,
-          updated_at: now,
-        })
-        .eq("id", existing.id);
-
-      if (inventoryUpdateError) throw inventoryUpdateError;
-    } else {
-      const { error: inventoryInsertError } = await supabase
-        .from("inventory_items")
-        .insert({
-          product_code: selected.productCode,
-          product_name: selected.productName,
-          lot_no: lotNo.trim(),
-          current_stock: quantity,
-          allocated_stock: 0,
-          updated_at: now,
-        });
-
-      if (inventoryInsertError) throw inventoryInsertError;
-    }
-
     await supabase
       .from("posts")
       .update({
@@ -365,7 +331,7 @@ export default function ManufacturingPage() {
 
     setFinalQuantity("");
     await fetchSchedules();
-    alert("計量実績と在庫を更新しました");
+    alert("計量実績を登録しました。梱包完了後に在庫へ反映されます");
   };
 
   return (
