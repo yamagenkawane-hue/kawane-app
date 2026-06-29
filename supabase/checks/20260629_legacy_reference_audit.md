@@ -66,9 +66,9 @@ Decision: do not remove these columns yet. They are still part of the press prod
 
 ### Broad selects
 
-Several screens and API routes still use `select("*")`, including direct reads from `posts` and views such as `v_posts_with_master`.
+No `select("*")` calls remain under active `app` or `pages` code.
 
-Decision: do not remove remaining compatibility columns until the affected reads are narrowed or the UI mappings are changed. Removing DB columns first could break screens even when the field is no longer semantically important.
+Decision: broad app/API reads no longer block future column cleanup. Remaining compatibility-column cleanup should now be judged by explicit active references, view definitions, and DB integrity checks rather than by wildcard reads.
 
 ## Follow-up
 
@@ -77,4 +77,4 @@ Recommended next steps:
 1. Keep old JSON log references only in migration history.
 2. Treat process date columns as compatibility fields until the schedule/progress UI is redesigned around `order_processes`.
 3. Treat `press_completed_*` as active production schedule fields.
-4. Before dropping more `posts` columns, replace broad `select("*")` calls in the affected screens with explicit column lists.
+4. Before dropping more `posts` columns, prepare a dedicated migration after confirming the target columns are absent from current views, RPC functions, and UI mappings.
