@@ -28,17 +28,11 @@ These should be kept as historical migration or migration-support SQL unless the
 
 ### Process date columns
 
-`manufacturing_date` is still referenced by active app code as a legacy schedule-start fallback:
-
-- `app/progress/[id]/page.tsx`
-- `app/utills/useFetchPosts.tsx`
-- `app/utills/useChildFetchPosts.tsx`
-- `app/type.ts`
-
-When `manufacturing_date` is empty, active code now falls back to `completion_scheduled_date` and then `delivery_date`.
+Active app code no longer reads the legacy process date columns. Schedule-start fallback now uses `completion_scheduled_date` and then `delivery_date`.
 
 These process date columns are no longer read by active app code:
 
+- `manufacturing_date`
 - `cleaning_date`
 - `inspection_date`
 - `measurement_date`
@@ -48,7 +42,7 @@ Remaining references for the process date columns exist in migration history and
 
 - multiple `v_posts_with_master` migration definitions
 
-Decision: `supabase/migrations/20260629_trim_posts_view_process_dates.sql` removed `cleaning_date`, `inspection_date`, `measurement_date`, and `packaging_date` from the current `v_posts_with_master` definition, while keeping `manufacturing_date` temporarily as the legacy schedule-start fallback. `supabase/migrations/20260629_drop_unused_post_process_dates.sql` then dropped the four unused table columns. Supabase checks confirmed only `manufacturing_date` remains in both the view and `posts` table.
+Decision: `supabase/migrations/20260629_trim_posts_view_process_dates.sql` removed `cleaning_date`, `inspection_date`, `measurement_date`, and `packaging_date` from the current `v_posts_with_master` definition. `supabase/migrations/20260629_drop_unused_post_process_dates.sql` then dropped the four unused table columns. `supabase/migrations/20260629_drop_manufacturing_date.sql` removes the remaining `manufacturing_date` view/table column after the app-side fallback was switched to `completion_scheduled_date` / `delivery_date`.
 
 ### Press completion columns
 

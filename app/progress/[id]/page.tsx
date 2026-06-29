@@ -17,7 +17,7 @@ import {
 } from "@/app/type";
 
 const POST_SELECT_COLUMNS =
-  "id,order_no,product_code,lot_no,product_name,customer_name,order_amount,manufacturing_date,remaining_amount,delivery_date,completion_scheduled_date,remark,days,status,delete,created_by,updated_by,created_at,updated_at";
+  "id,order_no,product_code,lot_no,product_name,customer_name,order_amount,remaining_amount,delivery_date,completion_scheduled_date,remark,days,status,delete,created_by,updated_by,created_at,updated_at";
 
 const PROCESS_SELECT_COLUMNS =
   "id,process_id,name,days,sort,enabled,outsourcing";
@@ -161,7 +161,6 @@ export default function ProgressDetail() {
           customerName: postRow.customer_name || "",
           orderAmount: postRow.order_amount || 0,
           manufacturingDate:
-            postRow.manufacturing_date ||
             postRow.completion_scheduled_date ||
             postRow.delivery_date ||
             "",

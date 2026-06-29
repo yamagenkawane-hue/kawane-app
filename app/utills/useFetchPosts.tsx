@@ -12,7 +12,7 @@ import {
 } from "./processProgress";
 
 const POST_SELECT_COLUMNS =
-  "id,order_no,lot_no,product_code,product_name,customer_name,order_amount,manufacturing_date,delivery_date,completion_scheduled_date,remark,delete,created_by,updated_by,created_at,updated_at,days";
+  "id,order_no,lot_no,product_code,product_name,customer_name,order_amount,delivery_date,completion_scheduled_date,remark,delete,created_by,updated_by,created_at,updated_at,days";
 
 export const useFetchPosts = () => {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -155,7 +155,6 @@ export const useFetchPosts = () => {
             customerName: row.customer_name || "",
             orderAmount,
             manufacturingDate:
-              row.manufacturing_date ||
               row.completion_scheduled_date ||
               row.delivery_date ||
               "",

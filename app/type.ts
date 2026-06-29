@@ -389,7 +389,6 @@ export type ProductProcess = {
 };
 
 export type PostRow = {
-  manufacturing_date?: string;
   created_at?: string;
   delivery_date?: string;
   completion_scheduled_date?: string;
