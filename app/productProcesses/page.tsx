@@ -9,6 +9,9 @@ import styles from "../masterCommon.module.css";
 
 const processOrderOptions = Array.from({ length: 50 }, (_, index) => index + 1);
 
+const PRODUCT_SELECT_COLUMNS =
+  "id,product_code,product_name,customer_name,standard,unit";
+
 const mapProduct = (row: Record<string, unknown>): ProductMaster => ({
   id: String(row.id || ""),
   productCode: String(row.product_code || ""),
@@ -67,7 +70,7 @@ export default function ProductProcessesPage() {
         await Promise.all([
           supabase
             .from("v_product_master_with_customer")
-            .select("*")
+            .select(PRODUCT_SELECT_COLUMNS)
             .order("product_code"),
           fetch("/api/masters/subcontractors"),
           fetch("/api/masters/product-processes"),
