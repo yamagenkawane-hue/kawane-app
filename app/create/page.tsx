@@ -7,6 +7,11 @@ import supabase from "../../lib/supabase";
 import styles from "./page.module.css";
 import { CustomerMaster, ProductMaster } from "../type";
 
+const PRODUCT_SELECT_COLUMNS =
+  "id,customer_id,product_code,product_name,customer_name,standard,unit";
+
+const CUSTOMER_SELECT_COLUMNS = "id,customer_name,shipping_offset_days,note";
+
 const Create = () => {
   const [products, setProducts] = useState<ProductMaster[]>([]);
   const [customers, setCustomers] = useState<CustomerMaster[]>([]);
@@ -26,11 +31,11 @@ const Create = () => {
       const [productResult, customerResult] = await Promise.all([
         supabase
           .from("v_product_master_with_customer")
-          .select("*")
+          .select(PRODUCT_SELECT_COLUMNS)
           .order("product_code", { ascending: true }),
         supabase
           .from("customer_master")
-          .select("*")
+          .select(CUSTOMER_SELECT_COLUMNS)
           .order("customer_name", { ascending: true }),
       ]);
 
