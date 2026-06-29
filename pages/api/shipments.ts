@@ -1,6 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import supabase from "@/lib/supabase";
 
+const SHIPMENT_SELECT_COLUMNS =
+  "id,post_id,order_no,customer_name,product_code,product_name,lot_no,scheduled_date,delivery_date,order_amount,quantity,created_at,updated_at";
+
 const requiredFields = [
   "post_id",
   "order_no",
@@ -19,7 +22,7 @@ export default async function handler(
     if (req.method === "GET") {
       const { data, error } = await supabase
         .from("v_shipments_with_master")
-        .select("*")
+        .select(SHIPMENT_SELECT_COLUMNS)
         .order("customer_name", { ascending: true });
 
       if (error) throw error;

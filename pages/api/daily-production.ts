@@ -1,6 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import supabase from "@/lib/supabase";
 
+const DAILY_PRODUCTION_SELECT_COLUMNS =
+  "id,delete,order_no,lot_no,product_code,product_name,customer_name,order_amount,remaining_amount,status,delivery_date,completion_scheduled_date,remark,created_at,updated_at,shipping_scheduled_start,shipping_scheduled_end";
+
 const toToday = () =>
   new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 
@@ -13,7 +16,7 @@ export default async function handler(
       const today = String(req.query.date || toToday());
       const { data, error } = await supabase
         .from("v_posts_with_master")
-        .select("*")
+        .select(DAILY_PRODUCTION_SELECT_COLUMNS)
         .or("delete.is.null,delete.eq.false")
         .or(
           [
