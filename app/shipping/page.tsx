@@ -17,6 +17,15 @@ type ShippingPost = PostData & {
   scheduledDate: string;
 };
 
+const POST_SELECT_COLUMNS =
+  "id,delete,order_no,lot_no,product_code,product_name,customer_name,order_amount,status,delivery_date,completion_scheduled_date";
+
+const CUSTOMER_SELECT_COLUMNS =
+  "id,customer_name,shipping_offset_days,note";
+
+const ALLOCATION_SELECT_COLUMNS =
+  "id,post_id,inventory_item_id,product_code,lot_no,allocated_amount,shipped_amount,confirmed_at";
+
 const formatDate = (date: Date) => date.toISOString().slice(0, 10);
 
 const mapShipment = (row: Record<string, unknown>): Shipment => ({
@@ -69,11 +78,14 @@ export default function ShippingPage() {
       setLoading(true);
 
       const [postResult, customerResult, allocationResult, shipmentResponse] = await Promise.all([
-        supabase.from("v_posts_with_master").select("*").order("customer_name", { ascending: true }),
-        supabase.from("customer_master").select("*"),
+        supabase
+          .from("v_posts_with_master")
+          .select(POST_SELECT_COLUMNS)
+          .order("customer_name", { ascending: true }),
+        supabase.from("customer_master").select(CUSTOMER_SELECT_COLUMNS),
         supabase
           .from("v_inventory_allocations_with_master")
-          .select("*")
+          .select(ALLOCATION_SELECT_COLUMNS)
           .order("confirmed_at", { ascending: true })
           .order("lot_no", { ascending: true }),
         fetch("/api/shipments"),
