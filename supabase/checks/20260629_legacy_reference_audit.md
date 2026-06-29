@@ -1,0 +1,80 @@
+# Legacy reference audit
+
+Checked on: 2026-06-29
+
+## Purpose
+
+Confirm whether old workflow columns are still referenced after moving workflow results to `order_processes` and `production_results`, and after changing inventory registration to happen on packaging/wrapping completion.
+
+## Result
+
+### Old JSON log columns
+
+The app code no longer references the old JSON log columns directly:
+
+- `manufacturing_logs`
+- `cleaning_logs`
+- `inspection_logs`
+- `measurement_logs`
+- `packaging_logs`
+
+Remaining references are limited to migration history:
+
+- `supabase/migrations/20260622_migrate_legacy_post_logs_to_production_results.sql`
+- `supabase/migrations/20260623_remove_legacy_post_logs.sql`
+- `supabase/migrations/20260608_inventory_allocations.sql`
+
+These should be kept as historical migration or migration-support SQL unless the migration chain is intentionally squashed.
+
+### Process date columns
+
+These columns are still referenced by active app code and views:
+
+- `manufacturing_date`
+- `cleaning_date`
+- `inspection_date`
+- `measurement_date`
+- `packaging_date`
+
+Active references exist in:
+
+- `app/create/page.tsx`
+- `app/progress/[id]/page.tsx`
+- `app/utills/useFetchPosts.tsx`
+- `app/utills/useChildFetchPosts.tsx`
+- `app/type.ts`
+- multiple `v_posts_with_master` migration definitions
+
+Decision: do not remove these columns yet. They currently behave as schedule/display compatibility columns, not as the old JSON result storage.
+
+### Press completion columns
+
+These columns are still used by active production schedule/result screens:
+
+- `press_completed_amount`
+- `press_completed_date`
+
+Active references exist in:
+
+- `app/productionSchedules/page.tsx`
+- `app/productionResults/page.tsx`
+- `supabase/migrations/20260619_relationship_views_phase2.sql`
+- `supabase/migrations/20260622_sync_manufacturing_to_order_processes.sql`
+- `supabase/migrations/20260625_workflow_check_constraints.sql`
+
+Decision: do not remove these columns yet. They are still part of the press production schedule workflow.
+
+### Broad selects
+
+Several screens and API routes still use `select("*")`, including direct reads from `posts` and views such as `v_posts_with_master`.
+
+Decision: do not remove remaining compatibility columns until the affected reads are narrowed or the UI mappings are changed. Removing DB columns first could break screens even when the field is no longer semantically important.
+
+## Follow-up
+
+Recommended next steps:
+
+1. Keep old JSON log references only in migration history.
+2. Treat process date columns as compatibility fields until the schedule/progress UI is redesigned around `order_processes`.
+3. Treat `press_completed_*` as active production schedule fields.
+4. Before dropping more `posts` columns, replace broad `select("*")` calls in the affected screens with explicit column lists.
