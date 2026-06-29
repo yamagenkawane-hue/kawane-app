@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import supabase from "../../lib/supabase";
 import { User } from "../type";
 
+const USER_SELECT_COLUMNS = "id,name,pass,manager,delete";
+
 export const useManager = () => {
   const [data, setData] = useState<User[]>([]);
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -11,7 +13,7 @@ export const useManager = () => {
       try {
         const { data: rows, error } = await supabase
           .from("user")
-          .select("*")
+          .select(USER_SELECT_COLUMNS)
           .eq("delete", false);
 
         if (error) throw error;

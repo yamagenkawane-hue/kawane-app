@@ -19,6 +19,8 @@ import SigninManager from "../SigninManager/SigninManager";
 import LoginForm from "../LoginForm/LoginForm";
 import { User } from "@/app/type";
 
+const USER_SELECT_COLUMNS = "id,name,pass,manager,delete";
+
 const menus = [
   {
     title: "受注管理",
@@ -108,7 +110,9 @@ const Signin = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const { data, error } = await supabase.from("user").select("*");
+        const { data, error } = await supabase
+          .from("user")
+          .select(USER_SELECT_COLUMNS);
 
         if (error) throw error;
 

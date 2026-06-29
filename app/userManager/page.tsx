@@ -7,6 +7,8 @@ import supabase from "@/lib/supabase";
 import styles from "./page.module.css";
 import { User as UserType } from "../type";
 
+const USER_SELECT_COLUMNS = "id,name,pass,manager,delete";
+
 export default function UserManagerPage() {
   const [users, setUsers] = useState<UserType[]>([]);
   const [trashUsers, setTrashUsers] = useState<UserType[]>([]);
@@ -26,7 +28,9 @@ export default function UserManagerPage() {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase.from("user").select("*");
+      const { data, error } = await supabase
+        .from("user")
+        .select(USER_SELECT_COLUMNS);
 
       if (error) throw error;
 

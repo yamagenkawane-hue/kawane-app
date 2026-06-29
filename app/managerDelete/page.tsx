@@ -8,6 +8,8 @@ import { User } from "../type";
 import { useAllDelete } from "../utills/useAllDelete";
 import { useHandleUserAction } from "../utills/useHandleUserAction";
 
+const USER_SELECT_COLUMNS = "id,name,pass,manager,delete";
+
 const ManagerDelete = () => {
   const [posts, setPosts] = useState<User[]>([]);
   const [shouldFetch, setShouldFetch] = useState(true);
@@ -25,7 +27,7 @@ const ManagerDelete = () => {
       try {
         const { data, error } = await supabase
           .from("user")
-          .select("*")
+          .select(USER_SELECT_COLUMNS)
           .eq("delete", true);
 
         if (error) throw error;
