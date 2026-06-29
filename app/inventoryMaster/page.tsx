@@ -12,6 +12,9 @@ type NumpadTarget =
   | { kind: "item"; id: string; field: "currentStock" | "allocatedStock" }
   | null;
 
+const INVENTORY_SELECT_COLUMNS =
+  "id,product_code,product_name,lot_no,current_stock,allocated_stock,updated_at";
+
 const mapInventoryItem = (row: Record<string, unknown>): InventoryItem => ({
   id: String(row.id || ""),
   productCode: String(row.product_code || ""),
@@ -36,7 +39,7 @@ export default function InventoryMasterPage() {
   const fetchItems = async () => {
     const { data, error } = await supabase
       .from("v_inventory_items_with_master")
-      .select("*")
+      .select(INVENTORY_SELECT_COLUMNS)
       .order("updated_at", { ascending: false });
 
     if (error) {
@@ -51,7 +54,7 @@ export default function InventoryMasterPage() {
     const loadItems = async () => {
       const { data, error } = await supabase
         .from("v_inventory_items_with_master")
-        .select("*")
+        .select(INVENTORY_SELECT_COLUMNS)
         .order("updated_at", { ascending: false });
 
       if (error) {

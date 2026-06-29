@@ -22,6 +22,9 @@ const prefixMap: Record<LotType, string> = {
   advance: "S-",
 };
 
+const LOT_SELECT_COLUMNS =
+  "id,lot_no,lot_type,product_name,customer_name,quantity,status,created_at,updated_at";
+
 export default function LotsPage() {
   const [lots, setLots] = useState<Lot[]>([]);
   const [lotType, setLotType] = useState<LotType>("normal");
@@ -48,7 +51,7 @@ export default function LotsPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from("lots")
-        .select("*")
+        .select(LOT_SELECT_COLUMNS)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -81,7 +84,7 @@ export default function LotsPage() {
 
         const { data, error } = await supabase
           .from("lots")
-          .select("*")
+          .select(LOT_SELECT_COLUMNS)
           .order("created_at", {
             ascending: false,
           });

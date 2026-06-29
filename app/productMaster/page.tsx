@@ -6,6 +6,12 @@ import supabase from "@/lib/supabase";
 import { CustomerMaster, ProductMaster } from "@/app/type";
 import styles from "../masterCommon.module.css";
 
+const PRODUCT_SELECT_COLUMNS =
+  "id,product_code,product_name,customer_name,standard,unit";
+
+const CUSTOMER_SELECT_COLUMNS =
+  "id,customer_name,shipping_offset_days,note";
+
 export default function ProductMasterPage() {
   const [items, setItems] = useState<ProductMaster[]>([]);
   const [customers, setCustomers] = useState<CustomerMaster[]>([]);
@@ -21,7 +27,7 @@ export default function ProductMasterPage() {
   const fetchItems = async () => {
     const { data, error } = await supabase
       .from("v_product_master_with_customer")
-      .select("*")
+      .select(PRODUCT_SELECT_COLUMNS)
       .order("product_code", { ascending: true });
     if (error) {
       setMessage("製品マスタの取得に失敗しました");
@@ -44,11 +50,11 @@ export default function ProductMasterPage() {
       const [productResult, customerResult] = await Promise.all([
         supabase
           .from("v_product_master_with_customer")
-          .select("*")
+          .select(PRODUCT_SELECT_COLUMNS)
           .order("product_code", { ascending: true }),
         supabase
           .from("customer_master")
-          .select("*")
+          .select(CUSTOMER_SELECT_COLUMNS)
           .order("customer_name", { ascending: true }),
       ]);
 

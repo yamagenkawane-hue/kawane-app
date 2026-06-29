@@ -15,6 +15,12 @@ type LineMaster = {
   enabled: boolean;
 };
 
+const LINE_SELECT_COLUMNS =
+  "id,line_name,process_id,daily_capacity,operation_rate,enabled";
+
+const PROCESS_SELECT_COLUMNS =
+  "id,process_id,name,days,sort,enabled,outsourcing";
+
 export default function LineMasterPage() {
   const [lines, setLines] = useState<LineMaster[]>([]);
   const [processes, setProcesses] = useState<ProcessMaster[]>([]);
@@ -33,7 +39,9 @@ export default function LineMasterPage() {
 
   const fetchLines = async () => {
     try {
-      const { data, error } = await supabase.from("line_master").select("*");
+      const { data, error } = await supabase
+        .from("line_master")
+        .select(LINE_SELECT_COLUMNS);
 
       if (error) throw error;
 
@@ -50,7 +58,7 @@ export default function LineMasterPage() {
 
       const { data: processRows, error: processError } = await supabase
         .from("process_master")
-        .select("*");
+        .select(PROCESS_SELECT_COLUMNS);
 
       if (processError) throw processError;
 
