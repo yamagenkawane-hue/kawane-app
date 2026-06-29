@@ -24,6 +24,15 @@ type AdjustedPost = PostData & {
   shippedAmount: number;
 };
 
+const POST_SELECT_COLUMNS =
+  "id,delete,order_no,lot_no,product_code,product_name,customer_name,order_amount,remaining_amount,status,completion_scheduled_date,delivery_date,remark";
+
+const CUSTOMER_SELECT_COLUMNS =
+  "id,customer_name,shipping_offset_days,note";
+
+const ALLOCATION_SELECT_COLUMNS =
+  "id,post_id,inventory_item_id,product_code,lot_no,allocated_amount,shipped_amount,confirmed_at";
+
 const addDays = (dateText: string, days: number) => {
   const date = dateText ? new Date(dateText) : new Date();
   date.setDate(date.getDate() + days);
@@ -71,9 +80,11 @@ const OrdersPage = () => {
         orderProcessResult,
         productionResult,
       ] = await Promise.all([
-          supabase.from("v_posts_with_master").select("*"),
-          supabase.from("customer_master").select("*"),
-          supabase.from("v_inventory_allocations_with_master").select("*"),
+          supabase.from("v_posts_with_master").select(POST_SELECT_COLUMNS),
+          supabase.from("customer_master").select(CUSTOMER_SELECT_COLUMNS),
+          supabase
+            .from("v_inventory_allocations_with_master")
+            .select(ALLOCATION_SELECT_COLUMNS),
           supabase
             .from("v_inventory_items_with_master")
             .select("product_code,current_stock,allocated_stock"),
