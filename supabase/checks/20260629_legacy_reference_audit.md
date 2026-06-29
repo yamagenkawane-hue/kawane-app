@@ -28,24 +28,27 @@ These should be kept as historical migration or migration-support SQL unless the
 
 ### Process date columns
 
-These columns are still referenced by active app code and views:
+`manufacturing_date` is still referenced by active app code as a legacy schedule-start fallback:
 
-- `manufacturing_date`
+- `app/progress/[id]/page.tsx`
+- `app/utills/useFetchPosts.tsx`
+- `app/utills/useChildFetchPosts.tsx`
+- `app/type.ts`
+
+When `manufacturing_date` is empty, active code now falls back to `completion_scheduled_date` and then `delivery_date`.
+
+These process date columns are no longer read by active app code:
+
 - `cleaning_date`
 - `inspection_date`
 - `measurement_date`
 - `packaging_date`
 
-Active references exist in:
+Remaining references for the process date columns exist in migration history and `v_posts_with_master` definitions:
 
-- `app/create/page.tsx`
-- `app/progress/[id]/page.tsx`
-- `app/utills/useFetchPosts.tsx`
-- `app/utills/useChildFetchPosts.tsx`
-- `app/type.ts`
 - multiple `v_posts_with_master` migration definitions
 
-Decision: do not remove these columns yet. They currently behave as schedule/display compatibility columns, not as the old JSON result storage.
+Decision: do not drop process date columns yet because current deployed `v_posts_with_master` may still expose them. The next cleanup step is to create a new view migration that removes unused process date columns from `v_posts_with_master`, while keeping or replacing `manufacturing_date` only if the remaining schedule fallback is still required.
 
 ### Press completion columns
 

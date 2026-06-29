@@ -12,7 +12,7 @@ import {
 } from "./processProgress";
 
 const POST_SELECT_COLUMNS =
-  "id,order_no,lot_no,product_code,product_name,customer_name,order_amount,manufacturing_date,cleaning_date,inspection_date,measurement_date,packaging_date,delivery_date,completion_scheduled_date,remark,delete,created_by,updated_by,created_at,updated_at,days";
+  "id,order_no,lot_no,product_code,product_name,customer_name,order_amount,manufacturing_date,delivery_date,completion_scheduled_date,remark,delete,created_by,updated_by,created_at,updated_at,days";
 
 export const useFetchPosts = () => {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -154,15 +154,19 @@ export const useFetchPosts = () => {
             productName: row.product_name || "",
             customerName: row.customer_name || "",
             orderAmount,
-            manufacturingDate: row.manufacturing_date || "",
+            manufacturingDate:
+              row.manufacturing_date ||
+              row.completion_scheduled_date ||
+              row.delivery_date ||
+              "",
             manufacturingAmount,
-            cleaningDate: row.cleaning_date || "",
+            cleaningDate: "",
             cleaningAmount,
-            inspectionDate: row.inspection_date || "",
+            inspectionDate: "",
             inspectionAmount,
-            measurementDate: row.measurement_date || "",
+            measurementDate: "",
             measurementAmount,
-            packagingDate: row.packaging_date || "",
+            packagingDate: "",
             packagingAmount,
             shippedAmount,
             remainingAmount,
