@@ -27,6 +27,9 @@ type EditingRow =
   | { kind: "schedule"; id: string }
   | null;
 
+const SCHEDULE_SELECT_COLUMNS =
+  "id,post_id,order_no,customer_name,product_name,press_number,lot_no,plan_amount,press_completed_amount,press_completed_date,shipping_scheduled_start,shipping_scheduled_end,created_at,updated_at";
+
 const mapSchedule = (row: Record<string, unknown>): ProductionSchedule => ({
   id: String(row.id || ""),
   postId: row.post_id ? String(row.post_id) : "",
@@ -107,7 +110,7 @@ export default function ProductionSchedulesPage() {
       const [scheduleResult, dailyResult] = await Promise.all([
         supabase
           .from("v_production_schedules_with_master")
-          .select("*")
+          .select(SCHEDULE_SELECT_COLUMNS)
           .order("created_at", { ascending: false }),
         fetch("/api/daily-production"),
       ]);
