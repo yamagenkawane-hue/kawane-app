@@ -11,6 +11,9 @@ import {
   sumProcessLogs,
 } from "./processProgress";
 
+const POST_SELECT_COLUMNS =
+  "id,order_no,lot_no,product_code,product_name,customer_name,order_amount,manufacturing_date,cleaning_date,inspection_date,measurement_date,packaging_date,delivery_date,completion_scheduled_date,remark,delete,created_by,updated_by,created_at,updated_at,days";
+
 export const useFetchPosts = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [shouldFetch, setShouldFetch] = useState(true);
@@ -28,7 +31,7 @@ export const useFetchPosts = () => {
         ] = await Promise.all([
           supabase
             .from("posts")
-            .select("*")
+            .select(POST_SELECT_COLUMNS)
             .order("created_at", { ascending: true }),
           supabase.from("shipments").select("post_id,quantity"),
           supabase

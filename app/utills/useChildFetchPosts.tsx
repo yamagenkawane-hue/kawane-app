@@ -8,6 +8,9 @@ import {
   sumProcessLogs,
 } from "./processProgress";
 
+const POST_SELECT_COLUMNS =
+  "id,order_no,lot_no,product_code,product_name,customer_name,order_amount,manufacturing_date,cleaning_date,inspection_date,measurement_date,packaging_date,delivery_date,completion_scheduled_date,remark,delete,created_by,updated_by,created_at,updated_at,days";
+
 export const useChildFetchPosts = (
   shouldFetch: boolean,
   setShouldFetch: React.Dispatch<React.SetStateAction<boolean>>,
@@ -19,9 +22,12 @@ export const useChildFetchPosts = (
       try {
         const [postResult, orderProcessResult, productionResult] =
           await Promise.all([
-            supabase.from("posts").select("*").order("created_at", {
-              ascending: true,
-            }),
+            supabase
+              .from("posts")
+              .select(POST_SELECT_COLUMNS)
+              .order("created_at", {
+                ascending: true,
+              }),
             supabase
               .from("v_order_processes_with_master")
               .select(
@@ -69,15 +75,18 @@ export const useChildFetchPosts = (
             processProgress.packagingLogs.length > 0
               ? processProgress.packagingLogs
               : productionProgress.packagingLogs;
+          const orderAmount = row.order_amount || 0;
+          const packagingAmount = sumProcessLogs(packagingLogs);
 
           return {
             ...row,
             id: row.id,
+            lotNo: row.lot_no || "",
             orderNo: row.order_no || "",
             productCode: row.product_code || "",
             productName: row.product_name || "",
             customerName: row.customer_name || "",
-            orderAmount: row.order_amount || 0,
+            orderAmount,
             manufacturingDate: row.manufacturing_date || "",
             manufacturingAmount: sumProcessLogs(manufacturingLogs),
             cleaningDate: row.cleaning_date || "",
@@ -87,21 +96,28 @@ export const useChildFetchPosts = (
             measurementDate: row.measurement_date || "",
             measurementAmount: sumProcessLogs(measurementLogs),
             packagingDate: row.packaging_date || "",
-            packagingAmount: sumProcessLogs(packagingLogs),
+            packagingAmount,
+            remainingAmount: orderAmount - packagingAmount,
             deliveryDate: row.delivery_date || "",
+            completionScheduledDate:
+              row.completion_scheduled_date || row.delivery_date || "",
+            remark: row.remark || "",
+            status: "未着手" as Post["status"],
             manufacturingLogs,
             cleaningLogs,
             inspectionLogs,
             measurementLogs,
             packagingLogs,
+            delete: row.delete || false,
             createdBy: row.created_by || "",
             updatedBy: row.updated_by || "",
             createdAt: row.created_at || "",
             updatedAt: row.updated_at || "",
+            days: row.days || [],
           };
         });
 
-        setPosts(postsArray as Post[]);
+        setPosts(postsArray);
         setShouldFetch(false);
       } catch (error) {
         console.error("データ取得エラー", error);
