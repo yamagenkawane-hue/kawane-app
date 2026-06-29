@@ -38,11 +38,12 @@ These process date columns are no longer read by active app code:
 - `measurement_date`
 - `packaging_date`
 
-Remaining references for the process date columns exist in migration history and older `v_posts_with_master` definitions:
+Remaining references for the process date columns exist only in migration history and check documentation:
 
-- multiple `v_posts_with_master` migration definitions
+- older `v_posts_with_master` migration definitions
+- `supabase/checks/*process_dates_check.sql`
 
-Decision: `supabase/migrations/20260629_trim_posts_view_process_dates.sql` removed `cleaning_date`, `inspection_date`, `measurement_date`, and `packaging_date` from the current `v_posts_with_master` definition. `supabase/migrations/20260629_drop_unused_post_process_dates.sql` then dropped the four unused table columns. `supabase/migrations/20260629_drop_manufacturing_date.sql` removes the remaining `manufacturing_date` view/table column after the app-side fallback was switched to `completion_scheduled_date` / `delivery_date`.
+Decision: `supabase/migrations/20260629_trim_posts_view_process_dates.sql` removed `cleaning_date`, `inspection_date`, `measurement_date`, and `packaging_date` from the current `v_posts_with_master` definition. `supabase/migrations/20260629_drop_unused_post_process_dates.sql` then dropped the four unused table columns. `supabase/migrations/20260629_drop_manufacturing_date.sql` removed the remaining `manufacturing_date` view/table column after the app-side fallback was switched to `completion_scheduled_date` / `delivery_date`. `supabase/checks/20260629_no_post_process_dates_check.sql` returned no rows, confirming that no legacy process date columns remain in `posts` or `v_posts_with_master`.
 
 ### Press completion columns
 
@@ -72,6 +73,6 @@ Decision: broad app/API reads no longer block future column cleanup. Remaining c
 Recommended next steps:
 
 1. Keep old JSON log references only in migration history.
-2. Treat process date columns as compatibility fields until the schedule/progress UI is redesigned around `order_processes`.
+2. Treat process date columns as removed from active app and current DB objects.
 3. Treat `press_completed_*` as active production schedule fields.
 4. Before dropping more `posts` columns, prepare a dedicated migration after confirming the target columns are absent from current views, RPC functions, and UI mappings.
