@@ -1,6 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import supabase from "@/lib/supabase";
 
+const SCHEDULE_SELECT_COLUMNS =
+  "id,post_id,order_no,customer_name,product_name,press_number,lot_no,plan_amount,press_completed_amount,press_completed_date,shipping_scheduled_start,shipping_scheduled_end,created_at,updated_at";
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -9,7 +12,7 @@ export default async function handler(
     if (req.method === "GET") {
       const { data, error } = await supabase
         .from("v_production_schedules_with_master")
-        .select("*")
+        .select(SCHEDULE_SELECT_COLUMNS)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return res.status(200).json(data);

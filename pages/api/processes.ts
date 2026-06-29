@@ -1,6 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import supabase from "@/lib/supabase";
 
+const PROCESS_SELECT_COLUMNS =
+  "id,process_id,name,days,sort,enabled,outsourcing";
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -9,7 +12,7 @@ export default async function handler(
     if (req.method === "GET") {
       const { data, error } = await supabase
         .from("process_master")
-        .select("*")
+        .select(PROCESS_SELECT_COLUMNS)
         .order("sort", { ascending: true });
       if (error) throw error;
       return res.status(200).json(data);

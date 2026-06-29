@@ -1,6 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import supabase from "@/lib/supabase";
 
+const SUBCONTRACTOR_SELECT_COLUMNS =
+  "id,name,created_at,updated_at";
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -9,7 +12,7 @@ export default async function handler(
     if (req.method === "GET") {
       const { data, error } = await supabase
         .from("subcontractors")
-        .select("*")
+        .select(SUBCONTRACTOR_SELECT_COLUMNS)
         .order("name", { ascending: true });
       if (error) throw error;
       return res.status(200).json(data || []);

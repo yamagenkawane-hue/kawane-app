@@ -1,6 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import supabase from "@/lib/supabase";
 
+const PRODUCT_PROCESS_SELECT_COLUMNS =
+  "id,product_id,product_code,process_name,process_order,subcontractor_id,subcontractor_name,outsourcing,created_at,updated_at";
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -10,7 +13,7 @@ export default async function handler(
       const productCode = String(req.query.product_code || "");
       let query = supabase
         .from("v_product_processes_with_master")
-        .select("*")
+        .select(PRODUCT_PROCESS_SELECT_COLUMNS)
         .order("product_code", { ascending: true })
         .order("process_order", { ascending: true });
 
