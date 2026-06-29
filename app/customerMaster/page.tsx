@@ -8,6 +8,9 @@ import styles from "../masterCommon.module.css";
 
 const shippingOffsetOptions = Array.from({ length: 31 }, (_, index) => index);
 
+const CUSTOMER_SELECT_COLUMNS =
+  "id,customer_name,shipping_offset_days,note";
+
 export default function CustomerMasterPage() {
   const [items, setItems] = useState<CustomerMaster[]>([]);
   const [form, setForm] = useState({
@@ -22,7 +25,7 @@ export default function CustomerMasterPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from("customer_master")
-        .select("*")
+        .select(CUSTOMER_SELECT_COLUMNS)
         .order("customer_name", { ascending: true });
       if (error) throw error;
       setItems(
@@ -48,7 +51,7 @@ export default function CustomerMasterPage() {
 
         const { data, error } = await supabase
           .from("customer_master")
-          .select("*")
+          .select(CUSTOMER_SELECT_COLUMNS)
           .order("customer_name", {
             ascending: true,
           });

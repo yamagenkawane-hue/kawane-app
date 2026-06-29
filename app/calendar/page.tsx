@@ -6,6 +6,9 @@ import supabase from "@/lib/supabase";
 import { CompanyCalendar } from "@/app/type";
 import styles from "./page.module.css";
 
+const CALENDAR_SELECT_COLUMNS =
+  "id,date,name,is_holiday,type";
+
 export default function CalendarPage() {
   const [items, setItems] = useState<CompanyCalendar[]>([]);
   const [date, setDate] = useState("");
@@ -20,7 +23,7 @@ export default function CalendarPage() {
     try {
       const { data, error } = await supabase
         .from("company_calendar")
-        .select("*");
+        .select(CALENDAR_SELECT_COLUMNS);
 
       if (error) throw error;
 

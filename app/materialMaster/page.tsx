@@ -6,6 +6,9 @@ import supabase from "@/lib/supabase";
 import { MaterialMaster } from "@/app/type";
 import styles from "../masterCommon.module.css";
 
+const MATERIAL_SELECT_COLUMNS =
+  "id,material_code,material_name,supplier_name,unit";
+
 export default function MaterialMasterPage() {
   const [items, setItems] = useState<MaterialMaster[]>([]);
   const [form, setForm] = useState({
@@ -18,7 +21,7 @@ export default function MaterialMasterPage() {
   const fetchItems = async () => {
     const { data, error } = await supabase
       .from("material_master")
-      .select("*")
+      .select(MATERIAL_SELECT_COLUMNS)
       .order("material_code", { ascending: true });
     if (error) {
       alert("材料マスタの取得に失敗しました");
@@ -39,7 +42,7 @@ export default function MaterialMasterPage() {
     const loadItems = async () => {
       const { data, error } = await supabase
         .from("material_master")
-        .select("*")
+        .select(MATERIAL_SELECT_COLUMNS)
         .order("material_code", {
           ascending: true,
         });

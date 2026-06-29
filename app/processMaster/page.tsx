@@ -9,6 +9,9 @@ import styles from "./page.module.css";
 const dayOptions = Array.from({ length: 31 }, (_, index) => index);
 const orderOptions = Array.from({ length: 50 }, (_, index) => index + 1);
 
+const PROCESS_SELECT_COLUMNS =
+  "id,process_id,name,days,sort,enabled,outsourcing";
+
 export default function ProcessMasterPage() {
   const [processes, setProcesses] = useState<ProcessMaster[]>([]);
   const [processId, setProcessId] = useState("");
@@ -26,7 +29,9 @@ export default function ProcessMasterPage() {
     try {
       startTransition(() => setLoading(true));
 
-      const { data, error } = await supabase.from("process_master").select("*");
+      const { data, error } = await supabase
+        .from("process_master")
+        .select(PROCESS_SELECT_COLUMNS);
 
       if (error) throw error;
 
