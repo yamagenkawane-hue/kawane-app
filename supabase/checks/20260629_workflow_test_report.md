@@ -69,44 +69,33 @@ RLS状態:
 - 製品コード: `TEST-B002`
 - 製品名: `注残テスト部品B`
 
-## 対象データなしで未実施
+### 残ケース自己完結スモークテスト
 
-2026-06-30 に、既存データへ依存せず確認できる自己完結型SQLとして `supabase/checks/20260630_seeded_remaining_workflow_smoke_tests.sql` を追加。
+2026-06-30 に、既存データへ依存せず確認できる自己完結型SQLとして `supabase/checks/20260630_seeded_remaining_workflow_smoke_tests.sql` を実行し、2行とも `PASSED` を確認済み。
 このSQLはトランザクション内でテスト用の受注と工程を作成し、確認後に `ROLLBACK` するためDB変更は残らない。
+
+確認済み項目:
+
+- `measurement_no_inventory`: `PASSED`
+- `packaging_without_lot_error`: `PASSED`
 
 ### 計量登録では在庫が増えない
 
-`supabase/checks/20260629_measurement_no_inventory_smoke_test.sql` の結果は `SKIPPED`。
+確認内容:
 
-理由:
-
-- ロットNoがあり、計量工程に残登録可能数がある対象データが見つからなかったため。
-
-コード上の対応:
-
+- `production_results` に計量実績が登録される
 - `app/manufacturing/page.tsx` から計量登録時の `inventory_items` 加算処理は削除済み。
+- `inventory_items.current_stock` は増えない
 
 ### ロットNoなし梱包登録エラー
 
-`supabase/checks/20260629_packaging_without_lot_error_smoke_test.sql` の結果は `SKIPPED`。
-
-理由:
-
-- ロットNoが空で、梱包/包装工程に残登録可能数がある対象データが見つからなかったため。
-
-DB側の対応:
+確認内容:
 
 - `register_order_process_result` 内で、梱包/包装工程かつ `posts.lot_no` が空の場合はエラーにする実装済み。
+- `production_results` は登録されない
 
 ## 判定
 
 主目的である「梱包完了後に在庫へ入れる」仕様は、DBスモークテストと実画面確認の両方で確認済み。
 
-残る2ケースは対象データ不足により未実施だが、実装方針とコード上の対応は完了している。
-
-## 次に確認する場合
-
-`supabase/checks/20260630_seeded_remaining_workflow_smoke_tests.sql` を実行し、以下2行が返ることを確認する。
-
-1. `measurement_no_inventory` が `PASSED`
-2. `packaging_without_lot_error` が `PASSED`
+残っていた2ケースも自己完結スモークテストで確認済み。
