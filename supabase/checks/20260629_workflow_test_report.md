@@ -126,6 +126,9 @@ RLS状態:
 `supabase/migrations/20260630_restore_posts_view_derived_status.sql` を追加。
 工程日付カラム削除後に `posts.status` へ戻っていた `v_posts_with_master.status` を、現在の `order_processes` / `shipments` から派生する形へ戻す。
 
+初回確認で `inspection_completed_status` が `FAILED` になったため、`supabase/migrations/20260630_fix_posts_view_status_final_process.sql` を追加。
+最終工程が検査など梱包以外の場合に、受注数まで完了しているだけで `梱包完了` と表示しないよう補正する。
+
 確認SQLとして `supabase/checks/20260630_posts_view_status_smoke_test.sql` を追加。
 
 期待結果:

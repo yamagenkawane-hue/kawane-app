@@ -2,6 +2,7 @@
 --
 -- Run after applying:
 -- supabase/migrations/20260630_restore_posts_view_derived_status.sql
+-- supabase/migrations/20260630_fix_posts_view_status_final_process.sql
 --
 -- Expected result:
 -- - all rows return result = PASSED

@@ -98,7 +98,8 @@ DB側の自己完結確認として、`supabase/checks/20260630_process_allowanc
 ## シナリオ4.5: 状態表示が現在工程から算出される
 
 1. `supabase/migrations/20260630_restore_posts_view_derived_status.sql` を適用する
-2. `supabase/checks/20260630_posts_view_status_smoke_test.sql` を実行する
+2. `supabase/migrations/20260630_fix_posts_view_status_final_process.sql` を適用する
+3. `supabase/checks/20260630_posts_view_status_smoke_test.sql` を実行する
 
 期待結果:
 
