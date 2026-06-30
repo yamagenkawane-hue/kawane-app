@@ -71,6 +71,9 @@ RLS状態:
 
 ## 対象データなしで未実施
 
+2026-06-30 に、既存データへ依存せず確認できる自己完結型SQLとして `supabase/checks/20260630_seeded_remaining_workflow_smoke_tests.sql` を追加。
+このSQLはトランザクション内でテスト用の受注と工程を作成し、確認後に `ROLLBACK` するためDB変更は残らない。
+
 ### 計量登録では在庫が増えない
 
 `supabase/checks/20260629_measurement_no_inventory_smoke_test.sql` の結果は `SKIPPED`。
@@ -103,7 +106,7 @@ DB側の対応:
 
 ## 次に確認する場合
 
-必要に応じて、以下のテストデータを作成して再確認する。
+`supabase/checks/20260630_seeded_remaining_workflow_smoke_tests.sql` を実行し、以下2行が返ることを確認する。
 
-1. ロットNoがあり、計量工程に残登録可能数がある受注
-2. ロットNoが空で、梱包/包装工程に残登録可能数がある受注
+1. `measurement_no_inventory` が `PASSED`
+2. `packaging_without_lot_error` が `PASSED`

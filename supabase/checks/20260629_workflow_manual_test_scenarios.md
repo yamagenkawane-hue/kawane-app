@@ -29,6 +29,9 @@
 5. `supabase/checks/20260629_measurement_no_inventory_smoke_test.sql` を実行し、計量登録では在庫が増えないことを確認する
 6. `supabase/checks/20260629_packaging_without_lot_error_smoke_test.sql` を実行し、ロットNoなし梱包登録がエラーになることを確認する
 
+既存データに条件を満たす受注がなく `SKIPPED` になる場合は、`supabase/checks/20260630_seeded_remaining_workflow_smoke_tests.sql` を実行します。
+このSQLはトランザクション内で一時的に受注と工程を作成し、計量では在庫が増えないこと、ロットNoなし梱包がエラーになることを確認してから `ROLLBACK` します。
+
 スモークテストは `ROLLBACK` で終わるため、実績や在庫のテスト更新はDBに残りません。
 
 画面テスト対象の候補受注を探す場合は、`supabase/checks/20260629_workflow_manual_test_targets.sql` を使います。
