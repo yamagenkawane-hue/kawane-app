@@ -13,6 +13,15 @@
 
 ## 事前確認
 
+### 2026-06-30 追加確認
+
+工程日付5列は `posts` / `v_posts_with_master` から削除済みです。画面横断テストでは、旧工程日付カラムではなく、以下の現在のデータ経路で表示・登録が動くことを確認します。
+
+- 受注・注残・出荷の予定日は `completion_scheduled_date` / `delivery_date` を使う
+- 工程別の進捗・実績は `order_processes` / `production_results` を使う
+- 梱包後の在庫登録は `register_order_process_result` 経由で `inventory_items` に反映される
+- `npm.cmd run lint` と `npm.cmd run build` は成功済み
+
 1. `supabase/migrations/20260629_packaging_inventory_registration.sql` が適用済み
 2. `supabase/checks/20260629_workflow_integrity_checks.sql` の count 系チェックがすべて `0`
 3. `production_results` の RLS が有効でも `register_order_process_result` が実行できる
