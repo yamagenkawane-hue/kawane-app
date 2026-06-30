@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import supabase from "@/lib/supabase";
@@ -45,39 +45,39 @@ export default function ProgressDetail() {
   // 日付変換
   // =========================
 
-  const safeDate = (date?: string) => {
+  const safeDate = useCallback((date?: string) => {
     if (!date) return new Date();
     const parts = date.split("-");
     return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-  };
+  }, []);
 
   // =========================
   // YYYY-MM-DD
   // =========================
 
-  const formatDate = (date: Date) => {
+  const formatDate = useCallback((date: Date) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, "0");
     const d = String(date.getDate()).padStart(2, "0");
     return `${y}-${m}-${d}`;
-  };
+  }, []);
 
   // =========================
   // 休日判定
   // =========================
 
-  const isHoliday = (date: Date, calendarData: CompanyCalendar[]) => {
+  const isHoliday = useCallback((date: Date, calendarData: CompanyCalendar[]) => {
     const week = date.getDay();
     if (week === 0 || week === 6) return true;
     const dateStr = formatDate(date);
     return calendarData.some((item) => item.date === dateStr && item.isHoliday);
-  };
+  }, [formatDate]);
 
   // =========================
   // 営業日加算
   // =========================
 
-  const addBusinessDays = (
+  const addBusinessDays = useCallback((
     startDate: Date,
     days: number,
     calendarData: CompanyCalendar[],
@@ -89,34 +89,34 @@ export default function ProgressDetail() {
       if (!isHoliday(result, calendarData)) added++;
     }
     return result;
-  };
+  }, [isHoliday]);
 
   // =========================
   // 次営業日取得
   // =========================
 
-  const getNextBusinessDay = (date: Date, calendarData: CompanyCalendar[]) => {
+  const getNextBusinessDay = useCallback((date: Date, calendarData: CompanyCalendar[]) => {
     const result = new Date(date);
     while (true) {
       result.setDate(result.getDate() + 1);
       if (!isHoliday(result, calendarData)) break;
     }
     return result;
-  };
+  }, [isHoliday]);
 
   // =========================
   // 実績取得
   // =========================
 
-  const getProcessLogs = (processId: string, resultData: ProcessResult[]) =>
+  const getProcessLogs = useCallback((processId: string, resultData: ProcessResult[]) =>
     resultData
       .filter((result) => result.processId === processId)
       .map((result) => ({
         date: result.date,
         amount: result.amount,
-      }));
+      })), []);
 
-  const getOrderProcessLogs = (
+  const getOrderProcessLogs = useCallback((
     orderProcessId: string,
     resultData: ProcessResult[],
   ) =>
@@ -129,7 +129,7 @@ export default function ProgressDetail() {
       .map((result) => ({
         date: result.date,
         amount: result.amount,
-      }));
+      })), []);
 
   // =========================
   // データ取得
@@ -559,7 +559,14 @@ export default function ProgressDetail() {
     };
 
     fetchData();
-  }, [id]);
+  }, [
+    addBusinessDays,
+    getNextBusinessDay,
+    getOrderProcessLogs,
+    getProcessLogs,
+    id,
+    safeDate,
+  ]);
 
   if (!post) {
     return <div className={styles.loading}>Loading...</div>;

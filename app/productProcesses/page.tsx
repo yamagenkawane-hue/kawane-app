@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import ProcessSorter from "@/app/components/ProcessSorter/ProcessSorter";
 import supabase from "@/lib/supabase";
@@ -63,7 +63,7 @@ export default function ProductProcessesPage() {
     [form.productCode, processes],
   );
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const [productResult, subcontractorResponse, processResponse] =
@@ -81,20 +81,23 @@ export default function ProductProcessesPage() {
       if (!processResponse.ok) throw new Error("製品工程の取得に失敗しました");
 
       const productRows = (productResult.data || []).map(mapProduct);
+      const processRows: ProductProcess[] = (await processResponse.json()).map(mapProcess);
       setProducts(productRows);
       setSubcontractors((await subcontractorResponse.json()).map(mapSubcontractor));
-      setProcesses((await processResponse.json()).map(mapProcess));
+      setProcesses(processRows);
 
-      if (!form.productCode && productRows[0]) {
-        setForm((prev) => ({
-          ...prev,
-          productCode: productRows[0].productCode,
-          processOrder: Math.min(
-            50,
-            processes.filter((p) => p.productCode === productRows[0].productCode)
-              .length + 1,
-          ),
-        }));
+      if (productRows[0]) {
+        setForm((prev) => {
+          const productCode = prev.productCode || productRows[0].productCode;
+          return {
+            ...prev,
+            productCode,
+            processOrder: Math.min(
+              50,
+              processRows.filter((p) => p.productCode === productCode).length + 1,
+            ),
+          };
+        });
       }
     } catch (error) {
       console.error(error);
@@ -102,7 +105,7 @@ export default function ProductProcessesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -110,7 +113,7 @@ export default function ProductProcessesPage() {
     };
 
     void loadData();
-  }, []);
+  }, [fetchData]);
 
   const addProcess = async () => {
     if (!form.productCode || !form.processName || Number(form.processOrder) <= 0) {

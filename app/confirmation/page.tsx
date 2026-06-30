@@ -56,12 +56,6 @@ const Confirmation = () => {
 
   const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
 
-  const toggleSelect = (index: number) => {
-    setSelectedIndexes((prev) =>
-      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index],
-    );
-  };
-
   const handleBulkDelete = async () => {
     if (window.confirm("本当に選択した予約を削除しますか？")) {
       const deleteTargets = selectedIndexes.map(

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import supabase from "../../lib/supabase";
 import styles from "./page.module.css";
@@ -62,14 +62,14 @@ const OrdersPage = () => {
   const [loadingPostId, setLoadingPostId] = useState("");
   const [deletingPostId, setDeletingPostId] = useState("");
 
-  const formatAllocationSource = (allocations: InventoryAllocation[]) => {
+  const formatAllocationSource = useCallback((allocations: InventoryAllocation[]) => {
     if (allocations.length === 0) return "-";
     return allocations
       .map((allocation) => `${allocation.lotNo}（${allocation.allocatedAmount}個）`)
       .join(" / ");
-  };
+  }, []);
 
-  const fetchPosts = async () => {
+  const fetchPosts = useCallback(async () => {
     try {
       const [
         postResult,
@@ -325,7 +325,7 @@ const OrdersPage = () => {
       console.error(error);
       alert("データ取得失敗");
     }
-  };
+  }, [formatAllocationSource]);
 
   useEffect(() => {
     const loadPosts = async () => {
@@ -333,7 +333,7 @@ const OrdersPage = () => {
     };
 
     void loadPosts();
-  }, []);
+  }, [fetchPosts]);
 
   const handleConfirmAllocation = async (post: AdjustedPost) => {
     if (post.allocationConfirmed) return;

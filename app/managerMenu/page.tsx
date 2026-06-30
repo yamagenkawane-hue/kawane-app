@@ -20,8 +20,12 @@ const ManagerMenu = () => {
 
   const handleEdit = (user: User) => {
     setEditingUserId(user.id);
-    const { id, ...userData } = user;
-    setEditedUser(userData);
+    setEditedUser({
+      name: user.name,
+      pass: user.pass,
+      manager: user.manager,
+      delete: user.delete,
+    });
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
