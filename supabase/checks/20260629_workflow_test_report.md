@@ -119,19 +119,17 @@ RLS状態:
 - `results_after` = `results_before`
 - `next_completed_after` = `next_completed_before`
 
-## 次に確認する項目
-
 ### 状態表示の派生ロジック
 
-`supabase/migrations/20260630_restore_posts_view_derived_status.sql` を追加。
+2026-06-30 に `supabase/migrations/20260630_restore_posts_view_derived_status.sql` を適用。
 工程日付カラム削除後に `posts.status` へ戻っていた `v_posts_with_master.status` を、現在の `order_processes` / `shipments` から派生する形へ戻す。
 
-初回確認で `inspection_completed_status` が `FAILED` になったため、`supabase/migrations/20260630_fix_posts_view_status_final_process.sql` を追加。
+初回確認で `inspection_completed_status` が `FAILED` になったため、`supabase/migrations/20260630_fix_posts_view_status_final_process.sql` を適用。
 最終工程が検査など梱包以外の場合に、受注数まで完了しているだけで `梱包完了` と表示しないよう補正する。
 
-確認SQLとして `supabase/checks/20260630_posts_view_status_smoke_test.sql` を追加。
+`supabase/checks/20260630_posts_view_status_smoke_test.sql` を再実行し、全行 `PASSED` を確認済み。
 
-期待結果:
+確認結果:
 
 - `outsource_sent_status`: `PASSED`
 - `outsource_returned_status`: `PASSED`
@@ -142,4 +140,4 @@ RLS状態:
 
 主目的である「梱包完了後に在庫へ入れる」仕様は、DBスモークテストと実画面確認の両方で確認済み。
 
-残っていた2ケース、受注削除時の関連データ整理、前工程完了数を超える登録制御も自己完結スモークテストで確認済み。
+残っていた2ケース、受注削除時の関連データ整理、前工程完了数を超える登録制御、状態表示の派生ロジックも自己完結スモークテストで確認済み。
