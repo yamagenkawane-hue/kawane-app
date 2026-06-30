@@ -121,6 +121,19 @@ DB側の自己完結確認として、`supabase/checks/20260630_process_allowanc
 - 製品工程マスタにあって受注別工程にない工程は追加される
 - `20260630_product_process_sync_smoke_test.sql` の `result` が `PASSED`
 
+## シナリオ4.7: 受注別工程の工程順変更が進捗と実績登録へ反映される
+
+1. `supabase/migrations/20260630_reorder_order_processes.sql` を適用する
+2. 受注別工程管理で対象受注を選び、工程行をドラッグ＆ドロップで並び替える
+3. DB側の自己完結確認として、`supabase/checks/20260630_reorder_order_processes_smoke_test.sql` を実行する
+
+期待結果:
+
+- 工程順がドラッグ後の順番で保存される
+- 実績登録時の前工程完了数チェックが、変更後の工程順で判定される
+- 進捗/状態表示が、変更後の工程順で最新完了工程を判定する
+- `20260630_reorder_order_processes_smoke_test.sql` の `result` が `PASSED`
+
 ## シナリオ5: 在庫引当から出荷まで
 
 1. 在庫マスタで対象製品、ロットNoの現在庫数を確認する
@@ -160,5 +173,6 @@ DB側の自己完結確認として、`supabase/checks/20260630_soft_delete_orde
 - 前工程完了数を超える実績は登録できない
 - 外注中、外注済、検査完了、計量中の状態表示が現在工程から算出される
 - 製品工程マスタの変更を受注別工程へ反映できる
+- 受注別工程のドラッグ＆ドロップによる工程順変更が、進捗や実績登録へ反映される
 - 在庫引当と出荷で `current_stock` / `allocated_stock` が仕様どおり更新される
 - 受注削除時に関連データが残らず、在庫引当数も戻る

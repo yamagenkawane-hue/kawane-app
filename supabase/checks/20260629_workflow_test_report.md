@@ -143,14 +143,26 @@ RLS状態:
 `supabase/migrations/20260630_sync_order_processes_from_product_master.sql` を追加。
 受注別工程管理画面の「製品工程マスタから更新」は、このRPC `sync_order_processes_from_product_master` を呼び出す形に変更。
 
-確認SQLとして `supabase/checks/20260630_product_process_sync_smoke_test.sql` を追加。
+確認SQLとして `supabase/checks/20260630_product_process_sync_smoke_test.sql` を追加し、`PASSED` を確認済み。
 
-期待結果:
+確認結果:
 
 - `result`: `PASSED`
 - 未完了の既存工程が製品工程マスタから更新される
 - 完了済みの既存工程は保持される
 - 未作成の工程が追加される
+
+### 受注別工程の工程順変更
+
+`supabase/migrations/20260630_reorder_order_processes.sql` を追加。
+受注別工程管理画面のドラッグ＆ドロップ保存は、このRPC `reorder_order_processes` を呼び出す形に変更。
+
+確認SQLとして `supabase/checks/20260630_reorder_order_processes_smoke_test.sql` を追加。
+
+- `result`: `PASSED`
+- 工程順が指定順に保存される
+- 実績登録時の前工程完了数チェックが変更後の工程順で判定される
+- `v_posts_with_master.status` が変更後の工程順で最新完了工程を判定する
 
 ## 判定
 

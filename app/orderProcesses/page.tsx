@@ -317,35 +317,17 @@ export default function OrderProcessesPage() {
   };
 
   const saveProcessOrder = async (reorderedProcesses: OrderProcess[]) => {
+    if (!selectedPost) return;
+
     try {
       setLoading(true);
 
-      const tempBase = 10000;
-      for (const [index, process] of reorderedProcesses.entries()) {
-        const { error } = await supabase
-          .from("order_processes")
-          .update({
-            process_order: tempBase + index + 1,
-            product_process_id: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", process.id);
+      const { error } = await supabase.rpc("reorder_order_processes", {
+        p_post_id: selectedPost.id,
+        p_order_process_ids: reorderedProcesses.map((process) => process.id),
+      });
 
-        if (error) throw error;
-      }
-
-      for (const [index, process] of reorderedProcesses.entries()) {
-        const { error } = await supabase
-          .from("order_processes")
-          .update({
-            process_order: index + 1,
-            product_process_id: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", process.id);
-
-        if (error) throw error;
-      }
+      if (error) throw error;
 
       await fetchData();
     } catch (error) {
