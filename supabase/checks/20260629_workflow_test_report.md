@@ -8,6 +8,17 @@
 
 ## 確認済み
 
+### 2026-06-30 回帰確認
+
+工程日付カラム削除後のアプリ側回帰確認として、以下を実行済み。
+
+- `npm.cmd run lint`: 成功、warning 0件
+- `npm.cmd run build`: 成功
+- active `app` / `pages` code に `manufacturing_date`, `cleaning_date`, `inspection_date`, `measurement_date`, `packaging_date` の参照なし
+- active `app` / `pages` code に `select("*")` なし
+
+Supabase 側では最終確認SQLが `Success. No rows returned` となり、`posts` / `v_posts_with_master` に旧工程日付5列が残っていないことを確認済み。
+
 ### DB整合性チェック
 
 `supabase/checks/20260629_workflow_integrity_checks.sql` を実行し、count 系チェックはすべて `0`。
