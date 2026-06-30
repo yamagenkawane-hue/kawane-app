@@ -157,12 +157,24 @@ RLS状態:
 `supabase/migrations/20260630_reorder_order_processes.sql` を追加。
 受注別工程管理画面のドラッグ＆ドロップ保存は、このRPC `reorder_order_processes` を呼び出す形に変更。
 
-確認SQLとして `supabase/checks/20260630_reorder_order_processes_smoke_test.sql` を追加。
+確認SQLとして `supabase/checks/20260630_reorder_order_processes_smoke_test.sql` を追加し、`PASSED` を確認済み。
 
 - `result`: `PASSED`
 - 工程順が指定順に保存される
 - 実績登録時の前工程完了数チェックが変更後の工程順で判定される
 - `v_posts_with_master.status` が変更後の工程順で最新完了工程を判定する
+
+### 画面横断確認
+
+画面横断の手動確認用に `supabase/checks/20260701_cross_screen_manual_test_scenarios.md` を追加。
+事前確認SQLとして `supabase/checks/20260701_cross_screen_readiness_checks.sql` を追加。
+
+確認対象:
+
+- 受注登録、受注管理、注残管理、受注別工程管理
+- 実績登録、進捗管理、計量登録、計量表出力
+- 在庫マスタ、出荷登録
+- 削除時の関連データ整理
 
 ## 判定
 
