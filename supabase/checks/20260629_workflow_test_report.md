@@ -108,14 +108,12 @@ RLS状態:
 - `shipments_after`: `0`
 - `inventory_allocations_after`: `0`
 
-## 次に確認する項目
-
 ### 前工程完了数を超える登録制御
 
-`supabase/checks/20260630_process_allowance_smoke_test.sql` を追加。
+2026-06-30 に `supabase/checks/20260630_process_allowance_smoke_test.sql` を実行し、`PASSED` を確認済み。
 このSQLはトランザクション内で前工程完了数が `2` の通常工程を作成し、次工程へ `3` を登録しようとしてエラーになることを確認してから `ROLLBACK` する。
 
-期待結果:
+確認結果:
 
 - `result`: `PASSED`
 - `results_after` = `results_before`
@@ -125,4 +123,4 @@ RLS状態:
 
 主目的である「梱包完了後に在庫へ入れる」仕様は、DBスモークテストと実画面確認の両方で確認済み。
 
-残っていた2ケースと、受注削除時の関連データ整理も自己完結スモークテストで確認済み。
+残っていた2ケース、受注削除時の関連データ整理、前工程完了数を超える登録制御も自己完結スモークテストで確認済み。
