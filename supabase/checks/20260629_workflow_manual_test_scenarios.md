@@ -108,6 +108,19 @@ DB側の自己完結確認として、`supabase/checks/20260630_process_allowanc
 - `inspection_completed_status` が `PASSED`
 - `measurement_in_progress_status` が `PASSED`
 
+## シナリオ4.6: 製品工程マスタから受注別工程へ反映できる
+
+1. `supabase/migrations/20260630_sync_order_processes_from_product_master.sql` を適用する
+2. 受注別工程管理で対象受注を選び、「製品工程マスタから更新」を押す
+3. DB側の自己完結確認として、`supabase/checks/20260630_product_process_sync_smoke_test.sql` を実行する
+
+期待結果:
+
+- 未完了の既存工程は製品工程マスタの工程名、予定数、外注先に更新される
+- 完了済みまたは確定済みの既存工程は変更されない
+- 製品工程マスタにあって受注別工程にない工程は追加される
+- `20260630_product_process_sync_smoke_test.sql` の `result` が `PASSED`
+
 ## シナリオ5: 在庫引当から出荷まで
 
 1. 在庫マスタで対象製品、ロットNoの現在庫数を確認する
@@ -146,5 +159,6 @@ DB側の自己完結確認として、`supabase/checks/20260630_soft_delete_orde
 - ロットNoなしの梱包実績は登録できない
 - 前工程完了数を超える実績は登録できない
 - 外注中、外注済、検査完了、計量中の状態表示が現在工程から算出される
+- 製品工程マスタの変更を受注別工程へ反映できる
 - 在庫引当と出荷で `current_stock` / `allocated_stock` が仕様どおり更新される
 - 受注削除時に関連データが残らず、在庫引当数も戻る

@@ -512,77 +512,24 @@ export default function OrderProcessesPage() {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase
-        .from("v_product_processes_with_master")
-        .select(PRODUCT_PROCESS_SELECT_COLUMNS)
-        .eq("product_code", selectedPost.productCode)
-        .order("process_order", { ascending: true });
+      const { error } = await supabase.rpc(
+        "sync_order_processes_from_product_master",
+        {
+          p_post_id: selectedPost.id,
+        },
+      );
 
       if (error) throw error;
-
-      const masterProcesses = Array.from(
-        new Map(
-          (data || [])
-            .map(mapProductProcess)
-            .map((process) => [process.processOrder, process]),
-        ).values(),
-      ).sort((a, b) => a.processOrder - b.processOrder);
-
-      if (masterProcesses.length === 0) {
-        alert("この製品の製品工程マスタが登録されていません");
-        return;
-      }
-
-      for (const masterProcess of masterProcesses) {
-        const existing = selectedProcesses.find(
-          (process) => process.processOrder === masterProcess.processOrder,
-        );
-
-        if (!existing) {
-          const { error: insertError } = await supabase
-            .from("order_processes")
-            .insert({
-              post_id: selectedPost.id,
-              order_no: selectedPost.orderNo,
-              product_id: selectedPost.productId || masterProcess.productId || null,
-              customer_id: selectedPost.customerId || null,
-              product_process_id: masterProcess.id,
-              product_code: selectedPost.productCode,
-              product_name: selectedPost.productName,
-              customer_name: selectedPost.customerName,
-              process_name: masterProcess.processName,
-              process_order: masterProcess.processOrder,
-              planned_amount: Number(selectedPost.orderAmount || 0),
-              subcontractor_id: masterProcess.subcontractorId || null,
-            });
-
-          if (insertError) throw insertError;
-          continue;
-        }
-
-        if (existing.completedAmount > 0 || existing.locked) {
-          continue;
-        }
-
-        const { error: updateError } = await supabase
-          .from("order_processes")
-          .update({
-            product_process_id: masterProcess.id,
-            process_name: masterProcess.processName,
-            planned_amount: Number(selectedPost.orderAmount || 0),
-            subcontractor_id: masterProcess.subcontractorId || null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existing.id);
-
-        if (updateError) throw updateError;
-      }
 
       await fetchData();
       alert("製品工程マスタから受注別工程を更新しました");
     } catch (error) {
       console.error(error);
-      alert("製品工程マスタからの更新に失敗しました");
+      const message =
+        typeof error === "object" && error !== null && "message" in error
+          ? String(error.message)
+          : "製品工程マスタからの更新に失敗しました";
+      alert(`製品工程マスタからの更新に失敗しました\n${message}`);
     } finally {
       setLoading(false);
     }

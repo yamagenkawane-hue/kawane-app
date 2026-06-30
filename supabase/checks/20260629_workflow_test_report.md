@@ -136,6 +136,22 @@ RLS状態:
 - `inspection_completed_status`: `PASSED`
 - `measurement_in_progress_status`: `PASSED`
 
+## 次に確認する項目
+
+### 製品工程マスタから受注別工程への反映
+
+`supabase/migrations/20260630_sync_order_processes_from_product_master.sql` を追加。
+受注別工程管理画面の「製品工程マスタから更新」は、このRPC `sync_order_processes_from_product_master` を呼び出す形に変更。
+
+確認SQLとして `supabase/checks/20260630_product_process_sync_smoke_test.sql` を追加。
+
+期待結果:
+
+- `result`: `PASSED`
+- 未完了の既存工程が製品工程マスタから更新される
+- 完了済みの既存工程は保持される
+- 未作成の工程が追加される
+
 ## 判定
 
 主目的である「梱包完了後に在庫へ入れる」仕様は、DBスモークテストと実画面確認の両方で確認済み。
