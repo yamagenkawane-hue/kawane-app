@@ -107,6 +107,22 @@
 - 出荷時点で `current_stock` と `allocated_stock` が減る
 - 出荷済み受注は注残一覧、進捗管理から除外される
 
+## シナリオ6: 受注削除時の関連データ整理
+
+1. 注残管理で対象受注を削除する
+2. 関連する受注別工程、実績、生産予定、出荷、在庫引当が残っていないことを確認する
+3. 在庫引当済みの受注では、在庫マスタの `allocated_stock` が未出荷引当分だけ戻ることを確認する
+
+DB側の自己完結確認として、`supabase/checks/20260630_soft_delete_order_post_smoke_test.sql` を実行します。
+このSQLはトランザクション内でテスト用の受注と関連データを作成し、`soft_delete_order_post` の実行結果を確認してから `ROLLBACK` します。
+
+期待結果:
+
+- `result` が `PASSED`
+- `posts.delete` が `true` になる
+- `order_processes` / `production_results` / `production_schedules` / `shipments` / `inventory_allocations` の対象行が削除される
+- `inventory_items.allocated_stock` が戻る
+
 ## 完了条件
 
 - 計量登録では在庫が増えない
@@ -114,3 +130,4 @@
 - ロットNoなしの梱包実績は登録できない
 - 前工程完了数を超える実績は登録できない
 - 在庫引当と出荷で `current_stock` / `allocated_stock` が仕様どおり更新される
+- 受注削除時に関連データが残らず、在庫引当数も戻る

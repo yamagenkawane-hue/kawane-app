@@ -94,6 +94,23 @@ RLS状態:
 - `register_order_process_result` 内で、梱包/包装工程かつ `posts.lot_no` が空の場合はエラーにする実装済み。
 - `production_results` は登録されない
 
+## 次に確認する項目
+
+### 受注削除時の関連データ整理
+
+`supabase/checks/20260630_soft_delete_order_post_smoke_test.sql` を追加。
+このSQLはトランザクション内でテスト用の受注、受注別工程、実績、生産予定、出荷、在庫引当を作成し、`soft_delete_order_post` で関連データが整理されることを確認してから `ROLLBACK` する。
+
+期待結果:
+
+- `result`: `PASSED`
+- `order_processes_after`: `0`
+- `production_results_after`: `0`
+- `production_schedules_after`: `0`
+- `shipments_after`: `0`
+- `inventory_allocations_after`: `0`
+- `allocated_stock_after`: `0`
+
 ## 判定
 
 主目的である「梱包完了後に在庫へ入れる」仕様は、DBスモークテストと実画面確認の両方で確認済み。
