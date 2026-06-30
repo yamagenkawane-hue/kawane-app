@@ -95,6 +95,18 @@ DB側の自己完結確認として、`supabase/checks/20260630_process_allowanc
 - `production_results` は登録されない
 - `order_processes.completed_amount` は更新されない
 
+## シナリオ4.5: 状態表示が現在工程から算出される
+
+1. `supabase/migrations/20260630_restore_posts_view_derived_status.sql` を適用する
+2. `supabase/checks/20260630_posts_view_status_smoke_test.sql` を実行する
+
+期待結果:
+
+- `outsource_sent_status` が `PASSED`
+- `outsource_returned_status` が `PASSED`
+- `inspection_completed_status` が `PASSED`
+- `measurement_in_progress_status` が `PASSED`
+
 ## シナリオ5: 在庫引当から出荷まで
 
 1. 在庫マスタで対象製品、ロットNoの現在庫数を確認する
@@ -132,5 +144,6 @@ DB側の自己完結確認として、`supabase/checks/20260630_soft_delete_orde
 - 梱包実績登録で在庫が増える
 - ロットNoなしの梱包実績は登録できない
 - 前工程完了数を超える実績は登録できない
+- 外注中、外注済、検査完了、計量中の状態表示が現在工程から算出される
 - 在庫引当と出荷で `current_stock` / `allocated_stock` が仕様どおり更新される
 - 受注削除時に関連データが残らず、在庫引当数も戻る

@@ -119,6 +119,22 @@ RLS状態:
 - `results_after` = `results_before`
 - `next_completed_after` = `next_completed_before`
 
+## 次に確認する項目
+
+### 状態表示の派生ロジック
+
+`supabase/migrations/20260630_restore_posts_view_derived_status.sql` を追加。
+工程日付カラム削除後に `posts.status` へ戻っていた `v_posts_with_master.status` を、現在の `order_processes` / `shipments` から派生する形へ戻す。
+
+確認SQLとして `supabase/checks/20260630_posts_view_status_smoke_test.sql` を追加。
+
+期待結果:
+
+- `outsource_sent_status`: `PASSED`
+- `outsource_returned_status`: `PASSED`
+- `inspection_completed_status`: `PASSED`
+- `measurement_in_progress_status`: `PASSED`
+
 ## 判定
 
 主目的である「梱包完了後に在庫へ入れる」仕様は、DBスモークテストと実画面確認の両方で確認済み。
