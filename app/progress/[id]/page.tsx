@@ -34,6 +34,9 @@ const RESULT_SELECT_COLUMNS =
 const ORDER_PROCESS_SELECT_COLUMNS =
   "id,post_id,product_id,customer_id,product_process_id,order_no,product_code,product_name,customer_name,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,subcontractor_name,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,outsource_status,outsource_note,locked,created_at,updated_at";
 
+const DIRECT_ORDER_PROCESS_SELECT_COLUMNS =
+  "id,post_id,order_no,product_code,product_name,customer_name,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,locked,created_at,updated_at";
+
 export default function ProgressDetail() {
   const params = useParams();
   const id = Array.isArray(params?.id) ? params.id[0] : params?.id || "";
@@ -202,7 +205,9 @@ export default function ProgressDetail() {
           .from("process_master")
           .select(PROCESS_SELECT_COLUMNS);
 
-        if (processError) throw processError;
+        if (processError) {
+          console.warn("process_master取得失敗", processError);
+        }
 
         const processData: ProcessMaster[] = (processRows || [])
           .map((row) => ({
@@ -226,7 +231,9 @@ export default function ProgressDetail() {
           .from("company_calendar")
           .select(CALENDAR_SELECT_COLUMNS);
 
-        if (calendarError) throw calendarError;
+        if (calendarError) {
+          console.warn("company_calendar取得失敗", calendarError);
+        }
 
         const calendarData: CompanyCalendar[] = (calendarRows || []).map(
           (row) => ({
@@ -246,7 +253,9 @@ export default function ProgressDetail() {
           .from("line_master")
           .select(LINE_SELECT_COLUMNS);
 
-        if (lineError) throw lineError;
+        if (lineError) {
+          console.warn("line_master取得失敗", lineError);
+        }
 
         const lineData: LineMaster[] = (lineRows || []).map((row) => ({
           id: row.id,
@@ -282,59 +291,62 @@ export default function ProgressDetail() {
           }));
         }
 
-        const {
-          data: orderProcessViewRows,
-          error: orderProcessViewError,
-        } = await supabase
-          .from("v_order_processes_with_master")
-          .select(ORDER_PROCESS_SELECT_COLUMNS)
-          .eq("post_id", id)
-          .order("process_order", { ascending: true });
+        const { data: directOrderProcessRows, error: directOrderProcessError } =
+          await supabase
+            .from("order_processes")
+            .select(DIRECT_ORDER_PROCESS_SELECT_COLUMNS)
+            .eq("post_id", id)
+            .order("process_order", { ascending: true });
 
-        let orderProcessRows = orderProcessViewRows || [];
-        if (orderProcessViewError) {
+        let orderProcessRows = directOrderProcessRows || [];
+        if (directOrderProcessError) {
           console.warn(
-            "v_order_processes_with_master取得失敗。order_processesを直接参照します。",
-            orderProcessViewError,
+            "order_processes取得失敗。v_order_processes_with_masterを参照します。",
+            directOrderProcessError,
           );
 
-          const { data: fallbackRows, error: fallbackError } = await supabase
-            .from("order_processes")
+          const { data: viewRows, error: viewError } = await supabase
+            .from("v_order_processes_with_master")
             .select(ORDER_PROCESS_SELECT_COLUMNS)
             .eq("post_id", id)
             .order("process_order", { ascending: true });
 
-          if (fallbackError) throw fallbackError;
-          orderProcessRows = fallbackRows || [];
+          if (viewError) {
+            console.warn("v_order_processes_with_master取得失敗", viewError);
+          }
+          orderProcessRows = viewRows || [];
         }
 
         const orderProcessData: OrderProcess[] = (orderProcessRows || []).map(
-          (row) => ({
-            id: row.id,
-            postId: row.post_id || "",
-            productId: row.product_id || "",
-            customerId: row.customer_id || "",
-            productProcessId: row.product_process_id || "",
-            orderNo: row.order_no || "",
-            productCode: row.product_code || "",
-            productName: row.product_name || "",
-            customerName: row.customer_name || "",
-            processName: row.process_name || "",
+          (row: Record<string, unknown>) => ({
+            id: String(row.id || ""),
+            postId: String(row.post_id || ""),
+            productId: String(row.product_id || ""),
+            customerId: String(row.customer_id || ""),
+            productProcessId: String(row.product_process_id || ""),
+            orderNo: String(row.order_no || ""),
+            productCode: String(row.product_code || ""),
+            productName: String(row.product_name || ""),
+            customerName: String(row.customer_name || ""),
+            processName: String(row.process_name || ""),
             processOrder: Number(row.process_order || 0),
             plannedAmount: Number(row.planned_amount || 0),
             completedAmount: Number(row.completed_amount || 0),
-            completedDate: row.completed_date || "",
-            subcontractorId: row.subcontractor_id || null,
-            subcontractorName: row.subcontractor_name || "",
-            outsourceSentDate: row.outsource_sent_date || "",
-            outsourceExpectedReturnDate:
+            completedDate: String(row.completed_date || ""),
+            subcontractorId: row.subcontractor_id
+              ? String(row.subcontractor_id)
+              : null,
+            subcontractorName: String(row.subcontractor_name || ""),
+            outsourceSentDate: String(row.outsource_sent_date || ""),
+            outsourceExpectedReturnDate: String(
               row.outsource_expected_return_date || "",
-            outsourceReturnedDate: row.outsource_returned_date || "",
-            outsourceStatus: row.outsource_status || "",
-            outsourceNote: row.outsource_note || "",
-            locked: row.locked || false,
-            createdAt: row.created_at || "",
-            updatedAt: row.updated_at || "",
+            ),
+            outsourceReturnedDate: String(row.outsource_returned_date || ""),
+            outsourceStatus: String(row.outsource_status || ""),
+            outsourceNote: String(row.outsource_note || ""),
+            locked: Boolean(row.locked || false),
+            createdAt: String(row.created_at || ""),
+            updatedAt: String(row.updated_at || ""),
           }),
         );
 
