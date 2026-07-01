@@ -9,7 +9,7 @@ import {
 } from "./processProgress";
 
 const POST_SELECT_COLUMNS =
-  "id,order_no,lot_no,product_code,product_name,customer_name,order_amount,delivery_date,completion_scheduled_date,remark,delete,created_by,updated_by,created_at,updated_at,days";
+  "id,order_no,lot_no,product_code,product_name,customer_name,order_amount,delivery_date,completion_scheduled_date,remark,delete,created_at,updated_at";
 
 export const useChildFetchPosts = (
   shouldFetch: boolean,
@@ -112,11 +112,11 @@ export const useChildFetchPosts = (
             measurementLogs,
             packagingLogs,
             delete: row.delete || false,
-            createdBy: row.created_by || "",
-            updatedBy: row.updated_by || "",
+            createdBy: "",
+            updatedBy: "",
             createdAt: row.created_at || "",
             updatedAt: row.updated_at || "",
-            days: row.days || [],
+            days: [],
           };
         });
 

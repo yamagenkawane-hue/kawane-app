@@ -25,7 +25,7 @@ const ORDER_PROCESS_SELECT_COLUMNS =
   "id,post_id,product_id,customer_id,product_process_id,order_no,product_code,product_name,customer_name,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,subcontractor_name,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,outsource_status,outsource_note,locked,created_at,updated_at";
 
 const RESULT_SELECT_COLUMNS =
-  "id,post_id,schedule_id,order_process_id,process_id,process_name,date,amount,created_at";
+  "id,post_id,schedule_id,order_process_id,process_name,date,amount,created_at";
 
 const isPostScheduleId = (id: string) => id.startsWith("post:");
 
@@ -109,7 +109,7 @@ const mapResultRow = (row: Record<string, unknown>): ProcessResult => ({
   postId: String(row.post_id || ""),
   scheduleId: String(row.schedule_id || ""),
   orderProcessId: String(row.order_process_id || ""),
-  processId: String(row.process_id || ""),
+  processId: String(row.order_process_id || row.process_name || ""),
   processName: String(row.process_name || ""),
   date: String(row.date || ""),
   amount: Number(row.amount || 0),

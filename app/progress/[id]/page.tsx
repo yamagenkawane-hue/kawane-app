@@ -17,7 +17,7 @@ import {
 } from "@/app/type";
 
 const POST_SELECT_COLUMNS =
-  "id,order_no,product_code,lot_no,product_name,customer_name,order_amount,remaining_amount,delivery_date,completion_scheduled_date,remark,days,status,delete,created_by,updated_by,created_at,updated_at";
+  "id,order_no,product_code,lot_no,product_name,customer_name,order_amount,remaining_amount,delivery_date,completion_scheduled_date,remark,status,delete,created_at,updated_at";
 
 const PROCESS_SELECT_COLUMNS =
   "id,process_id,name,days,sort,enabled,outsourcing";
@@ -183,11 +183,11 @@ export default function ProgressDetail() {
           inspectionLogs: [],
           measurementLogs: [],
           packagingLogs: [],
-          days: postRow.days || [],
+          days: [],
           status: postRow.status || "未着手",
           delete: postRow.delete || false,
-          createdBy: postRow.created_by || "",
-          updatedBy: postRow.updated_by || "",
+          createdBy: "",
+          updatedBy: "",
           createdAt: postRow.created_at || "",
           updatedAt: postRow.updated_at || "",
         };
