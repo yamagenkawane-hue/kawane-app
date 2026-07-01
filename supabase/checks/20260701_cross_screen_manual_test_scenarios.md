@@ -29,6 +29,7 @@
 4. 受注別工程管理で対象受注を選択し、工程一覧が製品工程マスタから作成されていることを確認する
 5. `supabase/checks/20260701_cross_screen_scenario_a_order_creation_check.sql` の `target_order_no` を登録した注番に変更して実行する
 6. `FAILED` がある場合は、`supabase/checks/20260701_cross_screen_scenario_a_order_creation_detail.sql` の `target_order_no` も登録した注番に変更して、製品工程マスタと受注別工程の差分を確認する
+7. 製品工程マスタの工程順が飛び番で、受注別工程も飛び番になった場合は、`supabase/migrations/20260701_normalize_order_process_sequence.sql` を適用し、`supabase/checks/20260701_cross_screen_scenario_a_normalize_existing_order.sql` の `target_order_no` を登録した注番に変更して実行する
 
 期待結果:
 
