@@ -330,7 +330,11 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       <td>{post.orderNo}</td>
       <td>{post.lotNo || "-"}</td>
       <td className={styles.productName}>
-        <Link href={`/progress/${post.id}`}>{post.productName}</Link>
+        {post.id ? (
+          <Link href={`/progress/${post.id}`}>{post.productName}</Link>
+        ) : (
+          <span>{post.productName}</span>
+        )}
       </td>
       <td>{post.customerName}</td>
       <td>{post.orderAmount}</td>
