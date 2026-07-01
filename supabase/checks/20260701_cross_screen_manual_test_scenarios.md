@@ -154,3 +154,6 @@
 - `deleted_posts_have_no_work_rows` が `PASSED` であること
 - `INFO` 行は診断用件数として扱うこと
 - 生産予定、実績登録、受注別工程管理に、削除済み、最終工程完了済み、全数出荷済みの受注が作業対象として表示されないこと
+
+`deleted_posts_have_no_work_rows` が `FAILED` の場合は、過去に削除済みになった受注の関連データが残っている。
+`supabase/migrations/20260701_cleanup_legacy_deleted_post_work_rows.sql` を実行し、再度 `supabase/checks/20260701_active_work_screen_visibility_check.sql` を実行する。
