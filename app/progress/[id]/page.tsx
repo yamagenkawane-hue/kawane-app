@@ -42,6 +42,7 @@ export default function ProgressDetail() {
   const id = Array.isArray(params?.id) ? params.id[0] : params?.id || "";
 
   const [post, setPost] = useState<Post | null>(null);
+  const [loadError, setLoadError] = useState("");
   const [ganttProcesses, setGanttProcesses] = useState<ProcessItem[]>([]);
 
   // =========================
@@ -143,17 +144,37 @@ export default function ProgressDetail() {
 
     const fetchData = async () => {
       try {
+        setLoadError("");
         // =========================
         // 投稿
         // =========================
 
-        const { data: postRow, error: postError } = await supabase
+        const { data: postRowData, error: postError } = await supabase
           .from("posts")
           .select(POST_SELECT_COLUMNS)
           .eq("id", id)
-          .single();
+          .maybeSingle();
 
-        if (postError || !postRow) return;
+        let postRow = postRowData;
+        if (postError || !postRow) {
+          console.warn("posts取得失敗。v_posts_with_masterを参照します。", postError);
+
+          const { data: viewPostRow, error: viewPostError } = await supabase
+            .from("v_posts_with_master")
+            .select(POST_SELECT_COLUMNS)
+            .eq("id", id)
+            .maybeSingle();
+
+          if (viewPostError) {
+            console.warn("v_posts_with_master取得失敗", viewPostError);
+          }
+          postRow = viewPostRow;
+        }
+
+        if (!postRow) {
+          setLoadError("対象の受注データが見つかりませんでした。");
+          return;
+        }
 
         const currentPost: Post = {
           id: postRow.id,
@@ -598,7 +619,18 @@ export default function ProgressDetail() {
   ]);
 
   if (!post) {
-    return <div className={styles.loading}>Loading...</div>;
+    return (
+      <div className={styles.container}>
+        <div className={styles.backArea}>
+          <Link href="/reservation" className={styles.backButton}>
+            ← 戻る
+          </Link>
+        </div>
+        <div className={styles.loading}>
+          {loadError || "Loading..."}
+        </div>
+      </div>
+    );
   }
 
   return (
