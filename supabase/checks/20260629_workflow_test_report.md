@@ -181,6 +181,7 @@ RLS状態:
 - 削除時の関連データ整理
 
 シナリオBのDB確認SQLとして `supabase/checks/20260701_cross_screen_scenario_b_results_measurement_check.sql` を追加。
+シナリオBの失敗時詳細確認SQLとして `supabase/checks/20260701_cross_screen_scenario_b_results_measurement_detail.sql` を追加。
 
 ## 判定
 

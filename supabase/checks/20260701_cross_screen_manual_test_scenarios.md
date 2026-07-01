@@ -56,6 +56,7 @@
 4. 計量表出力に、登録した計量実績が表示されることを確認する
 5. 進捗管理で各工程の完了数量と状態表示を確認する
 6. `supabase/checks/20260701_cross_screen_scenario_b_results_measurement_check.sql` の `target_order_no` を対象注番に変更して実行する
+7. `FAILED` がある場合は、`supabase/checks/20260701_cross_screen_scenario_b_results_measurement_detail.sql` の `target_order_no` を対象注番に変更して、工程と実績の登録状況を確認する
 
 期待結果:
 
