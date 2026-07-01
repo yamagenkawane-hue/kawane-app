@@ -7,6 +7,48 @@ const DAILY_PRODUCTION_SELECT_COLUMNS =
 const toToday = () =>
   new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 
+const buildShippedMap = (rows: { post_id?: string | null; quantity?: number | null }[]) => {
+  const shippedMap = new Map<string, number>();
+  for (const row of rows || []) {
+    const postId = row.post_id || "";
+    if (!postId) continue;
+    shippedMap.set(postId, (shippedMap.get(postId) || 0) + Number(row.quantity || 0));
+  }
+  return shippedMap;
+};
+
+const buildFinalProcessCompletionMap = (
+  rows: {
+    post_id?: string | null;
+    process_order?: number | null;
+    completed_amount?: number | null;
+  }[],
+) => {
+  const finalProcessMap = new Map<
+    string,
+    { processOrder: number; completedAmount: number }
+  >();
+
+  for (const row of rows || []) {
+    const postId = row.post_id || "";
+    if (!postId) continue;
+
+    const processOrder = Number(row.process_order || 0);
+    const completedAmount = Number(row.completed_amount || 0);
+    const current = finalProcessMap.get(postId);
+    if (!current || processOrder > current.processOrder) {
+      finalProcessMap.set(postId, { processOrder, completedAmount });
+    }
+  }
+
+  return new Map(
+    Array.from(finalProcessMap.entries()).map(([postId, value]) => [
+      postId,
+      value.completedAmount,
+    ]),
+  );
+};
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -14,21 +56,43 @@ export default async function handler(
   try {
     if (req.method === "GET") {
       const today = String(req.query.date || toToday());
-      const { data, error } = await supabase
-        .from("v_posts_with_master")
-        .select(DAILY_PRODUCTION_SELECT_COLUMNS)
-        .or("delete.is.null,delete.eq.false")
-        .or(
-          [
-            `and(shipping_scheduled_start.lte.${today},shipping_scheduled_end.gte.${today})`,
-            `and(shipping_scheduled_start.is.null,shipping_scheduled_end.is.null,delivery_date.not.is.null)`,
-            `delivery_date.lt.${today}`,
-          ].join(","),
-        )
-        .order("customer_name", { ascending: true });
+      const [postResult, shipmentResult, processResult] = await Promise.all([
+        supabase
+          .from("v_posts_with_master")
+          .select(DAILY_PRODUCTION_SELECT_COLUMNS)
+          .or("delete.is.null,delete.eq.false")
+          .or(
+            [
+              `and(shipping_scheduled_start.lte.${today},shipping_scheduled_end.gte.${today})`,
+              `and(shipping_scheduled_start.is.null,shipping_scheduled_end.is.null,delivery_date.not.is.null)`,
+              `delivery_date.lt.${today}`,
+            ].join(","),
+          )
+          .order("customer_name", { ascending: true }),
+        supabase.from("shipments").select("post_id,quantity"),
+        supabase
+          .from("v_order_processes_with_master")
+          .select("post_id,process_order,completed_amount"),
+      ]);
 
-      if (error) throw error;
-      return res.status(200).json(data || []);
+      if (postResult.error) throw postResult.error;
+      if (shipmentResult.error) throw shipmentResult.error;
+      if (processResult.error) throw processResult.error;
+
+      const shippedMap = buildShippedMap(shipmentResult.data || []);
+      const finalProcessCompletionMap = buildFinalProcessCompletionMap(
+        processResult.data || [],
+      );
+
+      const activeBackorders = (postResult.data || []).filter((row) => {
+        const orderAmount = Number(row.order_amount || 0);
+        const shippedAmount = shippedMap.get(row.id) || 0;
+        const completedAmount = finalProcessCompletionMap.get(row.id) || 0;
+
+        return orderAmount > completedAmount && shippedAmount < orderAmount;
+      });
+
+      return res.status(200).json(activeBackorders);
     }
 
     if (req.method === "POST") {

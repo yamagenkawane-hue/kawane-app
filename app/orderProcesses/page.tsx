@@ -88,6 +88,42 @@ const mapProductProcess = (row: Record<string, unknown>): ProductProcess => ({
   updatedAt: String(row.updated_at || ""),
 });
 
+const buildShippedMap = (rows: { post_id?: string | null; quantity?: number | null }[]) => {
+  const shippedMap = new Map<string, number>();
+  for (const row of rows || []) {
+    const postId = row.post_id || "";
+    if (!postId) continue;
+    shippedMap.set(postId, (shippedMap.get(postId) || 0) + Number(row.quantity || 0));
+  }
+  return shippedMap;
+};
+
+const buildFinalProcessCompletionMap = (rows: OrderProcess[]) => {
+  const finalProcessMap = new Map<
+    string,
+    { processOrder: number; completedAmount: number }
+  >();
+
+  for (const process of rows) {
+    if (!process.postId) continue;
+
+    const current = finalProcessMap.get(process.postId);
+    if (!current || process.processOrder > current.processOrder) {
+      finalProcessMap.set(process.postId, {
+        processOrder: process.processOrder,
+        completedAmount: process.completedAmount,
+      });
+    }
+  }
+
+  return new Map(
+    Array.from(finalProcessMap.entries()).map(([postId, value]) => [
+      postId,
+      value.completedAmount,
+    ]),
+  );
+};
+
 type NumpadTarget = {
   id: string;
   field: "plannedAmount" | "completedAmount";
@@ -240,7 +276,7 @@ export default function OrderProcessesPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [postResult, processResult] = await Promise.all([
+      const [postResult, processResult, shipmentResult] = await Promise.all([
         supabase
           .from("v_posts_with_master")
           .select(POST_SELECT_COLUMNS)
@@ -249,18 +285,40 @@ export default function OrderProcessesPage() {
           .from("v_order_processes_with_master")
           .select(ORDER_PROCESS_SELECT_COLUMNS)
           .order("process_order", { ascending: true }),
+        supabase.from("shipments").select("post_id,quantity"),
       ]);
 
       if (postResult.error) throw postResult.error;
       if (processResult.error) throw processResult.error;
+      if (shipmentResult.error) throw shipmentResult.error;
 
+      const mappedProcesses = (processResult.data || []).map(mapOrderProcess);
+      const shippedMap = buildShippedMap(shipmentResult.data || []);
+      const finalProcessCompletionMap =
+        buildFinalProcessCompletionMap(mappedProcesses);
       const mappedPosts = (postResult.data || [])
-        .filter((row) => row.delete !== true)
-        .map(mapPost);
-      setPosts(mappedPosts);
-      setProcesses((processResult.data || []).map(mapOrderProcess));
+        .filter((row) => {
+          if (row.delete === true) return false;
 
-      setSelectedPostId((prev) => prev || mappedPosts[0]?.id || "");
+          const orderAmount = Number(row.order_amount || 0);
+          const shippedAmount = shippedMap.get(row.id) || 0;
+          const completedAmount = finalProcessCompletionMap.get(row.id) || 0;
+
+          return orderAmount > completedAmount && shippedAmount < orderAmount;
+        })
+        .map(mapPost);
+      const activePostIds = new Set(mappedPosts.map((post) => post.id));
+
+      setPosts(mappedPosts);
+      setProcesses(
+        mappedProcesses.filter((process) => activePostIds.has(process.postId)),
+      );
+
+      setSelectedPostId((prev) =>
+        mappedPosts.some((post) => post.id === prev)
+          ? prev
+          : mappedPosts[0]?.id || "",
+      );
     } catch (error) {
       console.error(error);
       alert("工程予定の取得に失敗しました");

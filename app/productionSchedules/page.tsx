@@ -88,6 +88,22 @@ const createScheduleNo = (schedules: ProductionSchedule[]) => {
   return `${prefix}${String(maxSequence + 1).padStart(3, "0")}`;
 };
 
+const filterSchedulesByBackorders = (
+  scheduleRows: ProductionSchedule[],
+  backorderRows: PostData[],
+) => {
+  const activePostIds = new Set(backorderRows.map((post) => post.id).filter(Boolean));
+  const activeOrderNos = new Set(
+    backorderRows.map((post) => post.orderNo).filter(Boolean),
+  );
+
+  return scheduleRows.filter((schedule) => {
+    if (schedule.postId && activePostIds.has(schedule.postId)) return true;
+    if (schedule.orderNo && activeOrderNos.has(schedule.orderNo)) return true;
+    return false;
+  });
+};
+
 export default function ProductionSchedulesPage() {
   const [schedules, setSchedules] = useState<ProductionSchedule[]>([]);
   const [orderSchedules, setOrderSchedules] = useState<PostData[]>([]);
@@ -119,8 +135,11 @@ export default function ProductionSchedulesPage() {
       if (!dailyResult.ok) throw new Error("注残データの取得に失敗しました");
 
       const dailyRows = await dailyResult.json();
-      setSchedules((scheduleResult.data || []).map(mapSchedule));
-      setOrderSchedules((dailyRows || []).map(mapPost));
+      const mappedPosts = (dailyRows || []).map(mapPost);
+      const mappedSchedules = (scheduleResult.data || []).map(mapSchedule);
+
+      setSchedules(filterSchedulesByBackorders(mappedSchedules, mappedPosts));
+      setOrderSchedules(mappedPosts);
     } catch (error) {
       console.error(error);
       alert("生産予定の取得に失敗しました");

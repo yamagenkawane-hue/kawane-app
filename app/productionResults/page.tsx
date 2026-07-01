@@ -123,6 +123,20 @@ const mapResultRow = (row: Record<string, unknown>): ProcessResult => ({
   createdAt: String(row.created_at || ""),
 });
 
+const filterSchedulesByActivePosts = (
+  scheduleRows: ProductionSchedule[],
+  postRows: PostData[],
+) => {
+  const activePostIds = new Set(postRows.map((post) => post.id).filter(Boolean));
+  const activeOrderNos = new Set(postRows.map((post) => post.orderNo).filter(Boolean));
+
+  return scheduleRows.filter((schedule) => {
+    if (schedule.postId && activePostIds.has(schedule.postId)) return true;
+    if (schedule.orderNo && activeOrderNos.has(schedule.orderNo)) return true;
+    return false;
+  });
+};
+
 export default function ProductionResultsPage() {
   const router = useRouter();
   const [schedules, setSchedules] = useState<ProductionSchedule[]>([]);
@@ -279,19 +293,26 @@ export default function ProductionResultsPage() {
       if (postResult.error) throw postResult.error;
       if (resultResult.error) throw resultResult.error;
 
-      const dailyRows = await dailyScheduleResult.json();
+      const dailyRows: Record<string, unknown>[] = await dailyScheduleResult.json();
+      const activePosts: PostData[] = (dailyRows || [])
+        .filter((row: Record<string, unknown>) => row.delete !== true)
+        .map(mapPostRow);
+      const activePostIds = new Set(activePosts.map((post) => post.id));
       const dailySchedules = (dailyRows || [])
         .filter((row: Record<string, unknown>) => row.delete !== true)
         .map(mapPostToSchedule);
       const manualSchedules = (scheduleResult.data || []).map(mapScheduleRow);
 
-      setSchedules([...dailySchedules, ...manualSchedules]);
-      setOrderProcesses((orderProcessResult.data || []).map(mapOrderProcessRow));
-      setPosts(
-        (postResult.data || [])
-          .filter((row) => row.delete !== true)
-          .map(mapPostRow),
+      setSchedules([
+        ...dailySchedules,
+        ...filterSchedulesByActivePosts(manualSchedules, activePosts),
+      ]);
+      setOrderProcesses(
+        (orderProcessResult.data || [])
+          .map(mapOrderProcessRow)
+          .filter((process) => activePostIds.has(process.postId)),
       );
+      setPosts(activePosts);
       setResults((resultResult.data || []).map(mapResultRow));
     } catch (error) {
       console.error(error);
