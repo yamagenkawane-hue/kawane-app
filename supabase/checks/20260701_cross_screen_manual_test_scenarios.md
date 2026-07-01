@@ -27,6 +27,7 @@
 2. 受注管理に登録した受注が表示されることを確認する
 3. 注残管理に同じ注番、製品、得意先、受注数、納期で表示されることを確認する
 4. 受注別工程管理で対象受注を選択し、工程一覧が製品工程マスタから作成されていることを確認する
+5. `supabase/checks/20260701_cross_screen_scenario_a_order_creation_check.sql` の `target_order_no` を登録した注番に変更して実行する
 
 期待結果:
 
@@ -34,6 +35,7 @@
 - `order_processes.post_id` が対象 `posts.id` を参照する
 - `order_processes.product_id` / `order_processes.customer_id` が対象受注と一致する
 - 工程順が重複せず、1から順番に並ぶ
+- シナリオA確認SQLの全行が `PASSED`
 
 ## シナリオB: 実績登録から進捗管理/計量表出力
 
