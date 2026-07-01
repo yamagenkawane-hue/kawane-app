@@ -208,6 +208,18 @@ RLS状態:
 - `npm.cmd run build`: 成功
 - コミット: `0b5bccf 注残対象外の作業系画面表示を抑制`
 
+最終表示回帰確認として `supabase/checks/20260701_active_work_screen_visibility_check.sql` を追加し、実行。
+初回は過去に削除済みになった受注の関連データが残っていたため、`deleted_posts_have_no_work_rows` が `FAILED / 9` になった。
+過去データ補正用に `supabase/migrations/20260701_cleanup_legacy_deleted_post_work_rows.sql` を追加し、実行後に再確認した。
+
+再確認結果:
+
+- `deleted_posts_have_no_work_rows`: `PASSED / 0`
+- `production_schedules_without_post`: `PASSED / 0`
+- `order_processes_without_post`: `PASSED / 0`
+- `production_results_without_post`: `PASSED / 0`
+- `INFO` 行は、完了済み/全数出荷済みなど作業対象外の履歴件数として扱う
+
 ## 判定
 
 主目的である「梱包完了後に在庫へ入れる」仕様は、DBスモークテストと実画面確認の両方で確認済み。
@@ -215,3 +227,4 @@ RLS状態:
 残っていた2ケース、受注削除時の関連データ整理、前工程完了数を超える登録制御、状態表示の派生ロジックも自己完結スモークテストで確認済み。
 
 画面横断シナリオA〜Eも、実画面確認とSQL確認で主要な連携は確認済み。削除済みまたは注残対象外の受注が作業系画面に残る表示不整合は補正済み。
+最終表示回帰SQLも `FAILED` なしとなり、削除済み受注の過去関連データ補正も完了済み。
