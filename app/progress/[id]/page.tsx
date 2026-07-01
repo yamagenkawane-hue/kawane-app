@@ -282,14 +282,31 @@ export default function ProgressDetail() {
           }));
         }
 
-        const { data: orderProcessRows, error: orderProcessError } =
-          await supabase
-            .from("v_order_processes_with_master")
+        const {
+          data: orderProcessViewRows,
+          error: orderProcessViewError,
+        } = await supabase
+          .from("v_order_processes_with_master")
+          .select(ORDER_PROCESS_SELECT_COLUMNS)
+          .eq("post_id", id)
+          .order("process_order", { ascending: true });
+
+        let orderProcessRows = orderProcessViewRows || [];
+        if (orderProcessViewError) {
+          console.warn(
+            "v_order_processes_with_master取得失敗。order_processesを直接参照します。",
+            orderProcessViewError,
+          );
+
+          const { data: fallbackRows, error: fallbackError } = await supabase
+            .from("order_processes")
             .select(ORDER_PROCESS_SELECT_COLUMNS)
             .eq("post_id", id)
             .order("process_order", { ascending: true });
 
-        if (orderProcessError) throw orderProcessError;
+          if (fallbackError) throw fallbackError;
+          orderProcessRows = fallbackRows || [];
+        }
 
         const orderProcessData: OrderProcess[] = (orderProcessRows || []).map(
           (row) => ({

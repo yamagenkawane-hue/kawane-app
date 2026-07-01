@@ -57,9 +57,10 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
   // =========================
 
   const delivery = new Date(deliveryDate);
+  const safeDelivery = Number.isNaN(delivery.getTime()) ? maxDate : delivery;
 
   const deliveryOffset = Math.floor(
-    (delivery.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24),
+    (safeDelivery.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24),
   );
 
   return (
@@ -109,6 +110,7 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
         // 予測バー
         // =========================
 
+        const predictedBaseDate = process.actualEnd || process.actualStart;
         const predictedOffset = process.actualEnd
           ? Math.floor(
               (process.actualEnd.getTime() - minDate.getTime()) /
@@ -116,14 +118,15 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
             ) * DAY_WIDTH
           : actualOffset;
 
-        const predictedWidth = Math.max(
-          0,
+        const predictedDays =
           Math.ceil(
-            (process.predictedEnd.getTime() -
-              (process.actualEnd || process.actualStart).getTime()) /
+            (process.predictedEnd.getTime() - predictedBaseDate.getTime()) /
               (1000 * 60 * 60 * 24),
-          ) * DAY_WIDTH,
-        );
+          ) + 1;
+        const predictedWidth =
+          process.remainingAmount > 0
+            ? Math.max(DAY_WIDTH, predictedDays * DAY_WIDTH)
+            : 0;
 
         return (
           <div
