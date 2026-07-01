@@ -15,7 +15,9 @@ with params as (
   from posts p
   join params on params.target_order_no = p.order_no
 ), normalized as (
-  select normalize_order_process_sequence_for_post(id)
+  select
+    id as post_id,
+    normalize_order_process_sequence_for_post(id) as normalized
   from target_post
 ), process_summary as (
   select
@@ -26,6 +28,7 @@ with params as (
     max(op.process_order)::integer as max_process_order,
     string_agg(op.process_name || ':' || op.process_order::text, ' > ' order by op.process_order) as process_orders
   from target_post tp
+  join normalized n on n.post_id = tp.id
   left join order_processes op on op.post_id = tp.id
   group by tp.order_no
 )
