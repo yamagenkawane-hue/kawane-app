@@ -32,6 +32,13 @@ const isPostScheduleId = (id: string) => id.startsWith("post:");
 const getPostIdFromScheduleId = (id: string) =>
   isPostScheduleId(id) ? id.replace("post:", "") : "";
 
+const isMeasurementProcess = (processName: string) =>
+  processName.includes("\u8a08\u91cf");
+
+const isPackagingProcess = (processName: string) =>
+  processName.includes("\u68b1\u5305") ||
+  processName.includes("\u5305\u88c5");
+
 const mapScheduleRow = (row: Record<string, unknown>): ProductionSchedule => ({
   id: String(row.id || ""),
   postId: row.post_id ? String(row.post_id) : "",
@@ -164,6 +171,22 @@ export default function ProductionResultsPage() {
   const selectedOrderProcess = useMemo(
     () => orderProcesses.find((item) => item.id === orderProcessId),
     [orderProcessId, orderProcesses],
+  );
+
+  const selectableOrderProcesses = useMemo(
+    () =>
+      selectedScheduleOrderProcesses.filter(
+        (process) => !isMeasurementProcess(process.processName),
+      ),
+    [selectedScheduleOrderProcesses],
+  );
+
+  const hasMeasurementProcess = useMemo(
+    () =>
+      selectedScheduleOrderProcesses.some((process) =>
+        isMeasurementProcess(process.processName),
+      ),
+    [selectedScheduleOrderProcesses],
   );
 
   const findPostIdForSchedule = (
@@ -330,6 +353,15 @@ export default function ProductionResultsPage() {
     return previousCompleted;
   };
 
+  const findPreviousMeasurementProcess = (target: OrderProcess) =>
+    selectedScheduleOrderProcesses
+      .filter(
+        (process) =>
+          process.processOrder < target.processOrder &&
+          isMeasurementProcess(process.processName),
+      )
+      .sort((a, b) => b.processOrder - a.processOrder)[0];
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -346,9 +378,55 @@ export default function ProductionResultsPage() {
       const allowance = getProcessAllowance(selectedOrderProcess);
       const remainingAllowance =
         allowance - Number(selectedOrderProcess.completedAmount || 0);
+      const shouldRedirectToMeasurement =
+        isMeasurementProcess(selectedOrderProcess.processName);
+      const previousMeasurementProcess =
+        isPackagingProcess(selectedOrderProcess.processName)
+          ? findPreviousMeasurementProcess(selectedOrderProcess)
+          : undefined;
+      const measurementRemaining = previousMeasurementProcess
+        ? Number(previousMeasurementProcess.completedAmount || 0) -
+          Number(selectedOrderProcess.completedAmount || 0)
+        : 0;
 
       if (!Number.isFinite(resultAmount) || resultAmount <= 0) {
         alert("数量は1以上で入力してください");
+        return;
+      }
+
+      if (shouldRedirectToMeasurement) {
+        alert("計量工程は計量登録画面から登録してください。");
+        router.push("/manufacturing");
+        return;
+      }
+
+      if (
+        isPackagingProcess(selectedOrderProcess.processName) &&
+        !previousMeasurementProcess
+      ) {
+        alert(
+          "梱包/包装の前には計量工程が必要です。製品工程マスタで計量工程を追加し、計量登録を行ってください。",
+        );
+        router.push("/manufacturing");
+        return;
+      }
+
+      if (
+        isPackagingProcess(selectedOrderProcess.processName) &&
+        measurementRemaining <= 0
+      ) {
+        alert("梱包/包装の前に計量登録を完了してください。");
+        router.push("/manufacturing");
+        return;
+      }
+
+      if (
+        isPackagingProcess(selectedOrderProcess.processName) &&
+        resultAmount > measurementRemaining
+      ) {
+        alert(
+          `計量済み数量を超えて梱包/包装できません。登録可能数量は${measurementRemaining}です。`,
+        );
         return;
       }
 
@@ -436,7 +514,7 @@ export default function ProductionResultsPage() {
           disabled={!selectedPostId || selectedScheduleOrderProcesses.length === 0}
         >
           <option value="">工程を選択</option>
-          {selectedScheduleOrderProcesses.map((process) => {
+          {selectableOrderProcesses.map((process) => {
             const allowance = getProcessAllowance(process);
             const remainingAllowance =
               allowance - Number(process.completedAmount || 0);
@@ -449,6 +527,15 @@ export default function ProductionResultsPage() {
             );
           })}
         </select>
+
+        {selectedPostId && hasMeasurementProcess && (
+          <div className={styles.notice}>
+            計量工程は専用画面で登録してください。
+            <Link href="/manufacturing" className={styles.inlineLink}>
+              計量登録へ
+            </Link>
+          </div>
+        )}
 
         {selectedSchedule && selectedScheduleOrderProcesses.length === 0 && (
           <div className={styles.notice}>

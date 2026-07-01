@@ -85,6 +85,13 @@
   padding: 10px 12px;
 }
 
+.inlineLink {
+  color: #1d4ed8;
+  font-weight: 900;
+  margin-left: 10px;
+  text-decoration: underline;
+}
+
 .summaryCard {
   display: grid;
   grid-template-columns: repeat(4, minmax(120px, 1fr));
