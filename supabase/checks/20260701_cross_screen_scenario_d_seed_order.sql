@@ -37,10 +37,14 @@ declare
   target_order_no text := 'ZJ-TEST-004';
   target_lot_no text := 'LOT-ZJ004-SHIP';
   source_post record;
+  existing_post record;
   existing_post_id uuid;
   target_post_id uuid;
   target_process_id uuid;
   target_inventory_id uuid;
+  existing_completed_amount integer := 0;
+  existing_remaining_amount integer := 0;
+  existing_available_stock integer := 0;
 begin
   select *
     into source_post
@@ -72,6 +76,72 @@ begin
    limit 1;
 
   if existing_post_id is not null then
+    select *
+      into existing_post
+      from posts
+     where id = existing_post_id;
+
+    select coalesce(op.completed_amount, 0)
+      into existing_completed_amount
+      from order_processes op
+     where op.post_id = existing_post_id
+     order by op.process_order desc
+     limit 1;
+
+    existing_completed_amount := coalesce(existing_completed_amount, 0);
+    existing_remaining_amount := greatest(
+      coalesce(existing_post.order_amount, 0) - existing_completed_amount,
+      0
+    );
+
+    select coalesce(
+      sum(greatest(ii.current_stock - coalesce(ii.allocated_stock, 0), 0)),
+      0
+    )::integer
+      into existing_available_stock
+      from inventory_items ii
+     where ii.product_code = existing_post.product_code;
+
+    if existing_remaining_amount > 0
+       and existing_available_stock < existing_remaining_amount then
+      select id
+        into target_inventory_id
+        from inventory_items
+       where product_code = existing_post.product_code
+         and lot_no = target_lot_no
+       order by updated_at desc
+       limit 1;
+
+      if target_inventory_id is null then
+        insert into inventory_items (
+          product_code,
+          product_name,
+          product_id,
+          lot_no,
+          current_stock,
+          allocated_stock,
+          updated_at
+        ) values (
+          existing_post.product_code,
+          existing_post.product_name,
+          existing_post.product_id,
+          target_lot_no,
+          existing_remaining_amount,
+          0,
+          now()
+        )
+        returning id into target_inventory_id;
+      else
+        update inventory_items
+           set current_stock = greatest(
+                 current_stock,
+                 coalesce(allocated_stock, 0) + existing_remaining_amount
+               ),
+               updated_at = now()
+         where id = target_inventory_id;
+      end if;
+    end if;
+
     insert into scenario_d_seed_result (
       result,
       order_no,
@@ -86,33 +156,31 @@ begin
       message
     )
     select
-      'SKIPPED',
+      case
+        when existing_remaining_amount > 0
+         and existing_available_stock < existing_remaining_amount
+        then 'UPDATED'
+        else 'SKIPPED'
+      end,
       p.order_no,
       p.product_code,
       p.product_name,
       p.customer_name,
       target_lot_no,
       p.order_amount,
-      coalesce((
-        select op.completed_amount
-          from order_processes op
-         where op.post_id = p.id
-         order by op.process_order desc
-         limit 1
-      ), 0),
-      greatest(p.order_amount - coalesce((
-        select op.completed_amount
-          from order_processes op
-         where op.post_id = p.id
-         order by op.process_order desc
-         limit 1
-      ), 0), 0),
+      existing_completed_amount,
+      existing_remaining_amount,
       coalesce((
         select sum(greatest(ii.current_stock - coalesce(ii.allocated_stock, 0), 0))::integer
           from inventory_items ii
-         where ii.product_code = p.product_code
+        where ii.product_code = p.product_code
       ), 0),
-      'ZJ-TEST-004 already exists. Use it for scenario D, or delete it manually if a reset is required.'
+      case
+        when existing_remaining_amount > 0
+         and existing_available_stock < existing_remaining_amount
+        then 'ZJ-TEST-004 already existed, so inventory was topped up for scenario D.'
+        else 'ZJ-TEST-004 already exists. Use it for scenario D.'
+      end
     from posts p
     where p.id = existing_post_id;
     return;
