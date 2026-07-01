@@ -55,6 +55,7 @@
 3. 計量登録で計量実績を登録する
 4. 計量表出力に、登録した計量実績が表示されることを確認する
 5. 進捗管理で各工程の完了数量と状態表示を確認する
+6. `supabase/checks/20260701_cross_screen_scenario_b_results_measurement_check.sql` の `target_order_no` を対象注番に変更して実行する
 
 期待結果:
 
@@ -63,6 +64,7 @@
 - `order_processes.completed_amount` が実績合計と一致する
 - 計量登録だけでは `inventory_items.current_stock` は増えない
 - 計量表出力は `production_results` の計量実績を表示する
+- シナリオB確認SQLの全行が `PASSED`
 
 ## シナリオC: 梱包から在庫マスタ
 

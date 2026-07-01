@@ -180,6 +180,8 @@ RLS状態:
 - 在庫マスタ、出荷登録
 - 削除時の関連データ整理
 
+シナリオBのDB確認SQLとして `supabase/checks/20260701_cross_screen_scenario_b_results_measurement_check.sql` を追加。
+
 ## 判定
 
 主目的である「梱包完了後に在庫へ入れる」仕様は、DBスモークテストと実画面確認の両方で確認済み。
