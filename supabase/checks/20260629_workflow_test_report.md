@@ -169,6 +169,7 @@ RLS状態:
 画面横断の手動確認用に `supabase/checks/20260701_cross_screen_manual_test_scenarios.md` を追加。
 事前確認SQLとして `supabase/checks/20260701_cross_screen_readiness_checks.sql` を追加。
 シナリオAのDB確認SQLとして `supabase/checks/20260701_cross_screen_scenario_a_order_creation_check.sql` を追加。
+シナリオAの失敗時詳細確認SQLとして `supabase/checks/20260701_cross_screen_scenario_a_order_creation_detail.sql` を追加。
 
 確認対象:
 

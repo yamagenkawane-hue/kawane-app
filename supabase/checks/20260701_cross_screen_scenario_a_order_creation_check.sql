@@ -19,6 +19,7 @@ with params as (
     count(distinct op.process_order)::integer as distinct_process_order_count,
     min(op.process_order)::integer as min_process_order,
     max(op.process_order)::integer as max_process_order,
+    string_agg(op.process_name || ':' || op.process_order::text, ' > ' order by op.process_order) as process_orders,
     count(*) filter (where op.product_id = tp.product_id)::integer as matching_product_id_count,
     count(*) filter (where op.customer_id = tp.customer_id)::integer as matching_customer_id_count,
     count(*) filter (where op.product_process_id is not null)::integer as linked_product_process_count
@@ -26,13 +27,21 @@ with params as (
   join target_post tp on tp.id = op.post_id
   group by op.post_id
 ), expected_master_count as (
-  select count(*)::integer as process_count
-  from target_post tp
-  join product_processes pp
-    on (
-      (tp.product_id is not null and pp.product_id = tp.product_id)
-      or pp.product_code = tp.product_code
-    )
+  select
+    count(*)::integer as process_count,
+    string_agg(process_name || ':' || process_order::text, ' > ' order by process_order) as process_orders
+  from (
+    select distinct on (pp.process_order)
+      pp.process_name,
+      pp.process_order
+    from target_post tp
+    join product_processes pp
+      on (
+        (tp.product_id is not null and pp.product_id = tp.product_id)
+        or pp.product_code = tp.product_code
+      )
+    order by pp.process_order, pp.updated_at desc nulls last, pp.created_at desc nulls last
+  ) master_processes
 )
 select
   'post_exists' as check_name,
@@ -69,7 +78,10 @@ select
     else 'FAILED'
   end as result,
   coalesce(ps.process_count, 0) as actual_count,
-  '製品工程マスタ件数と同じ受注別工程が作成されていること' as message
+  '製品工程マスタ件数と同じ受注別工程が作成されていること / expected='
+    || coalesce(emc.process_count::text, '0')
+    || ' master=[' || coalesce(emc.process_orders, '') || ']'
+    || ' actual=[' || coalesce(ps.process_orders, '') || ']' as message
 from expected_master_count emc
 left join process_summary ps on true
 union all
@@ -84,7 +96,9 @@ select
     else 'FAILED'
   end as result,
   coalesce(ps.process_count, 0) as actual_count,
-  '工程順が1から連番で重複していないこと' as message
+  '工程順が1から連番で重複していないこと / actual=['
+    || coalesce(ps.process_orders, '')
+    || ']' as message
 from process_summary ps
 union all
 select

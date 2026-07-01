@@ -28,6 +28,7 @@
 3. 注残管理に同じ注番、製品、得意先、受注数、納期で表示されることを確認する
 4. 受注別工程管理で対象受注を選択し、工程一覧が製品工程マスタから作成されていることを確認する
 5. `supabase/checks/20260701_cross_screen_scenario_a_order_creation_check.sql` の `target_order_no` を登録した注番に変更して実行する
+6. `FAILED` がある場合は、`supabase/checks/20260701_cross_screen_scenario_a_order_creation_detail.sql` の `target_order_no` も登録した注番に変更して、製品工程マスタと受注別工程の差分を確認する
 
 期待結果:
 
