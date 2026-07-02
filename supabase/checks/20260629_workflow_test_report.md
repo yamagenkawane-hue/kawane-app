@@ -136,7 +136,7 @@ RLS状態:
 - `inspection_completed_status`: `PASSED`
 - `measurement_in_progress_status`: `PASSED`
 
-## 次に確認する項目
+## 追加確認済み項目
 
 ### 製品工程マスタから受注別工程への反映
 
