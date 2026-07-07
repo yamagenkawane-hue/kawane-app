@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  type RefObject,
+  type UIEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import supabase from "@/lib/supabase";
 import { OrderProcess, ProductProcess } from "@/app/type";
@@ -96,6 +103,8 @@ export default function OutsourcingPage() {
   const [savingId, setSavingId] = useState("");
   const [loading, setLoading] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
 
   const fetchData = async () => {
     try {
@@ -235,6 +244,19 @@ export default function OutsourcingPage() {
     }
   };
 
+  const syncScroll = (
+    source: UIEvent<HTMLDivElement>,
+    targetRef: RefObject<HTMLDivElement | null>,
+  ) => {
+    const target = targetRef.current;
+    if (!target) return;
+
+    const nextLeft = source.currentTarget.scrollLeft;
+    if (target.scrollLeft !== nextLeft) {
+      target.scrollLeft = nextLeft;
+    }
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
@@ -278,7 +300,19 @@ export default function OutsourcingPage() {
 
       {loading && <div className={styles.loading}>読み込み中...</div>}
 
-      <div className={`${styles.tableCard} ${outsourcingStyles.tableCard}`}>
+      <div
+        ref={topScrollRef}
+        className={outsourcingStyles.topScroll}
+        onScroll={(event) => syncScroll(event, tableScrollRef)}
+      >
+        <div className={outsourcingStyles.scrollSpacer} />
+      </div>
+
+      <div
+        ref={tableScrollRef}
+        className={`${styles.tableCard} ${outsourcingStyles.tableCard}`}
+        onScroll={(event) => syncScroll(event, topScrollRef)}
+      >
         <table className={`${styles.table} ${outsourcingStyles.outsourceTable}`}>
           <thead>
             <tr>
