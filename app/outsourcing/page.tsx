@@ -313,17 +313,15 @@ export default function OutsourcingPage() {
                   </td>
                   <td>{row.subcontractorName || "-"}</td>
                   <td className={outsourcingStyles.quantityCell}>
-                    <div>
+                    <div className={outsourcingStyles.quantityGroup}>
                       <span>予定</span>
-                      <strong>{row.plannedAmount}</strong>
-                    </div>
-                    <div>
                       <span>完了</span>
+                      <span className={outsourcingStyles.remainingLabel}>残</span>
+                      <strong>{row.plannedAmount}</strong>
                       <strong>{row.completedAmount}</strong>
-                    </div>
-                    <div>
-                      <span>残</span>
-                      <strong>{row.remainingAmount}</strong>
+                      <strong className={outsourcingStyles.remainingAmount}>
+                        {row.remainingAmount}
+                      </strong>
                     </div>
                   </td>
                   <td className={outsourcingStyles.statusCell}>

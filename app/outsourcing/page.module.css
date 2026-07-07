@@ -17,18 +17,21 @@
 }
 
 .quantityHeader {
-  min-width: 116px;
+  min-width: 190px;
 }
 
 .quantityCell {
-  min-width: 116px;
+  min-width: 190px;
 }
 
-.quantityCell div {
-  align-items: baseline;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
+.quantityGroup {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(44px, 1fr));
+  overflow: hidden;
+  text-align: center;
 }
 
 .quantityCell span,
@@ -39,9 +42,26 @@
   white-space: nowrap;
 }
 
+.quantityGroup span {
+  background: #eef2f7;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 5px 6px;
+}
+
 .quantityCell strong {
   color: #111827;
-  font-size: 13px;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  padding: 8px 6px;
+}
+
+.remainingLabel {
+  color: #b45309;
+}
+
+.remainingAmount {
+  background: #fffbeb;
+  color: #92400e;
 }
 
 .statusHeader {
