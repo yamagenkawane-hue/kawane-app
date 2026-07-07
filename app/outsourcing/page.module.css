@@ -3,7 +3,7 @@
 }
 
 .outsourceTable {
-  min-width: 1680px;
+  min-width: 1180px;
 }
 
 .outsourceTable th,
@@ -12,67 +12,106 @@
 }
 
 .productCell {
-  min-width: 240px;
+  min-width: 210px;
   white-space: normal;
 }
 
-.statusHeader {
-  min-width: 150px;
+.quantityHeader {
+  min-width: 116px;
 }
 
-.statusCell {
-  min-width: 150px;
+.quantityCell {
+  min-width: 116px;
 }
 
-.statusPill {
-  align-items: center;
-  border-radius: 999px;
-  display: inline-flex;
+.quantityCell div {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.quantityCell span,
+.scheduleCell span {
+  color: #64748b;
   font-size: 12px;
-  font-weight: 900;
-  justify-content: center;
-  margin-bottom: 8px;
-  min-width: 78px;
-  padding: 6px 10px;
+  font-weight: 800;
   white-space: nowrap;
 }
 
-.statusNotSent {
-  background: #f1f5f9;
-  color: #475569;
+.quantityCell strong {
+  color: #111827;
+  font-size: 13px;
 }
 
-.statusSent {
-  background: #dbeafe;
-  color: #1d4ed8;
+.statusHeader {
+  min-width: 120px;
 }
 
-.statusReturned {
-  background: #dcfce7;
-  color: #166534;
+.statusCell {
+  min-width: 120px;
 }
 
-.statusHold {
-  background: #fef3c7;
-  color: #92400e;
+.statusCell select[value="not_sent"] {
+  background: #f8fafc;
+}
+
+.statusCell select[value="sent"] {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.statusCell select[value="returned"] {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.statusCell select[value="hold"] {
+  background: #fffbeb;
+  border-color: #fcd34d;
 }
 
 .statusSelect {
-  min-width: 132px;
+  min-width: 104px;
+}
+
+.scheduleHeader {
+  min-width: 188px;
+}
+
+.scheduleCell {
+  min-width: 188px;
+}
+
+.scheduleCell label {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 38px minmax(0, 1fr);
+  margin-bottom: 6px;
+}
+
+.scheduleCell label:last-child {
+  margin-bottom: 0;
+}
+
+.scheduleCell input {
+  min-width: 0;
+  padding: 8px 10px;
 }
 
 .noteHeader {
-  min-width: 320px;
+  min-width: 260px;
 }
 
 .noteCell {
-  min-width: 320px;
+  min-width: 260px;
 }
 
 .noteInput {
   line-height: 1.45;
   min-height: 76px;
-  min-width: 300px;
+  min-width: 240px;
   resize: vertical;
   white-space: pre-wrap;
 }

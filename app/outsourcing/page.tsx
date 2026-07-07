@@ -23,23 +23,6 @@ const outsourceStatusOptions = [
   { value: "hold", label: "保留" },
 ];
 
-const getOutsourceStatusLabel = (status: string) =>
-  outsourceStatusOptions.find((option) => option.value === status)?.label ||
-  "未出し";
-
-const getOutsourceStatusClassName = (status: string) => {
-  const statusClassMap: Record<string, string> = {
-    not_sent: outsourcingStyles.statusNotSent,
-    sent: outsourcingStyles.statusSent,
-    returned: outsourcingStyles.statusReturned,
-    hold: outsourcingStyles.statusHold,
-  };
-
-  return `${outsourcingStyles.statusPill} ${
-    statusClassMap[status] || outsourcingStyles.statusNotSent
-  }`;
-};
-
 const mapOrderProcess = (row: Record<string, unknown>): OutsourceRow => {
   const plannedAmount = Number(row.planned_amount || 0);
   const completedAmount = Number(row.completed_amount || 0);
@@ -305,13 +288,9 @@ export default function OutsourcingPage() {
               <th>製品</th>
               <th>工程</th>
               <th>外注先</th>
-              <th>予定数</th>
-              <th>完了数</th>
-              <th>残数</th>
+              <th className={outsourcingStyles.quantityHeader}>数量</th>
               <th className={outsourcingStyles.statusHeader}>状態</th>
-              <th>外注出し日</th>
-              <th>戻り予定日</th>
-              <th>戻り実績日</th>
+              <th className={outsourcingStyles.scheduleHeader}>外注日程</th>
               <th>完了日</th>
               <th className={outsourcingStyles.noteHeader}>メモ</th>
               <th>操作</th>
@@ -333,13 +312,21 @@ export default function OutsourcingPage() {
                     {row.processOrder}. {row.processName}
                   </td>
                   <td>{row.subcontractorName || "-"}</td>
-                  <td>{row.plannedAmount}</td>
-                  <td>{row.completedAmount}</td>
-                  <td>{row.remainingAmount}</td>
+                  <td className={outsourcingStyles.quantityCell}>
+                    <div>
+                      <span>予定</span>
+                      <strong>{row.plannedAmount}</strong>
+                    </div>
+                    <div>
+                      <span>完了</span>
+                      <strong>{row.completedAmount}</strong>
+                    </div>
+                    <div>
+                      <span>残</span>
+                      <strong>{row.remainingAmount}</strong>
+                    </div>
+                  </td>
                   <td className={outsourcingStyles.statusCell}>
-                    <span className={getOutsourceStatusClassName(outsourceStatus)}>
-                      {getOutsourceStatusLabel(outsourceStatus)}
-                    </span>
                     <select
                       className={`${styles.tableInput} ${outsourcingStyles.statusSelect}`}
                       value={outsourceStatus}
@@ -354,39 +341,44 @@ export default function OutsourcingPage() {
                       ))}
                     </select>
                   </td>
-                  <td>
-                    <input
-                      className={styles.tableInput}
-                      type="date"
-                      value={row.outsourceSentDate || ""}
-                      onChange={(e) =>
-                        updateRow(row.id, "outsourceSentDate", e.target.value)
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className={styles.tableInput}
-                      type="date"
-                      value={row.outsourceExpectedReturnDate || ""}
-                      onChange={(e) =>
-                        updateRow(
-                          row.id,
-                          "outsourceExpectedReturnDate",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className={styles.tableInput}
-                      type="date"
-                      value={row.outsourceReturnedDate || ""}
-                      onChange={(e) =>
-                        updateRow(row.id, "outsourceReturnedDate", e.target.value)
-                      }
-                    />
+                  <td className={outsourcingStyles.scheduleCell}>
+                    <label>
+                      <span>出し</span>
+                      <input
+                        className={styles.tableInput}
+                        type="date"
+                        value={row.outsourceSentDate || ""}
+                        onChange={(e) =>
+                          updateRow(row.id, "outsourceSentDate", e.target.value)
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>予定</span>
+                      <input
+                        className={styles.tableInput}
+                        type="date"
+                        value={row.outsourceExpectedReturnDate || ""}
+                        onChange={(e) =>
+                          updateRow(
+                            row.id,
+                            "outsourceExpectedReturnDate",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>実績</span>
+                      <input
+                        className={styles.tableInput}
+                        type="date"
+                        value={row.outsourceReturnedDate || ""}
+                        onChange={(e) =>
+                          updateRow(row.id, "outsourceReturnedDate", e.target.value)
+                        }
+                      />
+                    </label>
                   </td>
                   <td>{row.completedDate || "-"}</td>
                   <td className={outsourcingStyles.noteCell}>
@@ -420,7 +412,7 @@ export default function OutsourcingPage() {
             })}
             {visibleRows.length === 0 && (
               <tr>
-                <td colSpan={16}>外注工程はありません</td>
+                <td colSpan={11}>外注工程はありません</td>
               </tr>
             )}
           </tbody>
