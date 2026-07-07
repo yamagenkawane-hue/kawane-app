@@ -1,5 +1,20 @@
 .tableCard {
+  cursor: grab;
   padding: 18px;
+  user-select: none;
+}
+
+.draggingTable {
+  cursor: grabbing;
+}
+
+.tableCard input,
+.tableCard select,
+.tableCard textarea,
+.tableCard button,
+.tableCard a {
+  cursor: auto;
+  user-select: auto;
 }
 
 .topScroll {

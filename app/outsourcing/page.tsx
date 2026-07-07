@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type MouseEvent,
   type RefObject,
   type UIEvent,
   useEffect,
@@ -103,8 +104,11 @@ export default function OutsourcingPage() {
   const [savingId, setSavingId] = useState("");
   const [loading, setLoading] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [isDraggingTable, setIsDraggingTable] = useState(false);
   const topScrollRef = useRef<HTMLDivElement>(null);
   const tableScrollRef = useRef<HTMLDivElement>(null);
+  const dragStartXRef = useRef(0);
+  const dragStartScrollLeftRef = useRef(0);
 
   const fetchData = async () => {
     try {
@@ -257,6 +261,44 @@ export default function OutsourcingPage() {
     }
   };
 
+  const syncTopScrollLeft = (nextLeft: number) => {
+    if (
+      topScrollRef.current &&
+      topScrollRef.current.scrollLeft !== nextLeft
+    ) {
+      topScrollRef.current.scrollLeft = nextLeft;
+    }
+  };
+
+  const startTableDrag = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target;
+
+    if (
+      target instanceof Element &&
+      target.closest("input, textarea, select, button, a")
+    ) {
+      return;
+    }
+
+    dragStartXRef.current = event.clientX;
+    dragStartScrollLeftRef.current = event.currentTarget.scrollLeft;
+    setIsDraggingTable(true);
+    event.preventDefault();
+  };
+
+  const moveTableDrag = (event: MouseEvent<HTMLDivElement>) => {
+    if (!isDraggingTable) return;
+
+    const dragDistance = event.clientX - dragStartXRef.current;
+    const nextLeft = dragStartScrollLeftRef.current - dragDistance;
+    event.currentTarget.scrollLeft = nextLeft;
+    syncTopScrollLeft(event.currentTarget.scrollLeft);
+  };
+
+  const stopTableDrag = () => {
+    setIsDraggingTable(false);
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
@@ -310,8 +352,14 @@ export default function OutsourcingPage() {
 
       <div
         ref={tableScrollRef}
-        className={`${styles.tableCard} ${outsourcingStyles.tableCard}`}
+        className={`${styles.tableCard} ${outsourcingStyles.tableCard} ${
+          isDraggingTable ? outsourcingStyles.draggingTable : ""
+        }`}
         onScroll={(event) => syncScroll(event, topScrollRef)}
+        onMouseDown={startTableDrag}
+        onMouseLeave={stopTableDrag}
+        onMouseMove={moveTableDrag}
+        onMouseUp={stopTableDrag}
       >
         <table className={`${styles.table} ${outsourcingStyles.outsourceTable}`}>
           <thead>
