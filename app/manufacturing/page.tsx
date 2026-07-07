@@ -362,7 +362,6 @@ export default function ManufacturingPage() {
             {schedules.map((schedule) => (
               <option key={schedule.id} value={schedule.id}>
                 {schedule.orderNo} / {schedule.productName} / {schedule.productCode} / 残{schedule.availableAmount}
-                {schedule.generatedProcess ? " / 計量工程を自動作成" : ""}
               </option>
             ))}
           </select>
