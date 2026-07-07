@@ -5,6 +5,7 @@ import Link from "next/link";
 import supabase from "@/lib/supabase";
 import { OrderProcess, ProductProcess } from "@/app/type";
 import styles from "../masterCommon.module.css";
+import outsourcingStyles from "./page.module.css";
 
 type OutsourceRow = OrderProcess & {
   deliveryDate: string;
@@ -21,6 +22,23 @@ const outsourceStatusOptions = [
   { value: "returned", label: "戻り済み" },
   { value: "hold", label: "保留" },
 ];
+
+const getOutsourceStatusLabel = (status: string) =>
+  outsourceStatusOptions.find((option) => option.value === status)?.label ||
+  "未出し";
+
+const getOutsourceStatusClassName = (status: string) => {
+  const statusClassMap: Record<string, string> = {
+    not_sent: outsourcingStyles.statusNotSent,
+    sent: outsourcingStyles.statusSent,
+    returned: outsourcingStyles.statusReturned,
+    hold: outsourcingStyles.statusHold,
+  };
+
+  return `${outsourcingStyles.statusPill} ${
+    statusClassMap[status] || outsourcingStyles.statusNotSent
+  }`;
+};
 
 const mapOrderProcess = (row: Record<string, unknown>): OutsourceRow => {
   const plannedAmount = Number(row.planned_amount || 0);
@@ -277,8 +295,8 @@ export default function OutsourcingPage() {
 
       {loading && <div className={styles.loading}>読み込み中...</div>}
 
-      <div className={styles.tableCard}>
-        <table className={styles.table}>
+      <div className={`${styles.tableCard} ${outsourcingStyles.tableCard}`}>
+        <table className={`${styles.table} ${outsourcingStyles.outsourceTable}`}>
           <thead>
             <tr>
               <th>納期</th>
@@ -290,108 +308,116 @@ export default function OutsourcingPage() {
               <th>予定数</th>
               <th>完了数</th>
               <th>残数</th>
-              <th>状態</th>
+              <th className={outsourcingStyles.statusHeader}>状態</th>
               <th>外注出し日</th>
               <th>戻り予定日</th>
               <th>戻り実績日</th>
               <th>完了日</th>
-              <th>メモ</th>
+              <th className={outsourcingStyles.noteHeader}>メモ</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map((row) => (
-              <tr key={row.id}>
-                <td>{row.deliveryDate || "-"}</td>
-                <td>{row.orderNo}</td>
-                <td>{row.customerName}</td>
-                <td>
-                  {row.productCode} / {row.productName}
-                </td>
-                <td>
-                  {row.processOrder}. {row.processName}
-                </td>
-                <td>{row.subcontractorName || "-"}</td>
-                <td>{row.plannedAmount}</td>
-                <td>{row.completedAmount}</td>
-                <td>{row.remainingAmount}</td>
-                <td>
-                  <select
-                    className={styles.tableInput}
-                    value={row.outsourceStatus || "not_sent"}
-                    onChange={(e) =>
-                      updateRow(row.id, "outsourceStatus", e.target.value)
-                    }
-                  >
-                    {outsourceStatusOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <input
-                    className={styles.tableInput}
-                    type="date"
-                    value={row.outsourceSentDate || ""}
-                    onChange={(e) =>
-                      updateRow(row.id, "outsourceSentDate", e.target.value)
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    className={styles.tableInput}
-                    type="date"
-                    value={row.outsourceExpectedReturnDate || ""}
-                    onChange={(e) =>
-                      updateRow(
-                        row.id,
-                        "outsourceExpectedReturnDate",
-                        e.target.value,
-                      )
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    className={styles.tableInput}
-                    type="date"
-                    value={row.outsourceReturnedDate || ""}
-                    onChange={(e) =>
-                      updateRow(row.id, "outsourceReturnedDate", e.target.value)
-                    }
-                  />
-                </td>
-                <td>{row.completedDate || "-"}</td>
-                <td>
-                  <input
-                    className={styles.tableInput}
-                    value={row.outsourceNote || ""}
-                    onChange={(e) =>
-                      updateRow(row.id, "outsourceNote", e.target.value)
-                    }
-                  />
-                </td>
-                <td className={styles.actionArea}>
-                  <button
-                    className={styles.saveButton}
-                    type="button"
-                    disabled={savingId === row.id}
-                    onClick={() => saveRow(row)}
-                  >
-                    {savingId === row.id ? "保存中" : "保存"}
-                  </button>
-                  <Link className={styles.backButton} href="/productionResults">
-                    実績
-                  </Link>
-                  <Link className={styles.backButton} href="/orderProcesses">
-                    編集
-                  </Link>
-                </td>
-              </tr>
-            ))}
+            {visibleRows.map((row) => {
+              const outsourceStatus = row.outsourceStatus || "not_sent";
+
+              return (
+                <tr key={row.id}>
+                  <td>{row.deliveryDate || "-"}</td>
+                  <td>{row.orderNo}</td>
+                  <td>{row.customerName}</td>
+                  <td className={outsourcingStyles.productCell}>
+                    {row.productCode} / {row.productName}
+                  </td>
+                  <td>
+                    {row.processOrder}. {row.processName}
+                  </td>
+                  <td>{row.subcontractorName || "-"}</td>
+                  <td>{row.plannedAmount}</td>
+                  <td>{row.completedAmount}</td>
+                  <td>{row.remainingAmount}</td>
+                  <td className={outsourcingStyles.statusCell}>
+                    <span className={getOutsourceStatusClassName(outsourceStatus)}>
+                      {getOutsourceStatusLabel(outsourceStatus)}
+                    </span>
+                    <select
+                      className={`${styles.tableInput} ${outsourcingStyles.statusSelect}`}
+                      value={outsourceStatus}
+                      onChange={(e) =>
+                        updateRow(row.id, "outsourceStatus", e.target.value)
+                      }
+                    >
+                      {outsourceStatusOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      className={styles.tableInput}
+                      type="date"
+                      value={row.outsourceSentDate || ""}
+                      onChange={(e) =>
+                        updateRow(row.id, "outsourceSentDate", e.target.value)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className={styles.tableInput}
+                      type="date"
+                      value={row.outsourceExpectedReturnDate || ""}
+                      onChange={(e) =>
+                        updateRow(
+                          row.id,
+                          "outsourceExpectedReturnDate",
+                          e.target.value,
+                        )
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className={styles.tableInput}
+                      type="date"
+                      value={row.outsourceReturnedDate || ""}
+                      onChange={(e) =>
+                        updateRow(row.id, "outsourceReturnedDate", e.target.value)
+                      }
+                    />
+                  </td>
+                  <td>{row.completedDate || "-"}</td>
+                  <td className={outsourcingStyles.noteCell}>
+                    <textarea
+                      className={`${styles.tableInput} ${outsourcingStyles.noteInput}`}
+                      rows={3}
+                      value={row.outsourceNote || ""}
+                      onChange={(e) =>
+                        updateRow(row.id, "outsourceNote", e.target.value)
+                      }
+                    />
+                  </td>
+                  <td className={styles.actionArea}>
+                    <button
+                      className={styles.saveButton}
+                      type="button"
+                      disabled={savingId === row.id}
+                      onClick={() => saveRow(row)}
+                    >
+                      {savingId === row.id ? "保存中" : "保存"}
+                    </button>
+                    <Link className={styles.backButton} href="/productionResults">
+                      実績
+                    </Link>
+                    <Link className={styles.backButton} href="/orderProcesses">
+                      編集
+                    </Link>
+                  </td>
+                </tr>
+              );
+            })}
             {visibleRows.length === 0 && (
               <tr>
                 <td colSpan={16}>外注工程はありません</td>

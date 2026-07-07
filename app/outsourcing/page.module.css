@@ -1,0 +1,78 @@
+.tableCard {
+  padding: 18px;
+}
+
+.outsourceTable {
+  min-width: 1680px;
+}
+
+.outsourceTable th,
+.outsourceTable td {
+  vertical-align: top;
+}
+
+.productCell {
+  min-width: 240px;
+  white-space: normal;
+}
+
+.statusHeader {
+  min-width: 150px;
+}
+
+.statusCell {
+  min-width: 150px;
+}
+
+.statusPill {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  justify-content: center;
+  margin-bottom: 8px;
+  min-width: 78px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.statusNotSent {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.statusSent {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.statusReturned {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.statusHold {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.statusSelect {
+  min-width: 132px;
+}
+
+.noteHeader {
+  min-width: 320px;
+}
+
+.noteCell {
+  min-width: 320px;
+}
+
+.noteInput {
+  line-height: 1.45;
+  min-height: 76px;
+  min-width: 300px;
+  resize: vertical;
+  white-space: pre-wrap;
+}
