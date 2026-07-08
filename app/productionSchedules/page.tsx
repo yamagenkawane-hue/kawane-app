@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { type MouseEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
@@ -111,6 +111,44 @@ export default function ProductionSchedulesPage() {
   const [loading, setLoading] = useState(false);
   const [numpadTarget, setNumpadTarget] = useState<NumpadTarget | null>(null);
   const [editingRow, setEditingRow] = useState<EditingRow>(null);
+  const [isDraggingTable, setIsDraggingTable] = useState(false);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const dragStartXRef = useRef(0);
+  const dragStartScrollLeftRef = useRef(0);
+
+  const startTableDrag = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+
+    if (target.closest("a, button, input, select, textarea")) {
+      return;
+    }
+
+    const scrollElement = tableScrollRef.current;
+
+    if (!scrollElement) {
+      return;
+    }
+
+    setIsDraggingTable(true);
+    dragStartXRef.current = event.clientX;
+    dragStartScrollLeftRef.current = scrollElement.scrollLeft;
+  };
+
+  const moveTableDrag = (event: MouseEvent<HTMLDivElement>) => {
+    const scrollElement = tableScrollRef.current;
+
+    if (!isDraggingTable || !scrollElement) {
+      return;
+    }
+
+    event.preventDefault();
+    scrollElement.scrollLeft =
+      dragStartScrollLeftRef.current - (event.clientX - dragStartXRef.current);
+  };
+
+  const stopTableDrag = () => {
+    setIsDraggingTable(false);
+  };
 
   const isEditing = (kind: "post" | "schedule", id: string) =>
     editingRow?.kind === kind && editingRow.id === id;
@@ -468,7 +506,16 @@ export default function ProductionSchedulesPage() {
 
       {loading && <div className={styles.loading}>読み込み中...</div>}
 
-      <div className={styles.tableCard}>
+      <div
+        ref={tableScrollRef}
+        className={`${styles.tableCard} ${
+          isDraggingTable ? styles.draggingTable : ""
+        }`}
+        onMouseDown={startTableDrag}
+        onMouseLeave={stopTableDrag}
+        onMouseMove={moveTableDrag}
+        onMouseUp={stopTableDrag}
+      >
         <table className={styles.table}>
           <thead>
             <tr>

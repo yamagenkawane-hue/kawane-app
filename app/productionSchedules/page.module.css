@@ -163,6 +163,21 @@
 
 .tableCard {
   overflow-x: auto;
+  cursor: grab;
+  user-select: none;
+}
+
+.draggingTable {
+  cursor: grabbing;
+}
+
+.tableCard a,
+.tableCard button,
+.tableCard input,
+.tableCard select,
+.tableCard textarea {
+  cursor: auto;
+  user-select: auto;
 }
 
 .table {
