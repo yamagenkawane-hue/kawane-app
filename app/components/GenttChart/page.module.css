@@ -3,11 +3,19 @@
 
   overflow-x: auto;
 
+  cursor: grab;
+
+  user-select: none;
+
   border: 1px solid #d1d5db;
 
   border-radius: 12px;
 
   background: white;
+}
+
+.dragging {
+  cursor: grabbing;
 }
 
 /* =========================

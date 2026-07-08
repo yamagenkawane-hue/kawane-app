@@ -1,11 +1,16 @@
 "use client";
 
+import { type MouseEvent, useRef, useState } from "react";
 import styles from "./page.module.css";
 import { Props } from "@/app/type";
 
 const DAY_WIDTH = 40;
 
 export default function GanttChart({ processes, deliveryDate }: Props) {
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartXRef = useRef(0);
+  const dragStartScrollLeftRef = useRef(0);
+
   if (processes.length === 0) {
     return <div className={styles.empty}>データがありません</div>;
   }
@@ -63,8 +68,42 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
     (safeDelivery.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24),
   );
 
+  const startDrag = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target;
+
+    if (
+      target instanceof Element &&
+      target.closest("input, textarea, select, button, a")
+    ) {
+      return;
+    }
+
+    dragStartXRef.current = event.clientX;
+    dragStartScrollLeftRef.current = event.currentTarget.scrollLeft;
+    setIsDragging(true);
+    event.preventDefault();
+  };
+
+  const moveDrag = (event: MouseEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+
+    const dragDistance = event.clientX - dragStartXRef.current;
+    event.currentTarget.scrollLeft =
+      dragStartScrollLeftRef.current - dragDistance;
+  };
+
+  const stopDrag = () => {
+    setIsDragging(false);
+  };
+
   return (
-    <div className={styles.wrapper}>
+    <div
+      className={`${styles.wrapper} ${isDragging ? styles.dragging : ""}`}
+      onMouseDown={startDrag}
+      onMouseLeave={stopDrag}
+      onMouseMove={moveDrag}
+      onMouseUp={stopDrag}
+    >
       {/* ヘッダー */}
       <div className={styles.headerRow}>
         <div className={styles.processHeader}>工程</div>
