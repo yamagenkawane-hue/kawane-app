@@ -248,8 +248,8 @@ export default function OutsourcingPage() {
     }
   };
 
-  const clearOutsourceRow = async (row: OutsourceRow) => {
-    if (!confirm("この外注情報を削除しますか？工程自体は削除されません。")) {
+  const deleteOutsourceRow = async (row: OutsourceRow) => {
+    if (!confirm("この外注工程を削除しますか？")) {
       return;
     }
 
@@ -258,21 +258,14 @@ export default function OutsourcingPage() {
 
       const { error } = await supabase
         .from("order_processes")
-        .update({
-          outsource_sent_date: null,
-          outsource_expected_return_date: null,
-          outsource_returned_date: null,
-          outsource_status: "not_sent",
-          outsource_note: null,
-          updated_at: new Date().toISOString(),
-        })
+        .delete()
         .eq("id", row.id);
 
       if (error) throw error;
       await fetchData();
     } catch (error) {
       console.error(error);
-      alert("外注情報の削除に失敗しました");
+      alert("外注工程の削除に失敗しました");
     } finally {
       setSavingId("");
     }
@@ -514,7 +507,7 @@ export default function OutsourcingPage() {
                       className={styles.deleteButton}
                       type="button"
                       disabled={savingId === row.id}
-                      onClick={() => clearOutsourceRow(row)}
+                      onClick={() => deleteOutsourceRow(row)}
                     >
                       削除
                     </button>
