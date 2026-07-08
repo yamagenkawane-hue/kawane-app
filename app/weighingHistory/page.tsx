@@ -45,10 +45,9 @@ const formatDateTime = (value: string) => {
   return date.toLocaleString("ja-JP");
 };
 
-export default function WeighingReportPage() {
+export default function WeighingHistoryPage() {
   const [items, setItems] = useState<WeighingResultItem[]>([]);
   const [keyword, setKeyword] = useState("");
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
     const loadItems = async () => {
@@ -63,12 +62,12 @@ export default function WeighingReportPage() {
       ]);
 
       if (resultResponse.error) {
-        alert("計量実績データの取得に失敗しました");
+        alert("計量履歴データの取得に失敗しました");
         return;
       }
 
       if (postResponse.error) {
-        alert("受注データの取得に失敗しました");
+        alert("注残データの取得に失敗しました");
         return;
       }
 
@@ -120,118 +119,18 @@ export default function WeighingReportPage() {
     );
   }, [items, keyword]);
 
-  const visibleItemIds = useMemo(
-    () => visibleItems.map((item) => item.id),
-    [visibleItems],
-  );
-
-  const selectedItems = useMemo(
-    () => visibleItems.filter((item) => selectedIds.includes(item.id)),
-    [selectedIds, visibleItems],
-  );
-
-  const allVisibleSelected =
-    visibleItemIds.length > 0 &&
-    visibleItemIds.every((id) => selectedIds.includes(id));
-
-  const toggleItem = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id)
-        ? prev.filter((selectedId) => selectedId !== id)
-        : [...prev, id],
-    );
-  };
-
-  const selectAllVisible = () => {
-    setSelectedIds((prev) =>
-      Array.from(new Set([...prev, ...visibleItemIds])),
-    );
-  };
-
-  const clearSelection = () => {
-    setSelectedIds([]);
-  };
-
-  const toggleAllVisible = () => {
-    if (allVisibleSelected) {
-      setSelectedIds((prev) =>
-        prev.filter((id) => !visibleItemIds.includes(id)),
-      );
-      return;
-    }
-
-    selectAllVisible();
-  };
-
-  const ensureSelection = () => {
-    if (selectedItems.length > 0) {
-      return true;
-    }
-
-    alert("出力する計量実績を選択してください。");
-    return false;
-  };
-
-  const printSelected = () => {
-    if (!ensureSelection()) return;
-
-    window.print();
-  };
-
-  const downloadCsv = () => {
-    if (!ensureSelection()) return;
-
-    const header = [
-      "注番",
-      "得意先",
-      "製品コード",
-      "製品名",
-      "数量",
-      "ロット番号",
-      "計量日",
-      "登録日時",
-    ];
-
-    const rows = selectedItems.map((item) => [
-      item.orderNo,
-      item.customerName,
-      item.productCode,
-      item.productName,
-      String(item.amount),
-      item.lotNo,
-      item.weighingDate || "-",
-      formatDateTime(item.createdAt),
-    ]);
-
-    const csv = [header, ...rows]
-      .map((row) =>
-        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
-      )
-      .join("\n");
-
-    const blob = new Blob([`\uFEFF${csv}`], {
-      type: "text/csv;charset=utf-8;",
-    });
-
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `weighing-report-${new Date().toISOString().slice(0, 10)}.csv`;
-
-    a.click();
-
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
         <Link href="/" className={styles.backButton}>
-          ← トップへ戻る
+          トップへ戻る
         </Link>
 
-        <h1 className={styles.title}>計量表出力</h1>
+        <h1 className={styles.title}>計量履歴</h1>
+
+        <Link href="/weighingReport" className={styles.backButton}>
+          計量表出力へ
+        </Link>
       </div>
 
       <div className={styles.formCard}>
@@ -244,29 +143,8 @@ export default function WeighingReportPage() {
           />
         </div>
 
-        <div className={styles.buttonRow}>
-          <button className={styles.printButton} onClick={printSelected}>
-            印刷
-          </button>
-
-          <button className={styles.csvButton} onClick={downloadCsv}>
-            CSV出力
-          </button>
-          <button className={styles.linkButton} onClick={selectAllVisible}>
-            全選択
-          </button>
-
-          <button className={styles.linkButton} onClick={clearSelection}>
-            全解除
-          </button>
-
-          <Link href="/weighingHistory" className={styles.backButton}>
-            計量履歴へ
-          </Link>
-        </div>
-
         <div className={styles.countText}>
-          選択中: {selectedItems.length}件 / 表示中: {visibleItems.length}件
+          表示中: {visibleItems.length}件 / 履歴合計: {items.length}件
         </div>
       </div>
 
@@ -274,15 +152,6 @@ export default function WeighingReportPage() {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th className={styles.selectColumn}>
-                <input
-                  aria-label="表示中の計量実績をすべて選択"
-                  checked={allVisibleSelected}
-                  className={styles.checkbox}
-                  onChange={toggleAllVisible}
-                  type="checkbox"
-                />
-              </th>
               <th>注番</th>
               <th>得意先</th>
               <th>製品コード</th>
@@ -295,23 +164,8 @@ export default function WeighingReportPage() {
           </thead>
 
           <tbody>
-            {visibleItems.map((item) => {
-              const selected = selectedIds.includes(item.id);
-
-              return (
-              <tr
-                className={selected ? undefined : styles.printHidden}
-                key={item.id}
-              >
-                <td className={styles.selectColumn}>
-                  <input
-                    aria-label={`${item.orderNo || "計量実績"}を選択`}
-                    checked={selected}
-                    className={styles.checkbox}
-                    onChange={() => toggleItem(item.id)}
-                    type="checkbox"
-                  />
-                </td>
+            {visibleItems.map((item) => (
+              <tr key={item.id}>
                 <td>{item.orderNo || "-"}</td>
                 <td>{item.customerName || "-"}</td>
                 <td>{item.productCode || "-"}</td>
@@ -321,8 +175,7 @@ export default function WeighingReportPage() {
                 <td>{item.weighingDate || "-"}</td>
                 <td>{formatDateTime(item.createdAt)}</td>
               </tr>
-              );
-            })}
+            ))}
           </tbody>
         </table>
       </div>

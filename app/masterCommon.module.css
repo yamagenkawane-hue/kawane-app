@@ -179,6 +179,27 @@
   color: #1d4ed8;
 }
 
+.countText {
+  color: #475569;
+  font-size: 14px;
+  font-weight: 800;
+  margin-top: 10px;
+}
+
+.selectColumn {
+  text-align: center;
+  width: 64px;
+}
+
+.checkbox {
+  height: 18px;
+  width: 18px;
+}
+
+.screenOnly {
+  display: initial;
+}
+
 .summaryCard {
   display: grid;
   grid-template-columns: repeat(4, minmax(140px, 1fr));
@@ -223,7 +244,10 @@
   .headerArea,
   .formCard,
   .buttonRow,
-  .actionArea {
+  .actionArea,
+  .screenOnly,
+  .selectColumn,
+  .printHidden {
     display: none;
   }
 
