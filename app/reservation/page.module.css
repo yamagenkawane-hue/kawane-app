@@ -64,6 +64,25 @@
   table-layout: auto;
 }
 
+.reservationWrapper {
+  overflow-x: auto;
+  cursor: grab;
+  user-select: none;
+}
+
+.draggingList {
+  cursor: grabbing;
+}
+
+.reservationWrapper a,
+.reservationWrapper button,
+.reservationWrapper input,
+.reservationWrapper select,
+.reservationWrapper textarea {
+  cursor: auto;
+  user-select: auto;
+}
+
 /* =========================
    ヘッダー
 ========================= */

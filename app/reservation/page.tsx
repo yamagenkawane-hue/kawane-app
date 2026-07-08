@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import styles from "./page.module.css";
-import React, { useState } from "react";
+import React, { type MouseEvent, useRef, useState } from "react";
 import SearchForm from "../components/SearchForm/SearchForm";
 import ReservationList from "../components/ReservationList/ReservationList";
 import TableHeader from "../components/TableHeader/TableHeader";
@@ -33,6 +33,44 @@ const Reservation = () => {
   const { posts, setShouldFetch } = useFetchPosts();
   const [statusFilter, setStatusFilter] = useState("全件");
   const [search, setSearch] = useState("");
+  const [isDraggingList, setIsDraggingList] = useState(false);
+  const listScrollRef = useRef<HTMLDivElement>(null);
+  const dragStartXRef = useRef(0);
+  const dragStartScrollLeftRef = useRef(0);
+
+  const startListDrag = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+
+    if (target.closest("a, button, input, select, textarea")) {
+      return;
+    }
+
+    const scrollElement = listScrollRef.current;
+
+    if (!scrollElement) {
+      return;
+    }
+
+    setIsDraggingList(true);
+    dragStartXRef.current = event.clientX;
+    dragStartScrollLeftRef.current = scrollElement.scrollLeft;
+  };
+
+  const moveListDrag = (event: MouseEvent<HTMLDivElement>) => {
+    const scrollElement = listScrollRef.current;
+
+    if (!isDraggingList || !scrollElement) {
+      return;
+    }
+
+    event.preventDefault();
+    scrollElement.scrollLeft =
+      dragStartScrollLeftRef.current - (event.clientX - dragStartXRef.current);
+  };
+
+  const stopListDrag = () => {
+    setIsDraggingList(false);
+  };
 
   const filteredPosts = posts
     .filter((post) => {
@@ -241,7 +279,16 @@ const Reservation = () => {
         </div>
       </div>
 
-      <div className={styles.reservationWrapper}>
+      <div
+        ref={listScrollRef}
+        className={`${styles.reservationWrapper} ${
+          isDraggingList ? styles.draggingList : ""
+        }`}
+        onMouseDown={startListDrag}
+        onMouseLeave={stopListDrag}
+        onMouseMove={moveListDrag}
+        onMouseUp={stopListDrag}
+      >
         <table border={1} className={styles.listTitle}>
           <TableHeader />
 
