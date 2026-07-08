@@ -66,6 +66,7 @@
 
 .tableInput {
   min-width: 0;
+  text-align: center;
 }
 
 .orderInput {
@@ -90,7 +91,7 @@
 
 .numberInput {
   min-width: 72px;
-  text-align: right;
+  text-align: center;
 }
 
 .dateInput {
@@ -151,6 +152,7 @@
   font-weight: 700;
   line-height: 1.45;
   overflow-wrap: anywhere;
+  text-align: center;
   white-space: normal;
   word-break: break-word;
 }
@@ -190,12 +192,14 @@
   background: #1f2937;
   color: #fff;
   padding: 10px 8px;
+  text-align: center;
   white-space: nowrap;
 }
 
 .table td {
   border-bottom: 1px solid #e5e7eb;
   padding: 8px 6px;
+  text-align: center;
   vertical-align: middle;
   white-space: normal;
   word-break: break-word;
@@ -291,6 +295,7 @@
 .actionArea {
   display: flex;
   gap: 8px;
+  justify-content: center;
   white-space: nowrap;
 }
 
