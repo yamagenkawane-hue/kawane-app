@@ -248,6 +248,36 @@ export default function OutsourcingPage() {
     }
   };
 
+  const clearOutsourceRow = async (row: OutsourceRow) => {
+    if (!confirm("この外注情報を削除しますか？工程自体は削除されません。")) {
+      return;
+    }
+
+    try {
+      setSavingId(row.id);
+
+      const { error } = await supabase
+        .from("order_processes")
+        .update({
+          outsource_sent_date: null,
+          outsource_expected_return_date: null,
+          outsource_returned_date: null,
+          outsource_status: "not_sent",
+          outsource_note: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id);
+
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error(error);
+      alert("外注情報の削除に失敗しました");
+    } finally {
+      setSavingId("");
+    }
+  };
+
   const syncScroll = (
     source: UIEvent<HTMLDivElement>,
     targetRef: RefObject<HTMLDivElement | null>,
@@ -480,19 +510,21 @@ export default function OutsourcingPage() {
                     >
                       {savingId === row.id ? "保存中" : "保存"}
                     </button>
-                    <Link className={styles.backButton} href="/productionResults">
-                      実績
-                    </Link>
-                    <Link className={styles.backButton} href="/orderProcesses">
-                      編集
-                    </Link>
+                    <button
+                      className={styles.deleteButton}
+                      type="button"
+                      disabled={savingId === row.id}
+                      onClick={() => clearOutsourceRow(row)}
+                    >
+                      削除
+                    </button>
                   </td>
                 </tr>
               );
             })}
             {visibleRows.length === 0 && (
               <tr>
-                <td colSpan={11}>外注工程はありません</td>
+                <td colSpan={12}>外注工程はありません</td>
               </tr>
             )}
           </tbody>
