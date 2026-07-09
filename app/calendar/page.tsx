@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import * as XLSX from "xlsx";
 import supabase from "@/lib/supabase";
 import { CompanyCalendar } from "@/app/type";
 import styles from "./page.module.css";
@@ -17,6 +18,13 @@ export default function CalendarPage() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  type CalendarImportRow = {
+    date: string;
+    name: string;
+    is_holiday: boolean;
+    type: string;
+  };
 
   const parseCsvLine = (line: string) => {
     const cells: string[] = [];
@@ -74,20 +82,16 @@ export default function CalendarPage() {
       candidates.some((candidate) => header.toLowerCase() === candidate),
     );
 
-  const parseCalendarCsv = (text: string) => {
-    const lines = text
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
+  const mapCalendarRows = (rawRows: string[][]): CalendarImportRow[] => {
+    const rows = rawRows.filter((row) => row.some((cell) => String(cell).trim()));
+    if (rows.length === 0) return [];
 
-    if (lines.length === 0) return [];
-
-    const firstRow = parseCsvLine(lines[0]);
+    const firstRow = rows[0].map((cell) => String(cell || "").trim());
     const hasHeader = firstRow.some((cell) =>
       ["date", "日付", "年月日"].includes(cell.toLowerCase()),
     );
     const headers = hasHeader ? firstRow : [];
-    const rows = hasHeader ? lines.slice(1) : lines;
+    const bodyRows = hasHeader ? rows.slice(1) : rows;
 
     const dateIndex = hasHeader
       ? findColumn(headers, ["date", "日付", "年月日"])
@@ -102,27 +106,62 @@ export default function CalendarPage() {
       ? findColumn(headers, ["is_holiday", "holiday", "休日", "休業日"])
       : 3;
 
-    return rows
-      .map((line) => {
-        const cells = parseCsvLine(line);
-        const normalizedDate = normalizeDate(cells[dateIndex] || "");
+    return bodyRows
+      .map((cells) => {
+        const normalizedDate = normalizeDate(String(cells[dateIndex] || ""));
         const isHoliday = parseBoolean(
-          holidayIndex >= 0 ? cells[holidayIndex] : cells[typeIndex],
+          holidayIndex >= 0
+            ? String(cells[holidayIndex] || "")
+            : String(cells[typeIndex] || ""),
         );
         const type =
-          cells[typeIndex] ||
+          String(cells[typeIndex] || "") ||
           (isHoliday ? "holiday" : "business_day");
 
         return {
           date: normalizedDate,
           name:
-            cells[nameIndex] ||
+            String(cells[nameIndex] || "") ||
             (isHoliday ? "会社休日" : "営業日"),
           is_holiday: isHoliday,
           type,
         };
       })
       .filter((row) => row.date);
+  };
+
+  const parseCalendarCsv = (text: string) => {
+    const lines = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    return mapCalendarRows(lines.map(parseCsvLine));
+  };
+
+  const parseCalendarExcel = async (file: File) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, {
+      cellDates: true,
+      type: "array",
+    });
+    const firstSheetName = workbook.SheetNames[0];
+    if (!firstSheetName) return [];
+
+    const worksheet = workbook.Sheets[firstSheetName];
+    const rawRows = XLSX.utils.sheet_to_json<(string | number | Date)[]>(
+      worksheet,
+      {
+        header: 1,
+        raw: false,
+        dateNF: "yyyy-mm-dd",
+        defval: "",
+      },
+    );
+
+    return mapCalendarRows(
+      rawRows.map((row) => row.map((cell) => String(cell || "").trim())),
+    );
   };
 
   // =========================
@@ -226,14 +265,38 @@ export default function CalendarPage() {
     }
 
     const ok = confirm(
-      `${importYear}年の会社カレンダーをCSVの内容で上書きします。よろしいですか？`,
+      `${importYear}年の会社カレンダーを選択ファイルの内容で上書きします。よろしいですか？`,
     );
     if (!ok) return;
 
     try {
       setImporting(true);
-      const text = await importFile.text();
-      const rows = parseCalendarCsv(text).filter((row) =>
+      const fileName = importFile.name.toLowerCase();
+      const isExcel = fileName.endsWith(".xlsx") || fileName.endsWith(".xls");
+      const isCsv = fileName.endsWith(".csv");
+      const isPdfOrImage =
+        fileName.endsWith(".pdf") ||
+        importFile.type.startsWith("image/");
+
+      if (isPdfOrImage) {
+        alert(
+          "PDF・画像は文字認識が必要なため、現在はExcel形式に変換してから取り込んでください。",
+        );
+        return;
+      }
+
+      const importedRows = isExcel
+        ? await parseCalendarExcel(importFile)
+        : isCsv
+          ? parseCalendarCsv(await importFile.text())
+          : [];
+
+      if (!isExcel && !isCsv) {
+        alert("ExcelまたはCSVファイルを選択してください");
+        return;
+      }
+
+      const rows = importedRows.filter((row) =>
         row.date.startsWith(`${importYear}-`),
       );
 
@@ -290,7 +353,7 @@ export default function CalendarPage() {
         <div>
           <h2>会社カレンダー取り込み</h2>
           <p>
-            CSVの内容で対象年を上書きします。形式: date,name,type,is_holiday
+            Excelの内容で対象年を上書きします。列: date,name,type,is_holiday
           </p>
         </div>
 
@@ -306,7 +369,7 @@ export default function CalendarPage() {
 
           <input
             type="file"
-            accept=".csv,text/csv"
+            accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
             onChange={(event) =>
               setImportFile(event.target.files?.[0] || null)
             }
