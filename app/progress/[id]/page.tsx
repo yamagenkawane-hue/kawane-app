@@ -127,10 +127,12 @@ export default function ProgressDetail() {
   // =========================
 
   const isHoliday = useCallback((date: Date, calendarData: CompanyCalendar[]) => {
+    const dateStr = formatDate(date);
+    const calendarItem = calendarData.find((item) => item.date === dateStr);
+    if (calendarItem) return calendarItem.isHoliday;
     const week = date.getDay();
     if (week === 0 || week === 6) return true;
-    const dateStr = formatDate(date);
-    return calendarData.some((item) => item.date === dateStr && item.isHoliday);
+    return false;
   }, [formatDate]);
 
   // =========================

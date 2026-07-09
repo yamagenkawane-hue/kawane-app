@@ -27,14 +27,18 @@ export default function GanttChart({ processes, deliveryDate, calendar = [] }: P
   // 日付範囲
   // =========================
 
-  const holidaySet = new Set(
-    calendar.filter((item) => item.isHoliday).map((item) => item.date),
+  const calendarMap = new Map(
+    calendar.map((item) => [item.date, item.isHoliday]),
   );
 
   const isBusinessDay = (date: Date) => {
+    const dateKey = formatDateKey(date);
+    const explicitHoliday = calendarMap.get(dateKey);
+    if (explicitHoliday !== undefined) return !explicitHoliday;
+
     const week = date.getDay();
     if (week === 0 || week === 6) return false;
-    return !holidaySet.has(formatDateKey(date));
+    return true;
   };
 
   const allDates: number[] = [];
