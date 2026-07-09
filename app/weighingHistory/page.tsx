@@ -136,10 +136,9 @@ export default function WeighingHistoryPage() {
     try {
       setDeletingId(item.id);
 
-      const { error } = await supabase
-        .from("production_results")
-        .delete()
-        .eq("id", item.id);
+      const { error } = await supabase.rpc("delete_weighing_result", {
+        p_result_id: item.id,
+      });
 
       if (error) throw error;
       const nextItems = await fetchItems();
@@ -157,7 +156,7 @@ export default function WeighingHistoryPage() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.headerArea}>
+      <div className={styles.headerArea} style={{ flexDirection: "row-reverse" }}>
         <h1 className={styles.title}>計量履歴</h1>
 
         <Link href="/weighingReport" className={styles.backButton}>
