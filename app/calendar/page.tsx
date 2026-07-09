@@ -347,9 +347,10 @@ export default function CalendarPage() {
         type: row.type,
       }));
 
-      mapped.sort((a, b) => a.date.localeCompare(b.date));
+      const holidays = mapped.filter((item) => item.isHoliday);
+      holidays.sort((a, b) => a.date.localeCompare(b.date));
 
-      setItems(mapped);
+      setItems(holidays);
     } catch (error) {
       console.error(error);
     }
