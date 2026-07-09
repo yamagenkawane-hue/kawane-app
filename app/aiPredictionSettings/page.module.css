@@ -93,6 +93,13 @@
   padding: 22px 0 0;
 }
 
+.helpText {
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 8px 0 0;
+}
+
 .optionGrid {
   display: grid;
   gap: 12px;
@@ -131,6 +138,23 @@
 .segmented .activeSegment {
   background: #2563eb;
   color: #fff;
+}
+
+.strengthGuide {
+  color: #475569;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.strengthGuide span {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 7px 10px;
 }
 
 .actions {

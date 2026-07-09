@@ -161,12 +161,15 @@ export default function AiPredictionSettingsPage() {
         </div>
 
         <div className={styles.section}>
-          <h3>予測の強さ</h3>
+          <h3>予測に加える余裕</h3>
+          <p className={styles.helpText}>
+            外注遅延・出荷遅延・ライン負荷を見込む日数を調整します。
+          </p>
           <div className={styles.segmented}>
             {[
-              ["weak", "弱め"],
+              ["weak", "少なめ"],
               ["standard", "標準"],
-              ["strong", "強め"],
+              ["strong", "多め"],
             ].map(([value, label]) => (
               <button
                 key={value}
@@ -182,6 +185,11 @@ export default function AiPredictionSettingsPage() {
                 {label}
               </button>
             ))}
+          </div>
+          <div className={styles.strengthGuide}>
+            <span>少なめ: 余裕を小さく見積もる</span>
+            <span>標準: 通常の余裕を見込む</span>
+            <span>多め: 遅れを大きめに見込む</span>
           </div>
         </div>
 
