@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { strFromU8, unzipSync } from "fflate";
 import * as XLSX from "xlsx";
 import supabase from "@/lib/supabase";
 import { CompanyCalendar } from "@/app/type";
@@ -139,6 +140,160 @@ export default function CalendarPage() {
     return mapCalendarRows(lines.map(parseCsvLine));
   };
 
+  const toCellAddress = (rowIndex: number, columnIndex: number) => {
+    let column = "";
+    let value = columnIndex + 1;
+
+    while (value > 0) {
+      const remainder = (value - 1) % 26;
+      column = String.fromCharCode(65 + remainder) + column;
+      value = Math.floor((value - 1) / 26);
+    }
+
+    return `${column}${rowIndex + 1}`;
+  };
+
+  const getXml = (files: Record<string, Uint8Array>, path: string) => {
+    const file = files[path];
+    return file ? strFromU8(file) : "";
+  };
+
+  const getFirstWorksheetPath = (files: Record<string, Uint8Array>) => {
+    const workbookXml = getXml(files, "xl/workbook.xml");
+    const relsXml = getXml(files, "xl/_rels/workbook.xml.rels");
+    const parser = new DOMParser();
+    const workbookDoc = parser.parseFromString(workbookXml, "application/xml");
+    const relsDoc = parser.parseFromString(relsXml, "application/xml");
+    const firstSheet = workbookDoc.getElementsByTagName("sheet")[0];
+    const relId =
+      firstSheet?.getAttribute("r:id") ||
+      firstSheet?.getAttribute("id") ||
+      "";
+
+    const rel = Array.from(relsDoc.getElementsByTagName("Relationship")).find(
+      (node) => node.getAttribute("Id") === relId,
+    );
+    const target = rel?.getAttribute("Target") || "worksheets/sheet1.xml";
+    return target.startsWith("/")
+      ? target.replace(/^\/+/, "")
+      : `xl/${target.replace(/^xl\//, "")}`;
+  };
+
+  const parseBoxedCalendarCells = (arrayBuffer: ArrayBuffer) => {
+    try {
+      const files = unzipSync(new Uint8Array(arrayBuffer));
+      const parser = new DOMParser();
+      const stylesDoc = parser.parseFromString(
+        getXml(files, "xl/styles.xml"),
+        "application/xml",
+      );
+      const worksheetDoc = parser.parseFromString(
+        getXml(files, getFirstWorksheetPath(files)),
+        "application/xml",
+      );
+      const borders = Array.from(stylesDoc.getElementsByTagName("borders")[0]?.children || []);
+      const cellXfs = Array.from(stylesDoc.getElementsByTagName("cellXfs")[0]?.children || []);
+      const boxedStyleIndexes = new Set<number>();
+
+      cellXfs.forEach((xf, styleIndex) => {
+        const borderId = Number(xf.getAttribute("borderId") || 0);
+        const border = borders[borderId];
+        if (!border) return;
+
+        const sides = ["left", "right", "top", "bottom"].map((side) =>
+          border.getElementsByTagName(side)[0]?.hasAttribute("style"),
+        );
+        const [left, right, top, bottom] = sides;
+        const sideCount = sides.filter(Boolean).length;
+        const isBoxed =
+          sideCount >= 3 ||
+          (Boolean(top) && Boolean(bottom)) ||
+          (Boolean(left) && Boolean(right) && (Boolean(top) || Boolean(bottom)));
+
+        if (isBoxed) boxedStyleIndexes.add(styleIndex);
+      });
+
+      const boxedCells = new Set<string>();
+      Array.from(worksheetDoc.getElementsByTagName("c")).forEach((cell) => {
+        const address = cell.getAttribute("r") || "";
+        const styleIndex = Number(cell.getAttribute("s") || 0);
+        if (address && boxedStyleIndexes.has(styleIndex)) {
+          boxedCells.add(address);
+        }
+      });
+
+      return boxedCells;
+    } catch (error) {
+      console.warn("Failed to parse Excel border styles", error);
+      return new Set<string>();
+    }
+  };
+
+  const parseDayNumber = (value: string) => {
+    const match = value.trim().match(/^(\d{1,2})$/);
+    if (!match) return null;
+
+    const day = Number(match[1]);
+    return day >= 1 && day <= 31 ? day : null;
+  };
+
+  const parsePrintCalendarRows = (
+    rawRows: string[][],
+    year: string,
+    boxedCells: Set<string>,
+  ): CalendarImportRow[] => {
+    const parsedYear = Number(year);
+    if (!Number.isInteger(parsedYear)) return [];
+
+    const weekdayLabels = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+    const results = new Map<string, CalendarImportRow>();
+    const hasBoxedCells = boxedCells.size > 0;
+
+    rawRows.forEach((row, rowIndex) => {
+      row.forEach((cell, columnIndex) => {
+        const monthMatch = String(cell || "").trim().match(/^(\d{1,2})月$/);
+        if (!monthMatch) return;
+
+        const month = Number(monthMatch[1]);
+        if (month < 1 || month > 12) return;
+
+        const weekdayRow = rawRows[rowIndex + 1] || [];
+        const hasWeekdayHeader = weekdayLabels.every((label, offset) =>
+          String(weekdayRow[columnIndex + offset] || "")
+            .trim()
+            .toUpperCase()
+            .startsWith(label),
+        );
+        if (!hasWeekdayHeader) return;
+
+        const daysInMonth = new Date(parsedYear, month, 0).getDate();
+
+        for (let dateRowIndex = rowIndex + 2; dateRowIndex <= rowIndex + 7; dateRowIndex++) {
+          for (let weekdayIndex = 0; weekdayIndex < 7; weekdayIndex++) {
+            const day = parseDayNumber(
+              String(rawRows[dateRowIndex]?.[columnIndex + weekdayIndex] || ""),
+            );
+            if (!day || day > daysInMonth) continue;
+
+            const date = `${parsedYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const address = toCellAddress(dateRowIndex, columnIndex + weekdayIndex);
+            const isWeekend = weekdayIndex === 0 || weekdayIndex === 6;
+            const isHoliday = hasBoxedCells ? boxedCells.has(address) : isWeekend;
+
+            results.set(date, {
+              date,
+              name: isHoliday ? "会社休日" : "営業日",
+              is_holiday: isHoliday,
+              type: isHoliday ? "holiday" : "business_day",
+            });
+          }
+        }
+      });
+    });
+
+    return Array.from(results.values()).sort((a, b) => a.date.localeCompare(b.date));
+  };
+
   const parseCalendarExcel = async (file: File) => {
     const arrayBuffer = await file.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, {
@@ -159,8 +314,16 @@ export default function CalendarPage() {
       },
     );
 
-    return mapCalendarRows(
-      rawRows.map((row) => row.map((cell) => String(cell || "").trim())),
+    const normalizedRows = rawRows.map((row) =>
+      row.map((cell) => String(cell || "").trim()),
+    );
+    const tableRows = mapCalendarRows(normalizedRows);
+    if (tableRows.length > 0) return tableRows;
+
+    return parsePrintCalendarRows(
+      normalizedRows,
+      importYear,
+      parseBoxedCalendarCells(arrayBuffer),
     );
   };
 
@@ -260,7 +423,7 @@ export default function CalendarPage() {
     }
 
     if (!importFile) {
-      alert("CSVファイルを選択してください");
+      alert("ExcelまたはCSVファイルを選択してください");
       return;
     }
 
@@ -353,7 +516,7 @@ export default function CalendarPage() {
         <div>
           <h2>会社カレンダー取り込み</h2>
           <p>
-            Excelの内容で対象年を上書きします。列: date,name,type,is_holiday
+            表形式、または休日が□で囲われた年間カレンダー形式のExcelで対象年を上書きします。
           </p>
         </div>
 
