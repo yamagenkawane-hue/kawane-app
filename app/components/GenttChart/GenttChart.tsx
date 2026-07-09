@@ -5,8 +5,16 @@ import styles from "./page.module.css";
 import { Props } from "@/app/type";
 
 const DAY_WIDTH = 40;
+const DAY_MS = 1000 * 60 * 60 * 24;
 
-export default function GanttChart({ processes, deliveryDate }: Props) {
+const formatDateKey = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+export default function GanttChart({ processes, deliveryDate, calendar = [] }: Props) {
   const [isDragging, setIsDragging] = useState(false);
   const dragStartXRef = useRef(0);
   const dragStartScrollLeftRef = useRef(0);
@@ -19,10 +27,21 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
   // 日付範囲
   // =========================
 
+  const holidaySet = new Set(
+    calendar.filter((item) => item.isHoliday).map((item) => item.date),
+  );
+
+  const isBusinessDay = (date: Date) => {
+    const week = date.getDay();
+    if (week === 0 || week === 6) return false;
+    return !holidaySet.has(formatDateKey(date));
+  };
+
   const allDates: number[] = [];
 
   processes.forEach((p) => {
     allDates.push(p.actualStart.getTime());
+    allDates.push(p.predictedStart.getTime());
     allDates.push(p.predictedEnd.getTime());
 
     if (p.actualEnd) {
@@ -30,20 +49,40 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
     }
   });
 
+  const delivery = new Date(deliveryDate);
+  if (!Number.isNaN(delivery.getTime())) {
+    allDates.push(delivery.getTime());
+  }
+
   const minDate = new Date(Math.min(...allDates));
   const maxDate = new Date(Math.max(...allDates));
 
   const totalDays =
-    Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) +
-    1;
+    Math.ceil((maxDate.getTime() - minDate.getTime()) / DAY_MS) + 1;
 
-  const dates = Array.from({ length: totalDays }, (_, i) => {
+  const businessDates = Array.from({ length: totalDays }, (_, i) => {
     const d = new Date(minDate);
 
     d.setDate(d.getDate() + i);
 
     return d;
-  });
+  }).filter(isBusinessDay);
+
+  const dates = businessDates.length > 0 ? businessDates : [minDate];
+  const dateIndexMap = new Map(
+    dates.map((date, index) => [formatDateKey(date), index]),
+  );
+
+  const getDateIndex = (date: Date) => {
+    const exact = dateIndexMap.get(formatDateKey(date));
+    if (exact !== undefined) return exact;
+
+    const targetTime = date.getTime();
+    const nextIndex = dates.findIndex((item) => item.getTime() >= targetTime);
+    if (nextIndex >= 0) return nextIndex;
+
+    return dates.length - 1;
+  };
 
   // =========================
   // 今日
@@ -53,20 +92,18 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
 
   today.setHours(0, 0, 0, 0);
 
-  const todayOffset = Math.floor(
-    (today.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24),
-  );
+  const todayOffset = getDateIndex(today);
+  const shouldShowToday =
+    today.getTime() >= dates[0].getTime() &&
+    today.getTime() <= dates[dates.length - 1].getTime();
 
   // =========================
   // 納期
   // =========================
 
-  const delivery = new Date(deliveryDate);
   const safeDelivery = Number.isNaN(delivery.getTime()) ? maxDate : delivery;
 
-  const deliveryOffset = Math.floor(
-    (safeDelivery.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24),
-  );
+  const deliveryOffset = getDateIndex(safeDelivery);
 
   const startDrag = (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target;
@@ -127,21 +164,16 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
         // 実績バー
         // =========================
 
-        const actualOffset =
-          Math.floor(
-            (process.actualStart.getTime() - minDate.getTime()) /
-              (1000 * 60 * 60 * 24),
-          ) * DAY_WIDTH;
+        const actualStartIndex = getDateIndex(process.actualStart);
+        const actualEndIndex = process.actualEnd
+          ? getDateIndex(process.actualEnd)
+          : actualStartIndex;
+        const actualOffset = actualStartIndex * DAY_WIDTH;
 
         const actualWidth = process.actualEnd
           ? Math.max(
               40,
-              (Math.ceil(
-                (process.actualEnd.getTime() - process.actualStart.getTime()) /
-                  (1000 * 60 * 60 * 24),
-              ) +
-                1) *
-                DAY_WIDTH,
+              (actualEndIndex - actualStartIndex + 1) * DAY_WIDTH,
             )
           : 0;
 
@@ -149,19 +181,10 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
         // 予測バー
         // =========================
 
-        const predictedBaseDate = process.actualEnd || process.actualStart;
-        const predictedOffset = process.actualEnd
-          ? Math.floor(
-              (process.actualEnd.getTime() - minDate.getTime()) /
-                (1000 * 60 * 60 * 24),
-            ) * DAY_WIDTH
-          : actualOffset;
-
-        const predictedDays =
-          Math.ceil(
-            (process.predictedEnd.getTime() - predictedBaseDate.getTime()) /
-              (1000 * 60 * 60 * 24),
-          ) + 1;
+        const predictedStartIndex = getDateIndex(process.predictedStart);
+        const predictedEndIndex = getDateIndex(process.predictedEnd);
+        const predictedOffset = predictedStartIndex * DAY_WIDTH;
+        const predictedDays = predictedEndIndex - predictedStartIndex + 1;
         const predictedWidth =
           process.remainingAmount > 0
             ? Math.max(DAY_WIDTH, predictedDays * DAY_WIDTH)
@@ -191,10 +214,12 @@ export default function GanttChart({ processes, deliveryDate }: Props) {
               ))}
 
               {/* 今日 */}
-              <div
-                className={styles.todayLine}
-                style={{ left: `${todayOffset * DAY_WIDTH}px` }}
-              />
+              {shouldShowToday && (
+                <div
+                  className={styles.todayLine}
+                  style={{ left: `${todayOffset * DAY_WIDTH}px` }}
+                />
+              )}
 
               {/* 納期 */}
               <div

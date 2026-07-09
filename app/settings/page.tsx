@@ -26,7 +26,7 @@ const mainMenus = [
   {
     title: "AI予測設定",
     text: "遅延予測AI・負荷予測AIを設定",
-    href: "/settings",
+    href: "/aiPredictionSettings",
     icon: <Cpu size={34} />,
   },
 ];

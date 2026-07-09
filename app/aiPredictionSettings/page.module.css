@@ -1,0 +1,181 @@
+.container {
+  min-height: 100vh;
+  padding: 36px;
+  background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+}
+
+.headerArea {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 54px;
+  margin-bottom: 28px;
+}
+
+.backButton {
+  align-items: center;
+  background: #2563eb;
+  border-radius: 12px;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+  color: #fff;
+  display: inline-flex;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 18px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.title {
+  color: #111827;
+  font-size: 34px;
+  font-weight: 900;
+  left: 50%;
+  margin: 0;
+  position: absolute;
+  text-align: center;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.message {
+  background: #ecfdf5;
+  border: 1px solid #86efac;
+  border-radius: 10px;
+  color: #166534;
+  font-weight: 800;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 20px;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
+  padding: 24px;
+}
+
+.cardHeader {
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding-bottom: 18px;
+}
+
+.cardHeader h2,
+.section h3 {
+  color: #111827;
+  margin: 0;
+}
+
+.switchRow,
+.optionGrid label {
+  align-items: center;
+  color: #111827;
+  display: flex;
+  font-weight: 800;
+  gap: 10px;
+}
+
+.switchRow input,
+.optionGrid input {
+  height: 18px;
+  width: 18px;
+}
+
+.section {
+  padding: 22px 0 0;
+}
+
+.optionGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-top: 14px;
+}
+
+.optionGrid label {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  min-height: 48px;
+  padding: 12px 14px;
+}
+
+.segmented {
+  background: #e5e7eb;
+  border-radius: 12px;
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 14px;
+  padding: 4px;
+}
+
+.segmented button {
+  background: transparent;
+  border: none;
+  border-radius: 9px;
+  color: #334155;
+  cursor: pointer;
+  font-weight: 900;
+  min-width: 88px;
+  padding: 10px 16px;
+}
+
+.segmented .activeSegment {
+  background: #2563eb;
+  color: #fff;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.actions button {
+  background: #16a34a;
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 900;
+  min-height: 44px;
+  min-width: 120px;
+  padding: 10px 18px;
+}
+
+.actions button:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 20px;
+  }
+
+  .headerArea {
+    align-items: stretch;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .title {
+    left: auto;
+    position: static;
+    transform: none;
+    white-space: normal;
+  }
+
+  .cardHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

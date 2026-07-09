@@ -164,6 +164,7 @@ export type ProcessItem = {
   name: string;
   actualStart: Date;
   actualEnd: Date | null;
+  predictedStart: Date;
   predictedEnd: Date;
   progress: number;
   isDelay: boolean;
@@ -174,6 +175,7 @@ export type ProcessItem = {
 export type Props = {
   processes: ProcessItem[];
   deliveryDate: string;
+  calendar?: CompanyCalendar[];
 };
 
 export type CompanyCalendar = {
@@ -223,6 +225,24 @@ export type AISettings = {
   delayPrediction: boolean;
   autoSchedule: boolean;
   bottleneckPrediction: boolean;
+};
+
+export type AiPredictionStrength = "weak" | "standard" | "strong";
+
+export type AiPredictionSettings = {
+  id: string;
+  enabled: boolean;
+  targetOutsourceDelay: boolean;
+  targetShippingDelay: boolean;
+  targetLineLoad: boolean;
+  strength: AiPredictionStrength;
+  useLineOperationRate: boolean;
+  usePastResults: boolean;
+  useOutsourceProcess: boolean;
+  useHolidays: boolean;
+  useCurrentDelay: boolean;
+  useProcessAverageDelay: boolean;
+  updatedAt?: string;
 };
 
 export type ProcessResult = {
