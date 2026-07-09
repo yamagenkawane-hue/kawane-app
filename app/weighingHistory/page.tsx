@@ -156,7 +156,7 @@ export default function WeighingHistoryPage() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.headerArea} style={{ flexDirection: "row-reverse" }}>
+      <div className={styles.headerArea}>
         <h1 className={styles.title}>計量履歴</h1>
 
         <Link href="/weighingReport" className={styles.backButton}>

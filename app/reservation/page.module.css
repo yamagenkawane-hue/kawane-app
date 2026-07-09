@@ -5,6 +5,8 @@
   margin-bottom: 20px;
   flex-wrap: wrap;
   gap: 10px;
+  min-height: 48px;
+  position: relative;
 }
 
 .topPageLink {
@@ -26,9 +28,15 @@
 }
 
 .center {
-  flex: 1;
-  display: flex;
-  justify-content: center;
+  left: 50%;
+  position: absolute;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.center h1 {
+  margin: 0;
+  white-space: nowrap;
 }
 
 .searchDelete {
@@ -115,6 +123,28 @@
   text-align: center;
   vertical-align: middle;
   font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .reservationImg {
+    align-items: stretch;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .center {
+    left: auto;
+    position: static;
+    transform: none;
+  }
+
+  .center h1 {
+    white-space: normal;
+  }
+
+  .searchDelete {
+    flex-wrap: wrap;
+  }
 }
 
 /* =========================

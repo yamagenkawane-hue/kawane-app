@@ -56,13 +56,18 @@
 }
 
 .headerArea {
+  position: relative;
   display: flex;
 
   align-items: center;
 
+  justify-content: space-between;
+
   gap: 20px;
 
   margin-bottom: 24px;
+
+  min-height: 54px;
 }
 
 .backButton {
@@ -93,6 +98,18 @@
   font-weight: 800;
 
   color: #111827;
+
+  left: 50%;
+
+  margin: 0;
+
+  position: absolute;
+
+  text-align: center;
+
+  transform: translateX(-50%);
+
+  white-space: nowrap;
 }
 
 /* =========================
@@ -135,6 +152,21 @@
   gap: 8px;
 
   font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .headerArea {
+    align-items: stretch;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .title {
+    left: auto;
+    position: static;
+    transform: none;
+    white-space: normal;
+  }
 }
 
 /* =========================

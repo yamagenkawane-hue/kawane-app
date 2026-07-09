@@ -10,10 +10,19 @@
 
 .header {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 20px;
+  justify-content: space-between;
   margin-bottom: 40px;
+  min-height: 78px;
+  position: relative;
+}
+
+.header > div {
+  left: 50%;
+  position: absolute;
+  text-align: center;
+  transform: translateX(-50%);
 }
 
 .subTitle {
@@ -29,6 +38,8 @@
   font-size: 40px;
   font-weight: 800;
   color: #111827;
+  margin: 0;
+  white-space: nowrap;
 }
 
 .backButton {
@@ -218,13 +229,27 @@
   .header {
     flex-direction: column;
 
-    align-items: flex-start;
+    align-items: stretch;
 
     gap: 20px;
+
+    min-height: 0;
+  }
+
+  .header > div {
+    left: auto;
+
+    position: static;
+
+    transform: none;
   }
 
   .title {
     font-size: 32px;
+
+    text-align: center;
+
+    white-space: normal;
   }
 
   .card {
