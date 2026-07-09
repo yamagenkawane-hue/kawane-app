@@ -203,14 +203,9 @@ export default function CalendarPage() {
         const sides = ["left", "right", "top", "bottom"].map((side) =>
           border.getElementsByTagName(side)[0]?.hasAttribute("style"),
         );
-        const [left, right, top, bottom] = sides;
         const sideCount = sides.filter(Boolean).length;
-        const isBoxed =
-          sideCount >= 3 ||
-          (Boolean(top) && Boolean(bottom)) ||
-          (Boolean(left) && Boolean(right) && (Boolean(top) || Boolean(bottom)));
 
-        if (isBoxed) boxedStyleIndexes.add(styleIndex);
+        if (sideCount >= 3) boxedStyleIndexes.add(styleIndex);
       });
 
       const boxedCells = new Set<string>();
