@@ -236,6 +236,7 @@ export default function CalendarPage() {
     rawRows: string[][],
     year: string,
     boxedCells: Set<string>,
+    rangeOffset = { row: 0, column: 0 },
   ): CalendarImportRow[] => {
     const parsedYear = Number(year);
     if (!Number.isInteger(parsedYear)) return [];
@@ -271,7 +272,10 @@ export default function CalendarPage() {
             if (!day || day > daysInMonth) continue;
 
             const date = `${parsedYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-            const address = toCellAddress(dateRowIndex, columnIndex + weekdayIndex);
+            const address = toCellAddress(
+              dateRowIndex + rangeOffset.row,
+              columnIndex + weekdayIndex + rangeOffset.column,
+            );
             const isWeekend = weekdayIndex === 0 || weekdayIndex === 6;
             const isHoliday = hasBoxedCells ? boxedCells.has(address) : isWeekend;
 
@@ -299,6 +303,9 @@ export default function CalendarPage() {
     if (!firstSheetName) return [];
 
     const worksheet = workbook.Sheets[firstSheetName];
+    const range = worksheet["!ref"]
+      ? XLSX.utils.decode_range(worksheet["!ref"])
+      : { s: { r: 0, c: 0 } };
     const rawRows = XLSX.utils.sheet_to_json<(string | number | Date)[]>(
       worksheet,
       {
@@ -319,6 +326,7 @@ export default function CalendarPage() {
       normalizedRows,
       importYear,
       parseBoxedCalendarCells(arrayBuffer),
+      { row: range.s.r, column: range.s.c },
     );
   };
 
