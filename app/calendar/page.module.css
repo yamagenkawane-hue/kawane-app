@@ -97,6 +97,38 @@
   border-radius: 8px;
   font-size: 14px;
   padding: 8px;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.fileInput:hover {
+  background: #eff6ff;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+  cursor: pointer;
+}
+
+.fileInput::file-selector-button {
+  background: #e0e7ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  color: #1e3a8a;
+  cursor: pointer;
+  font-weight: bold;
+  margin-right: 10px;
+  padding: 7px 12px;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+}
+
+.fileInput:hover::file-selector-button {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
 }
 
 .addButton {
