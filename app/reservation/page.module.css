@@ -1,12 +1,10 @@
 .reservationImg {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(160px, auto) minmax(180px, 1fr) minmax(280px, auto);
   align-items: center;
   margin-bottom: 20px;
-  flex-wrap: wrap;
   gap: 10px;
-  min-height: 48px;
-  position: relative;
+  min-height: 56px;
 }
 
 .topPageLink {
@@ -28,15 +26,13 @@
 }
 
 .center {
-  left: 50%;
-  position: absolute;
   text-align: center;
-  transform: translateX(-50%);
+  min-width: 0;
 }
 
 .center h1 {
   margin: 0;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .searchDelete {
@@ -128,14 +124,13 @@
 @media (max-width: 900px) {
   .reservationImg {
     align-items: stretch;
+    display: flex;
     flex-direction: column;
     min-height: 0;
   }
 
   .center {
-    left: auto;
-    position: static;
-    transform: none;
+    width: 100%;
   }
 
   .center h1 {

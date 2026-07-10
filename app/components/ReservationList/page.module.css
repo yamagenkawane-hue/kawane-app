@@ -60,6 +60,43 @@
   font-size: 14px;
 }
 
+.productName {
+  min-width: 180px;
+  padding: 8px !important;
+}
+
+.productName a {
+  border-radius: 8px;
+  color: #1d4ed8;
+  display: inline-flex;
+  font-weight: 700;
+  line-height: 1.4;
+  max-width: 100%;
+  padding: 8px 10px;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition:
+    background-color 0.2s,
+    box-shadow 0.2s,
+    color 0.2s,
+    transform 0.2s;
+  overflow-wrap: anywhere;
+}
+
+.productName a:hover {
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+  color: #1e40af;
+  cursor: pointer;
+  transform: translateY(-1px);
+}
+
+.productName a:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 2px;
+}
+
 /* =========================
    列幅
 ========================= */
