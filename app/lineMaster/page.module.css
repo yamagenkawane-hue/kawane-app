@@ -58,6 +58,25 @@
   border-radius: 8px;
 }
 
+.numpadInput {
+  background: #f8fafc;
+  cursor: pointer;
+  font-weight: 700;
+  text-align: right;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.numpadInput:hover,
+.numpadInput:focus {
+  background: #eff6ff;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+  outline: none;
+}
+
 .checkbox {
   display: flex;
   align-items: center;

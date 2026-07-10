@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import supabase from "@/lib/supabase";
 import { ProcessMaster } from "@/app/type";
+import Numpad from "@/app/components/Numpad/Numpad";
 import styles from "./page.module.css";
 
 type LineMaster = {
@@ -15,6 +16,11 @@ type LineMaster = {
   enabled: boolean;
 };
 
+type NumpadTarget =
+  | { kind: "form"; field: "dailyCapacity" | "operationRate" }
+  | { kind: "line"; id: string; field: "dailyCapacity" | "operationRate" }
+  | null;
+
 const LINE_SELECT_COLUMNS =
   "id,line_name,process_id,daily_capacity,operation_rate,enabled";
 
@@ -25,6 +31,7 @@ export default function LineMasterPage() {
   const [lines, setLines] = useState<LineMaster[]>([]);
   const [processes, setProcesses] = useState<ProcessMaster[]>([]);
   const [loading, setLoading] = useState(true);
+  const [numpadTarget, setNumpadTarget] = useState<NumpadTarget>(null);
   const [form, setForm] = useState({
     lineName: "",
     processId: "",
@@ -32,6 +39,36 @@ export default function LineMasterPage() {
     operationRate: 100,
     enabled: true,
   });
+
+  const currentNumpadValue = () => {
+    if (!numpadTarget) return "";
+
+    if (numpadTarget.kind === "form") {
+      return String(form[numpadTarget.field] || "");
+    }
+
+    const line = lines.find((item) => item.id === numpadTarget.id);
+    return line ? String(line[numpadTarget.field] || "") : "";
+  };
+
+  const handleNumpadChange = (value: string) => {
+    if (!numpadTarget) return;
+
+    const nextValue = value === "" ? 0 : Number(value);
+
+    if (numpadTarget.kind === "form") {
+      setForm((prev) => ({ ...prev, [numpadTarget.field]: nextValue }));
+      return;
+    }
+
+    setLines((prev) =>
+      prev.map((line) =>
+        line.id === numpadTarget.id
+          ? { ...line, [numpadTarget.field]: nextValue }
+          : line,
+      ),
+    );
+  };
 
   // =========================
   // データ取得
@@ -218,23 +255,27 @@ export default function LineMasterPage() {
           </select>
 
           <input
-            type="number"
+            type="text"
+            inputMode="none"
+            readOnly
             placeholder="日産能力"
             value={form.dailyCapacity}
-            onChange={(e) =>
-              setForm({ ...form, dailyCapacity: Number(e.target.value) })
+            onFocus={() =>
+              setNumpadTarget({ kind: "form", field: "dailyCapacity" })
             }
-            className={styles.input}
+            className={`${styles.input} ${styles.numpadInput}`}
           />
 
           <input
-            type="number"
+            type="text"
+            inputMode="none"
+            readOnly
             placeholder="稼働率"
             value={form.operationRate}
-            onChange={(e) =>
-              setForm({ ...form, operationRate: Number(e.target.value) })
+            onFocus={() =>
+              setNumpadTarget({ kind: "form", field: "operationRate" })
             }
-            className={styles.input}
+            className={`${styles.input} ${styles.numpadInput}`}
           />
 
           <label className={styles.checkbox}>
@@ -303,35 +344,35 @@ export default function LineMasterPage() {
 
                 <td>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="none"
+                    readOnly
                     value={item.dailyCapacity}
-                    onChange={(e) =>
-                      setLines((prev) =>
-                        prev.map((v) =>
-                          v.id === item.id
-                            ? { ...v, dailyCapacity: Number(e.target.value) }
-                            : v,
-                        ),
-                      )
+                    onFocus={() =>
+                      setNumpadTarget({
+                        kind: "line",
+                        id: item.id,
+                        field: "dailyCapacity",
+                      })
                     }
-                    className={styles.tableInput}
+                    className={`${styles.tableInput} ${styles.numpadInput}`}
                   />
                 </td>
 
                 <td>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="none"
+                    readOnly
                     value={item.operationRate}
-                    onChange={(e) =>
-                      setLines((prev) =>
-                        prev.map((v) =>
-                          v.id === item.id
-                            ? { ...v, operationRate: Number(e.target.value) }
-                            : v,
-                        ),
-                      )
+                    onFocus={() =>
+                      setNumpadTarget({
+                        kind: "line",
+                        id: item.id,
+                        field: "operationRate",
+                      })
                     }
-                    className={styles.tableInput}
+                    className={`${styles.tableInput} ${styles.numpadInput}`}
                   />
                 </td>
 
@@ -371,6 +412,13 @@ export default function LineMasterPage() {
           </tbody>
         </table>
       </div>
+
+      <Numpad
+        open={numpadTarget !== null}
+        value={currentNumpadValue()}
+        onChange={handleNumpadChange}
+        onClose={() => setNumpadTarget(null)}
+      />
     </div>
   );
 }
