@@ -18,6 +18,9 @@ export default function CalendarPage() {
   const [importYear, setImportYear] = useState(String(new Date().getFullYear()));
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  const [editingId, setEditingId] = useState("");
+  const [editingDate, setEditingDate] = useState("");
+  const [editingName, setEditingName] = useState("");
   const [loading, setLoading] = useState(true);
 
   type CalendarImportRow = {
@@ -25,6 +28,104 @@ export default function CalendarPage() {
     name: string;
     is_holiday: boolean;
     type: string;
+  };
+
+  const toDateKey = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+  const addDays = (date: Date, days: number) => {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return result;
+  };
+
+  const getNthWeekdayDate = (year: number, month: number, weekday: number, nth: number) => {
+    const date = new Date(year, month - 1, 1);
+    const offset = (weekday - date.getDay() + 7) % 7;
+    return new Date(year, month - 1, 1 + offset + (nth - 1) * 7);
+  };
+
+  const getVernalEquinoxDay = (year: number) =>
+    Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+
+  const getAutumnalEquinoxDay = (year: number) =>
+    Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+
+  const getJapaneseHolidayMap = (year: number) => {
+    const holidays = new Map<string, string>();
+    const setHoliday = (month: number, day: number, name: string) => {
+      holidays.set(`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`, name);
+    };
+
+    setHoliday(1, 1, "元日");
+    holidays.set(toDateKey(getNthWeekdayDate(year, 1, 1, 2)), "成人の日");
+    setHoliday(2, 11, "建国記念の日");
+    setHoliday(2, 23, "天皇誕生日");
+    setHoliday(3, getVernalEquinoxDay(year), "春分の日");
+    setHoliday(4, 29, "昭和の日");
+    setHoliday(5, 3, "憲法記念日");
+    setHoliday(5, 4, "みどりの日");
+    setHoliday(5, 5, "こどもの日");
+    holidays.set(toDateKey(getNthWeekdayDate(year, 7, 1, 3)), "海の日");
+    setHoliday(8, 11, "山の日");
+    holidays.set(toDateKey(getNthWeekdayDate(year, 9, 1, 3)), "敬老の日");
+    setHoliday(9, getAutumnalEquinoxDay(year), "秋分の日");
+    holidays.set(toDateKey(getNthWeekdayDate(year, 10, 1, 2)), "スポーツの日");
+    setHoliday(11, 3, "文化の日");
+    setHoliday(11, 23, "勤労感謝の日");
+
+    for (let month = 1; month <= 12; month++) {
+      const daysInMonth = new Date(year, month, 0).getDate();
+      for (let day = 2; day < daysInMonth; day++) {
+        const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        const prevDate = `${year}-${String(month).padStart(2, "0")}-${String(day - 1).padStart(2, "0")}`;
+        const nextDate = `${year}-${String(month).padStart(2, "0")}-${String(day + 1).padStart(2, "0")}`;
+        const weekday = new Date(year, month - 1, day).getDay();
+
+        if (weekday !== 0 && !holidays.has(date) && holidays.has(prevDate) && holidays.has(nextDate)) {
+          holidays.set(date, "国民の休日");
+        }
+      }
+    }
+
+    Array.from(holidays.entries()).forEach(([date, name]) => {
+      const holidayDate = new Date(`${date}T00:00:00`);
+      if (holidayDate.getDay() !== 0) return;
+
+      let substituteDate = addDays(holidayDate, 1);
+      while (holidays.has(toDateKey(substituteDate))) {
+        substituteDate = addDays(substituteDate, 1);
+      }
+
+      if (substituteDate.getFullYear() === year) {
+        holidays.set(toDateKey(substituteDate), `${name} 振替休日`);
+      }
+    });
+
+    return holidays;
+  };
+
+  const getJapaneseHolidayName = (date: string) => {
+    if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) return "";
+    const year = Number(date.slice(0, 4));
+    if (!Number.isInteger(year)) return "";
+    return getJapaneseHolidayMap(year).get(date) || "";
+  };
+
+  const applyHolidayName = (row: CalendarImportRow): CalendarImportRow => {
+    if (!row.is_holiday) {
+      return {
+        ...row,
+        name: row.name || "営業日",
+        type: row.type || "business_day",
+      };
+    }
+
+    return {
+      ...row,
+      name: getJapaneseHolidayName(row.date) || row.name || "会社休日",
+      type: row.type || "holiday",
+    };
   };
 
   const parseCsvLine = (line: string) => {
@@ -279,12 +380,12 @@ export default function CalendarPage() {
             const isWeekend = weekdayIndex === 0 || weekdayIndex === 6;
             const isHoliday = hasBoxedCells ? boxedCells.has(address) : isWeekend;
 
-            results.set(date, {
+            results.set(date, applyHolidayName({
               date,
-              name: isHoliday ? "会社休日" : "営業日",
+              name: isHoliday ? "" : "営業日",
               is_holiday: isHoliday,
               type: isHoliday ? "holiday" : "business_day",
-            });
+            }));
           }
         }
       });
@@ -372,15 +473,17 @@ export default function CalendarPage() {
   // =========================
 
   const handleAdd = async () => {
-    if (!date || !name) {
-      alert("日付と名称を入力してください");
+    if (!date) {
+      alert("日付を入力してください");
       return;
     }
+
+    const holidayName = name || getJapaneseHolidayName(date) || "会社休日";
 
     try {
       const { error } = await supabase.from("company_calendar").insert({
         date,
-        name,
+        name: holidayName,
         is_holiday: true,
         type: "holiday",
       });
@@ -394,6 +497,48 @@ export default function CalendarPage() {
     } catch (error) {
       console.error(error);
       alert("追加失敗");
+    }
+  };
+
+  const handleStartEdit = (item: CompanyCalendar) => {
+    setEditingId(item.id);
+    setEditingDate(item.date);
+    setEditingName(item.name);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId("");
+    setEditingDate("");
+    setEditingName("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId || !editingDate) {
+      alert("日付を入力してください");
+      return;
+    }
+
+    const holidayName =
+      editingName || getJapaneseHolidayName(editingDate) || "会社休日";
+
+    try {
+      const { error } = await supabase
+        .from("company_calendar")
+        .update({
+          date: editingDate,
+          name: holidayName,
+          is_holiday: true,
+          type: "holiday",
+        })
+        .eq("id", editingId);
+
+      if (error) throw error;
+
+      handleCancelEdit();
+      await fetchCalendar();
+    } catch (error) {
+      console.error(error);
+      alert("更新失敗");
     }
   };
 
@@ -463,9 +608,9 @@ export default function CalendarPage() {
         return;
       }
 
-      const rows = importedRows.filter((row) =>
-        row.date.startsWith(`${importYear}-`),
-      );
+      const rows = importedRows
+        .filter((row) => row.date.startsWith(`${importYear}-`))
+        .map(applyHolidayName);
 
       if (rows.length === 0) {
         alert("対象年のカレンダー行が見つかりませんでした");
@@ -558,7 +703,11 @@ export default function CalendarPage() {
         <input
           type="date"
           value={date}
-          onChange={(e) => setDate(e.target.value)}
+          onChange={(e) => {
+            const nextDate = e.target.value;
+            setDate(nextDate);
+            if (!name) setName(getJapaneseHolidayName(nextDate));
+          }}
           className={styles.input}
         />
 
@@ -589,17 +738,71 @@ export default function CalendarPage() {
         <tbody>
           {items.map((item) => (
             <tr key={item.id}>
-              <td>{item.date}</td>
-              <td>{item.name}</td>
+              <td>
+                {editingId === item.id ? (
+                  <input
+                    type="date"
+                    value={editingDate}
+                    onChange={(event) => {
+                      const nextDate = event.target.value;
+                      setEditingDate(nextDate);
+                      setEditingName(getJapaneseHolidayName(nextDate) || "会社休日");
+                    }}
+                    className={styles.tableInput}
+                  />
+                ) : (
+                  item.date
+                )}
+              </td>
+              <td>
+                {editingId === item.id ? (
+                  <input
+                    type="text"
+                    value={editingName}
+                    onChange={(event) => setEditingName(event.target.value)}
+                    className={styles.tableInput}
+                  />
+                ) : (
+                  item.name
+                )}
+              </td>
               <td>{item.type}</td>
               <td>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(item.id)}
-                  className={styles.deleteButton}
-                >
-                  削除
-                </button>
+                {editingId === item.id ? (
+                  <div className={styles.actionButtons}>
+                    <button
+                      type="button"
+                      onClick={handleSaveEdit}
+                      className={styles.saveButton}
+                    >
+                      保存
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className={styles.cancelButton}
+                    >
+                      取消
+                    </button>
+                  </div>
+                ) : (
+                  <div className={styles.actionButtons}>
+                    <button
+                      type="button"
+                      onClick={() => handleStartEdit(item)}
+                      className={styles.editButton}
+                    >
+                      編集
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item.id)}
+                      className={styles.deleteButton}
+                    >
+                      削除
+                    </button>
+                  </div>
+                )}
               </td>
             </tr>
           ))}
