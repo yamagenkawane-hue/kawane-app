@@ -42,114 +42,323 @@
   white-space: nowrap;
 }
 
-.formCard,
-.tableCard {
-  background: rgba(255, 255, 255, 0.86);
+.filterCard,
+.summaryGrid,
+.tableCard,
+.detailCard,
+.editCard {
+  background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.7);
-  border-radius: 24px;
+  border-radius: 20px;
   box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
-  padding: 24px;
 }
 
-.formCard {
+.filterCard {
   display: grid;
-  grid-template-columns: 180px 140px repeat(4, minmax(140px, 1fr)) 100px;
+  grid-template-columns: minmax(260px, 1fr) 180px 140px;
   gap: 14px;
-  margin-bottom: 24px;
-}
-
-.lotPreview {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 12px;
-  padding: 8px 12px;
-}
-
-.lotPreview span {
-  display: block;
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.lotPreview strong {
-  color: #1d4ed8;
-  font-size: 20px;
+  margin-bottom: 18px;
+  padding: 20px;
 }
 
 .input,
-.select,
-.tableInput {
-  width: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
-  padding: 10px 12px;
+.select {
   background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  color: #111827;
+  font: inherit;
+  min-height: 44px;
+  padding: 10px 12px;
+  width: 100%;
 }
 
-.addButton,
+.reloadButton,
+.detailButton,
+.editButton,
 .saveButton,
-.deleteButton {
+.cancelButton {
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   color: #fff;
   cursor: pointer;
   font-weight: 900;
-  min-height: 44px;
-  padding: 10px 16px;
+  min-height: 40px;
+  padding: 8px 14px;
   white-space: nowrap;
 }
 
-.addButton {
+.reloadButton,
+.detailButton {
   background: #2563eb;
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+}
+
+.editButton {
+  background: #0f766e;
 }
 
 .saveButton {
   background: #16a34a;
-  box-shadow: 0 10px 22px rgba(22, 163, 74, 0.18);
 }
 
-.deleteButton {
-  background: #dc2626;
-  box-shadow: 0 10px 22px rgba(220, 38, 38, 0.18);
+.cancelButton {
+  background: #64748b;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(120px, 1fr));
+  gap: 1px;
+  margin-bottom: 18px;
+  overflow: hidden;
+  padding: 0;
+}
+
+.summaryItem {
+  background: rgba(248, 250, 252, 0.9);
+  padding: 16px;
+  text-align: center;
+}
+
+.summaryItem span,
+.detailGrid span,
+.detailHeader span,
+.flowStep span {
+  color: #64748b;
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.summaryItem strong {
+  color: #111827;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.message {
+  background: #ecfdf5;
+  border: 1px solid #86efac;
+  border-radius: 10px;
+  color: #166534;
+  font-weight: 800;
+  margin-bottom: 16px;
+  padding: 12px 14px;
 }
 
 .loading {
-  margin-bottom: 16px;
   color: #475569;
-  font-weight: 700;
+  font-weight: 800;
+  margin-bottom: 16px;
 }
 
 .tableCard {
+  cursor: grab;
+  margin-bottom: 20px;
   overflow-x: auto;
+  padding: 0;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.tableCard:active {
+  cursor: grabbing;
 }
 
 .table {
-  width: 100%;
-  min-width: 920px;
   border-collapse: collapse;
+  min-width: 1600px;
+  width: 100%;
 }
 
 .table th {
   background: #1f2937;
   color: #fff;
+  font-weight: 900;
   padding: 12px;
+  text-align: center;
   white-space: nowrap;
 }
 
 .table td {
   border-bottom: 1px solid #e5e7eb;
-  padding: 10px;
+  color: #111827;
+  padding: 11px 12px;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.selectedRow {
+  background: #eff6ff;
+}
+
+.nameCell {
+  min-width: 180px;
+  white-space: normal;
+}
+
+.numberCell {
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  text-align: right;
 }
 
 .actionArea {
   display: flex;
   gap: 8px;
+  justify-content: center;
 }
 
-@media (max-width: 1200px) {
-  .formCard {
+.emptyCell {
+  color: #64748b;
+  font-weight: 800;
+  padding: 28px;
+}
+
+.badge {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 900;
+  min-width: 88px;
+  padding: 6px 10px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.measured {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.packaging {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.stocked {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.allocated {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.partial_shipped {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.shipped {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.detailCard,
+.editCard {
+  margin-top: 20px;
+  padding: 22px;
+}
+
+.detailHeader {
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+}
+
+.detailHeader strong {
+  color: #111827;
+  font-size: 24px;
+}
+
+.detailGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  margin-bottom: 18px;
+}
+
+.detailGrid div,
+.flowStep {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.detailGrid strong,
+.flowStep strong {
+  color: #111827;
+  display: block;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.flowSteps {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(6, minmax(110px, 1fr));
+}
+
+.flowStep {
+  text-align: center;
+}
+
+.flowStep strong {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+}
+
+.editCard h2 {
+  color: #111827;
+  font-size: 20px;
+  margin: 0 0 16px;
+}
+
+.editGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+}
+
+.editGrid label {
+  color: #334155;
+  font-weight: 900;
+}
+
+.editGrid label input {
+  margin-top: 8px;
+}
+
+.editActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+@media (max-width: 1100px) {
+  .filterCard,
+  .summaryGrid,
+  .detailGrid,
+  .flowSteps,
+  .editGrid {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -172,7 +381,11 @@
     white-space: normal;
   }
 
-  .formCard {
+  .filterCard,
+  .summaryGrid,
+  .detailGrid,
+  .flowSteps,
+  .editGrid {
     grid-template-columns: 1fr;
   }
 }

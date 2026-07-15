@@ -1,74 +1,153 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import type { PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
-import { Lot } from "@/app/type";
 import styles from "./page.module.css";
 
-type LotType = Lot["lotType"];
-type NumpadTarget = { kind: "form" } | { kind: "lot"; id: string } | null;
+type LotFlowStatus =
+  | "measured"
+  | "packaging"
+  | "stocked"
+  | "allocated"
+  | "partial_shipped"
+  | "shipped"
+  | "cancelled";
 
-const lotTypeLabels: Record<LotType, string> = {
-  normal: "通常",
-  trial: "試作品",
-  advance: "先行加工",
+type LotFlowRow = {
+  id: string;
+  postId: string;
+  orderNo: string;
+  productCode: string;
+  productName: string;
+  customerName: string;
+  lotNo: string;
+  materialLotNo: string;
+  measuredAmount: number;
+  packagedAmount: number;
+  inventoryAmount: number;
+  allocatedAmount: number;
+  shippedAmount: number;
+  remainingAmount: number;
+  flowStatus: LotFlowStatus;
+  measuredAt: string;
+  packagedAt: string;
+  lastShippedAt: string;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
-const prefixMap: Record<LotType, string> = {
-  normal: "",
-  trial: "T-",
-  advance: "S-",
+type EditingLot = {
+  id: string;
+  materialLotNo: string;
+  note: string;
 };
 
-const LOT_SELECT_COLUMNS =
-  "id,lot_no,lot_type,product_name,customer_name,quantity,status,created_at,updated_at";
+const LOT_SELECT_COLUMNS = [
+  "id",
+  "post_id",
+  "order_no",
+  "product_code",
+  "product_name",
+  "customer_name",
+  "lot_no",
+  "material_lot_no",
+  "measured_amount",
+  "packaged_amount",
+  "inventory_amount",
+  "allocated_amount",
+  "shipped_amount",
+  "remaining_amount",
+  "flow_status",
+  "measured_at",
+  "packaged_at",
+  "last_shipped_at",
+  "note",
+  "created_at",
+  "updated_at",
+].join(",");
+
+const statusLabels: Record<LotFlowStatus, string> = {
+  measured: "計量済",
+  packaging: "梱包中",
+  stocked: "在庫あり",
+  allocated: "引当済",
+  partial_shipped: "一部出荷済",
+  shipped: "出荷完了",
+  cancelled: "取消",
+};
+
+const statusOptions: { value: "all" | LotFlowStatus; label: string }[] = [
+  { value: "all", label: "すべて" },
+  { value: "measured", label: "計量済" },
+  { value: "packaging", label: "梱包中" },
+  { value: "stocked", label: "在庫あり" },
+  { value: "allocated", label: "引当済" },
+  { value: "partial_shipped", label: "一部出荷済" },
+  { value: "shipped", label: "出荷完了" },
+  { value: "cancelled", label: "取消" },
+];
+
+const toNumber = (value: unknown) => Number(value || 0);
+
+const mapLotRow = (row: Record<string, unknown>): LotFlowRow => ({
+  id: String(row.id || ""),
+  postId: String(row.post_id || ""),
+  orderNo: String(row.order_no || ""),
+  productCode: String(row.product_code || ""),
+  productName: String(row.product_name || ""),
+  customerName: String(row.customer_name || ""),
+  lotNo: String(row.lot_no || ""),
+  materialLotNo: String(row.material_lot_no || ""),
+  measuredAmount: toNumber(row.measured_amount),
+  packagedAmount: toNumber(row.packaged_amount),
+  inventoryAmount: toNumber(row.inventory_amount),
+  allocatedAmount: toNumber(row.allocated_amount),
+  shippedAmount: toNumber(row.shipped_amount),
+  remainingAmount: toNumber(row.remaining_amount),
+  flowStatus: String(row.flow_status || "measured") as LotFlowStatus,
+  measuredAt: String(row.measured_at || ""),
+  packagedAt: String(row.packaged_at || ""),
+  lastShippedAt: String(row.last_shipped_at || ""),
+  note: String(row.note || ""),
+  createdAt: String(row.created_at || ""),
+  updatedAt: String(row.updated_at || ""),
+});
+
+const formatNumber = (value: number) => value.toLocaleString("ja-JP");
+
+const formatDate = (value: string) => {
+  if (!value) return "-";
+  return value.slice(0, 10);
+};
 
 export default function LotsPage() {
-  const [lots, setLots] = useState<Lot[]>([]);
-  const [lotType, setLotType] = useState<LotType>("normal");
-  const [productName, setProductName] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [quantity, setQuantity] = useState<number | "">("");
-  const [status, setStatus] = useState("計画中");
+  const [lots, setLots] = useState<LotFlowRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [numpadTarget, setNumpadTarget] = useState<NumpadTarget>(null);
-
-  const nextLotNo = useMemo(() => {
-    const prefix = prefixMap[lotType];
-    const sameTypeLots = lots.filter((lot) => lot.lotType === lotType);
-    const maxNo = sameTypeLots.reduce((max, lot) => {
-      const numeric = Number(lot.lotNo.replace(prefix, ""));
-      return Number.isFinite(numeric) ? Math.max(max, numeric) : max;
-    }, 0);
-
-    return `${prefix}${String(maxNo + 1).padStart(4, "0")}`;
-  }, [lotType, lots]);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | LotFlowStatus>("all");
+  const [selectedLotId, setSelectedLotId] = useState("");
+  const [editingLot, setEditingLot] = useState<EditingLot | null>(null);
+  const [message, setMessage] = useState("");
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const dragState = useRef({ active: false, startX: 0, scrollLeft: 0 });
 
   const fetchLots = async () => {
     try {
       setLoading(true);
+      setMessage("");
+
       const { data, error } = await supabase
-        .from("lots")
+        .from("v_lot_flow_status")
         .select(LOT_SELECT_COLUMNS)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      setLots(
-        (data || []).map((row) => ({
-          id: row.id,
-          lotNo: row.lot_no || "",
-          lotType: row.lot_type || "normal",
-          productName: row.product_name || "",
-          customerName: row.customer_name || "",
-          quantity: row.quantity || 0,
-          status: row.status || "",
-          createdAt: row.created_at || "",
-          updatedAt: row.updated_at || "",
-        })),
-      );
+      const rows = (data || []) as unknown as Record<string, unknown>[];
+      setLots(rows.map(mapLotRow));
     } catch (error) {
       console.error(error);
       alert("ロット情報の取得に失敗しました");
@@ -78,317 +157,392 @@ export default function LotsPage() {
   };
 
   useEffect(() => {
-    const loadLots = async () => {
-      try {
-        setLoading(true);
-
-        const { data, error } = await supabase
-          .from("lots")
-          .select(LOT_SELECT_COLUMNS)
-          .order("created_at", {
-            ascending: false,
-          });
-
-        if (error) throw error;
-
-        const mappedLots: Lot[] = (data || []).map((row) => ({
-          id: row.id,
-          lotNo: row.lot_no || "",
-          lotType: row.lot_type || "normal",
-          productName: row.product_name || "",
-          customerName: row.customer_name || "",
-          quantity: row.quantity || 0,
-          status: row.status || "",
-          createdAt: row.created_at || "",
-          updatedAt: row.updated_at || "",
-        }));
-
-        setLots(mappedLots);
-      } catch (error) {
-        console.error(error);
-        alert("ロット情報の取得に失敗しました");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void loadLots();
+    void fetchLots();
   }, []);
 
-  const handleAdd = async () => {
-    if (!productName || !customerName || quantity === "") {
-      alert("製品名、得意先、数量を入力してください");
-      return;
-    }
+  const filteredLots = useMemo(() => {
+    const lowerSearch = search.trim().toLowerCase();
 
-    try {
-      setLoading(true);
-      const now = new Date().toISOString();
+    return lots.filter((lot) => {
+      const statusMatches =
+        statusFilter === "all" || lot.flowStatus === statusFilter;
+      const textMatches =
+        !lowerSearch ||
+        [
+          lot.orderNo,
+          lot.lotNo,
+          lot.materialLotNo,
+          lot.productCode,
+          lot.productName,
+          lot.customerName,
+          lot.note,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(lowerSearch);
 
-      const { error } = await supabase.from("lots").insert({
-        lot_no: nextLotNo,
-        lot_type: lotType,
-        product_name: productName,
-        customer_name: customerName,
-        quantity: Number(quantity),
-        status,
-        created_at: now,
-        updated_at: now,
-      });
+      return statusMatches && textMatches;
+    });
+  }, [lots, search, statusFilter]);
 
-      if (error) throw error;
+  const selectedLot = useMemo(
+    () => lots.find((lot) => lot.id === selectedLotId) || null,
+    [lots, selectedLotId],
+  );
 
-      setProductName("");
-      setCustomerName("");
-      setQuantity("");
-      setStatus("計画中");
-      await fetchLots();
-    } catch (error) {
-      console.error(error);
-      alert("ロット登録に失敗しました");
-    } finally {
-      setLoading(false);
-    }
+  const totals = useMemo(
+    () =>
+      filteredLots.reduce(
+        (acc, lot) => ({
+          measured: acc.measured + lot.measuredAmount,
+          packaged: acc.packaged + lot.packagedAmount,
+          inventory: acc.inventory + lot.inventoryAmount,
+          allocated: acc.allocated + lot.allocatedAmount,
+          shipped: acc.shipped + lot.shippedAmount,
+          remaining: acc.remaining + lot.remainingAmount,
+        }),
+        {
+          measured: 0,
+          packaged: 0,
+          inventory: 0,
+          allocated: 0,
+          shipped: 0,
+          remaining: 0,
+        },
+      ),
+    [filteredLots],
+  );
+
+  const startEdit = (lot: LotFlowRow) => {
+    setEditingLot({
+      id: lot.id,
+      materialLotNo: lot.materialLotNo,
+      note: lot.note,
+    });
+    setSelectedLotId(lot.id);
+    setMessage("");
   };
 
-  const handleUpdate = async (lot: Lot) => {
+  const cancelEdit = () => {
+    setEditingLot(null);
+    setMessage("");
+  };
+
+  const saveEdit = async () => {
+    if (!editingLot) return;
+
     try {
       setLoading(true);
+      setMessage("");
+
       const { error } = await supabase
         .from("lots")
         .update({
-          lot_no: lot.lotNo,
-          lot_type: lot.lotType,
-          product_name: lot.productName,
-          customer_name: lot.customerName,
-          quantity: Number(lot.quantity),
-          status: lot.status,
+          material_lot_no: editingLot.materialLotNo.trim() || null,
+          note: editingLot.note.trim() || null,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", lot.id);
+        .eq("id", editingLot.id);
 
       if (error) throw error;
 
+      setMessage("ロット情報を保存しました");
+      setEditingLot(null);
       await fetchLots();
     } catch (error) {
       console.error(error);
-      alert("ロット保存に失敗しました");
+      alert("ロット情報の保存に失敗しました");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("削除しますか？")) return;
-
-    try {
-      setLoading(true);
-      const { error } = await supabase.from("lots").delete().eq("id", id);
-      if (error) throw error;
-      await fetchLots();
-    } catch (error) {
-      console.error(error);
-      alert("ロット削除に失敗しました");
-    } finally {
-      setLoading(false);
-    }
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (!scrollRef.current) return;
+    dragState.current = {
+      active: true,
+      startX: event.clientX,
+      scrollLeft: scrollRef.current.scrollLeft,
+    };
+    scrollRef.current.setPointerCapture(event.pointerId);
   };
 
-  const handleLotChange = (
-    id: string,
-    field: keyof Lot,
-    value: string | number,
-  ) => {
-    setLots((prev) =>
-      prev.map((lot) => (lot.id === id ? { ...lot, [field]: value } : lot)),
-    );
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (!dragState.current.active || !scrollRef.current) return;
+    const delta = event.clientX - dragState.current.startX;
+    scrollRef.current.scrollLeft = dragState.current.scrollLeft - delta;
   };
 
-  const currentNumpadValue = () => {
-    if (!numpadTarget) return "";
-    if (numpadTarget.kind === "form") return quantity === "" ? "" : String(quantity);
-    const lot = lots.find((item) => item.id === numpadTarget.id);
-    return lot ? String(lot.quantity || "") : "";
-  };
-
-  const handleNumpadChange = (value: string) => {
-    const nextValue = value === "" ? "" : Number(value);
-
-    if (!numpadTarget) return;
-    if (numpadTarget.kind === "form") {
-      setQuantity(nextValue);
-      return;
-    }
-
-    handleLotChange(numpadTarget.id, "quantity", nextValue === "" ? 0 : nextValue);
+  const stopDragging = (event: PointerEvent<HTMLDivElement>) => {
+    dragState.current.active = false;
+    scrollRef.current?.releasePointerCapture(event.pointerId);
   };
 
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
         <Link href="/" className={styles.backButton}>
-          ← 設定へ戻る
+          ← トップへ戻る
         </Link>
         <h1 className={styles.title}>ロット管理</h1>
       </div>
 
-      <div className={styles.formCard}>
-        <div className={styles.lotPreview}>
-          <span>次回ロットNo</span>
-          <strong>{nextLotNo}</strong>
-        </div>
+      <div className={styles.filterCard}>
+        <input
+          className={styles.input}
+          placeholder="注番・ロットNo・材料ロットNo・製品・得意先で検索"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
         <select
           className={styles.select}
-          value={lotType}
-          onChange={(e) => setLotType(e.target.value as LotType)}
-        >
-          <option value="normal">通常</option>
-          <option value="trial">試作品</option>
-          <option value="advance">先行加工</option>
-        </select>
-        <input
-          className={styles.input}
-          placeholder="製品名"
-          value={productName}
-          onChange={(e) => setProductName(e.target.value)}
-        />
-        <input
-          className={styles.input}
-          placeholder="得意先"
-          value={customerName}
-          onChange={(e) => setCustomerName(e.target.value)}
-        />
-        <input
-          className={styles.input}
-          inputMode="numeric"
-          placeholder="数量"
-          value={quantity}
-          onFocus={() => setNumpadTarget({ kind: "form" })}
-          onChange={(e) =>
-            setQuantity(e.target.value === "" ? "" : Number(e.target.value))
+          value={statusFilter}
+          onChange={(event) =>
+            setStatusFilter(event.target.value as "all" | LotFlowStatus)
           }
-        />
-        <input
-          className={styles.input}
-          placeholder="状態"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        />
-        <button className={styles.addButton} onClick={handleAdd}>
-          登録
+        >
+          {statusOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <button className={styles.reloadButton} onClick={fetchLots}>
+          再読み込み
         </button>
       </div>
 
+      <div className={styles.summaryGrid}>
+        <div className={styles.summaryItem}>
+          <span>表示件数</span>
+          <strong>{filteredLots.length}</strong>
+        </div>
+        <div className={styles.summaryItem}>
+          <span>計量数</span>
+          <strong>{formatNumber(totals.measured)}</strong>
+        </div>
+        <div className={styles.summaryItem}>
+          <span>梱包数</span>
+          <strong>{formatNumber(totals.packaged)}</strong>
+        </div>
+        <div className={styles.summaryItem}>
+          <span>在庫数</span>
+          <strong>{formatNumber(totals.inventory)}</strong>
+        </div>
+        <div className={styles.summaryItem}>
+          <span>引当数</span>
+          <strong>{formatNumber(totals.allocated)}</strong>
+        </div>
+        <div className={styles.summaryItem}>
+          <span>出荷数</span>
+          <strong>{formatNumber(totals.shipped)}</strong>
+        </div>
+        <div className={styles.summaryItem}>
+          <span>残数</span>
+          <strong>{formatNumber(totals.remaining)}</strong>
+        </div>
+      </div>
+
+      {message && <div className={styles.message}>{message}</div>}
       {loading && <div className={styles.loading}>読み込み中...</div>}
 
-      <div className={styles.tableCard}>
+      <div
+        className={styles.tableCard}
+        ref={scrollRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={stopDragging}
+        onPointerCancel={stopDragging}
+      >
         <table className={styles.table}>
           <thead>
             <tr>
+              <th>状態</th>
               <th>ロットNo</th>
-              <th>区分</th>
+              <th>材料ロットNo</th>
+              <th>注番</th>
+              <th>製品コード</th>
               <th>製品名</th>
               <th>得意先</th>
-              <th>数量</th>
-              <th>状態</th>
+              <th>計量数</th>
+              <th>梱包数</th>
+              <th>在庫数</th>
+              <th>引当数</th>
+              <th>出荷数</th>
+              <th>残数</th>
+              <th>計量日</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody>
-            {lots.map((lot) => (
-              <tr key={lot.id}>
+            {filteredLots.map((lot) => (
+              <tr
+                key={lot.id}
+                className={selectedLotId === lot.id ? styles.selectedRow : ""}
+              >
                 <td>
-                  <input
-                    className={styles.tableInput}
-                    value={lot.lotNo}
-                    onChange={(e) =>
-                      handleLotChange(lot.id, "lotNo", e.target.value)
-                    }
-                  />
+                  <span className={`${styles.badge} ${styles[lot.flowStatus]}`}>
+                    {statusLabels[lot.flowStatus] || lot.flowStatus}
+                  </span>
                 </td>
-                <td>
-                  <select
-                    className={styles.tableInput}
-                    value={lot.lotType}
-                    onChange={(e) =>
-                      handleLotChange(lot.id, "lotType", e.target.value)
-                    }
-                  >
-                    {Object.entries(lotTypeLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <input
-                    className={styles.tableInput}
-                    value={lot.productName}
-                    onChange={(e) =>
-                      handleLotChange(lot.id, "productName", e.target.value)
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    className={styles.tableInput}
-                    value={lot.customerName}
-                    onChange={(e) =>
-                      handleLotChange(lot.id, "customerName", e.target.value)
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    className={styles.tableInput}
-                    inputMode="numeric"
-                    value={lot.quantity}
-                    onFocus={() => setNumpadTarget({ kind: "lot", id: lot.id })}
-                    onChange={(e) =>
-                      handleLotChange(
-                        lot.id,
-                        "quantity",
-                        Number(e.target.value),
-                      )
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    className={styles.tableInput}
-                    value={lot.status}
-                    onChange={(e) =>
-                      handleLotChange(lot.id, "status", e.target.value)
-                    }
-                  />
-                </td>
+                <td>{lot.lotNo || "-"}</td>
+                <td>{lot.materialLotNo || "-"}</td>
+                <td>{lot.orderNo || "-"}</td>
+                <td>{lot.productCode || "-"}</td>
+                <td className={styles.nameCell}>{lot.productName || "-"}</td>
+                <td className={styles.nameCell}>{lot.customerName || "-"}</td>
+                <td className={styles.numberCell}>{formatNumber(lot.measuredAmount)}</td>
+                <td className={styles.numberCell}>{formatNumber(lot.packagedAmount)}</td>
+                <td className={styles.numberCell}>{formatNumber(lot.inventoryAmount)}</td>
+                <td className={styles.numberCell}>{formatNumber(lot.allocatedAmount)}</td>
+                <td className={styles.numberCell}>{formatNumber(lot.shippedAmount)}</td>
+                <td className={styles.numberCell}>{formatNumber(lot.remainingAmount)}</td>
+                <td>{formatDate(lot.measuredAt)}</td>
                 <td className={styles.actionArea}>
                   <button
-                    className={styles.saveButton}
-                    onClick={() => handleUpdate(lot)}
+                    className={styles.detailButton}
+                    onClick={() =>
+                      setSelectedLotId((current) =>
+                        current === lot.id ? "" : lot.id,
+                      )
+                    }
                   >
-                    保存
+                    詳細
                   </button>
                   <button
-                    className={styles.deleteButton}
-                    onClick={() => handleDelete(lot.id)}
+                    className={styles.editButton}
+                    onClick={() => startEdit(lot)}
                   >
-                    削除
+                    編集
                   </button>
                 </td>
               </tr>
             ))}
+            {filteredLots.length === 0 && (
+              <tr>
+                <td className={styles.emptyCell} colSpan={15}>
+                  表示できるロットがありません
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
 
-      <Numpad
-        open={numpadTarget !== null}
-        value={currentNumpadValue()}
-        onChange={handleNumpadChange}
-        onClose={() => setNumpadTarget(null)}
-      />
+      {selectedLot && (
+        <div className={styles.detailCard}>
+          <div className={styles.detailHeader}>
+            <div>
+              <span>選択ロット</span>
+              <strong>{selectedLot.lotNo}</strong>
+            </div>
+            <span className={`${styles.badge} ${styles[selectedLot.flowStatus]}`}>
+              {statusLabels[selectedLot.flowStatus] || selectedLot.flowStatus}
+            </span>
+          </div>
+
+          <div className={styles.detailGrid}>
+            <div>
+              <span>注番</span>
+              <strong>{selectedLot.orderNo || "-"}</strong>
+            </div>
+            <div>
+              <span>製品</span>
+              <strong>{selectedLot.productName || "-"}</strong>
+            </div>
+            <div>
+              <span>得意先</span>
+              <strong>{selectedLot.customerName || "-"}</strong>
+            </div>
+            <div>
+              <span>材料ロットNo</span>
+              <strong>{selectedLot.materialLotNo || "-"}</strong>
+            </div>
+            <div>
+              <span>計量日</span>
+              <strong>{formatDate(selectedLot.measuredAt)}</strong>
+            </div>
+            <div>
+              <span>最終梱包日</span>
+              <strong>{formatDate(selectedLot.packagedAt)}</strong>
+            </div>
+            <div>
+              <span>最終出荷日</span>
+              <strong>{formatDate(selectedLot.lastShippedAt)}</strong>
+            </div>
+            <div>
+              <span>備考</span>
+              <strong>{selectedLot.note || "-"}</strong>
+            </div>
+          </div>
+
+          <div className={styles.flowSteps}>
+            <div className={styles.flowStep}>
+              <span>計量</span>
+              <strong>{formatNumber(selectedLot.measuredAmount)}</strong>
+            </div>
+            <div className={styles.flowStep}>
+              <span>梱包</span>
+              <strong>{formatNumber(selectedLot.packagedAmount)}</strong>
+            </div>
+            <div className={styles.flowStep}>
+              <span>在庫</span>
+              <strong>{formatNumber(selectedLot.inventoryAmount)}</strong>
+            </div>
+            <div className={styles.flowStep}>
+              <span>引当</span>
+              <strong>{formatNumber(selectedLot.allocatedAmount)}</strong>
+            </div>
+            <div className={styles.flowStep}>
+              <span>出荷</span>
+              <strong>{formatNumber(selectedLot.shippedAmount)}</strong>
+            </div>
+            <div className={styles.flowStep}>
+              <span>残</span>
+              <strong>{formatNumber(selectedLot.remainingAmount)}</strong>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingLot && (
+        <div className={styles.editCard}>
+          <h2>ロット補助情報</h2>
+          <div className={styles.editGrid}>
+            <label>
+              材料ロットNo
+              <input
+                className={styles.input}
+                value={editingLot.materialLotNo}
+                onChange={(event) =>
+                  setEditingLot({
+                    ...editingLot,
+                    materialLotNo: event.target.value,
+                  })
+                }
+              />
+            </label>
+            <label>
+              備考
+              <input
+                className={styles.input}
+                value={editingLot.note}
+                onChange={(event) =>
+                  setEditingLot({ ...editingLot, note: event.target.value })
+                }
+              />
+            </label>
+          </div>
+          <div className={styles.editActions}>
+            <button className={styles.saveButton} onClick={saveEdit}>
+              保存
+            </button>
+            <button className={styles.cancelButton} onClick={cancelEdit}>
+              キャンセル
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
