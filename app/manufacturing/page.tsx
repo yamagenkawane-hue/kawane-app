@@ -334,6 +334,49 @@ export default function ManufacturingPage() {
     alert("計量実績を登録しました。梱包完了後に在庫へ反映されます");
   };
 
+  const handleDeleteSelected = async () => {
+    if (!selected) {
+      alert("削除する製品を選択してください");
+      return;
+    }
+
+    if (selected.generatedProcess || !selected.orderProcessId) {
+      alert("この製品は計量工程がまだ作成されていないため削除できません");
+      return;
+    }
+
+    if (selected.completedAmount > 0) {
+      alert("計量実績が登録済みの製品は削除できません");
+      return;
+    }
+
+    if (
+      !confirm(
+        `${selected.orderNo} / ${selected.productName} を計量登録のリストから削除します。よろしいですか？`,
+      )
+    ) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from("order_processes")
+      .delete()
+      .eq("id", selected.orderProcessId)
+      .eq("completed_amount", 0);
+
+    if (error) {
+      console.error(error);
+      alert("選択した製品の削除に失敗しました");
+      return;
+    }
+
+    setScheduleId("");
+    setFinalQuantity("");
+    setLotNo("");
+    await fetchSchedules();
+    alert("選択した製品を削除しました");
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
@@ -388,6 +431,11 @@ export default function ManufacturingPage() {
           <button className={styles.addButton} onClick={handleConfirm}>
             確定登録
           </button>
+          {selected && (
+            <button className={styles.deleteButton} onClick={handleDeleteSelected}>
+              削除
+            </button>
+          )}
         </div>
       </div>
 
