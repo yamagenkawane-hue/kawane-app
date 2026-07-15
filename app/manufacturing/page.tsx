@@ -22,6 +22,7 @@ type OrderProcessRow = {
 type PostLotRow = {
   id: string;
   lot_no?: string;
+  measurement_registration_hidden?: boolean;
 };
 
 type MeasurementSchedule = {
@@ -58,6 +59,7 @@ const mapOrderProcessRow = (row: Record<string, unknown>): OrderProcessRow => ({
 const buildMeasurementSchedules = (
   processes: OrderProcessRow[],
   lotMap: Map<string, string>,
+  hiddenPostIds: Set<string>,
 ): MeasurementSchedule[] => {
   const processesByPost = new Map<string, OrderProcessRow[]>();
 
@@ -72,6 +74,8 @@ const buildMeasurementSchedules = (
   const schedules: MeasurementSchedule[] = [];
 
   for (const [postId, postProcesses] of processesByPost.entries()) {
+    if (hiddenPostIds.has(postId)) continue;
+
     const orderedProcesses = [...postProcesses].sort(
       (a, b) => a.processOrder - b.processOrder,
     );
@@ -179,7 +183,7 @@ export default function ManufacturingPage() {
           "id,post_id,order_no,product_code,product_name,customer_name,process_name,process_order,planned_amount,completed_amount",
         )
         .order("process_order", { ascending: true }),
-      supabase.from("posts").select("id,lot_no"),
+      supabase.from("posts").select("id,lot_no,measurement_registration_hidden"),
     ]);
 
     if (processResult.error) {
@@ -195,8 +199,13 @@ export default function ManufacturingPage() {
         post.lot_no || "",
       ]),
     );
+    const hiddenPostIds = new Set(
+      ((postResult.data || []) as PostLotRow[])
+        .filter((post) => post.measurement_registration_hidden === true)
+        .map((post) => post.id),
+    );
     const mappedProcesses = (processResult.data || []).map(mapOrderProcessRow);
-    return buildMeasurementSchedules(mappedProcesses, lotMap);
+    return buildMeasurementSchedules(mappedProcesses, lotMap, hiddenPostIds);
   };
 
   const fetchSchedules = async () => {
@@ -340,11 +349,6 @@ export default function ManufacturingPage() {
       return;
     }
 
-    if (selected.generatedProcess || !selected.orderProcessId) {
-      alert("この製品は計量工程がまだ作成されていないため削除できません");
-      return;
-    }
-
     if (selected.completedAmount > 0) {
       alert("計量実績が登録済みの製品は削除できません");
       return;
@@ -359,10 +363,12 @@ export default function ManufacturingPage() {
     }
 
     const { error } = await supabase
-      .from("order_processes")
-      .delete()
-      .eq("id", selected.orderProcessId)
-      .eq("completed_amount", 0);
+      .from("posts")
+      .update({
+        measurement_registration_hidden: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", selected.postId);
 
     if (error) {
       console.error(error);
