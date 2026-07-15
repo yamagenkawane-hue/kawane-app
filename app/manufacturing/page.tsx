@@ -168,6 +168,7 @@ export default function ManufacturingPage() {
   const [scheduleId, setScheduleId] = useState("");
   const [finalQuantity, setFinalQuantity] = useState<number | "">("");
   const [lotNo, setLotNo] = useState("");
+  const [materialLotNo, setMaterialLotNo] = useState("");
   const [numpadOpen, setNumpadOpen] = useState(false);
 
   const selected = useMemo(
@@ -311,6 +312,16 @@ export default function ManufacturingPage() {
       return;
     }
 
+    const readiness = await supabase
+      .from("v_lot_flow_status")
+      .select("id")
+      .limit(1);
+
+    if (readiness.error) {
+      alert("ロット追跡SQLを先にSupabaseで実行してください");
+      throw readiness.error;
+    }
+
     const orderProcessId = selected.orderProcessId
       ? selected.orderProcessId
       : await createGeneratedMeasurementProcess(selected);
@@ -330,15 +341,118 @@ export default function ManufacturingPage() {
       throw resultError;
     }
 
+    const { data: resultRows, error: latestResultError } = await supabase
+      .from("production_results")
+      .select("id")
+      .eq("post_id", selected.postId)
+      .eq("order_process_id", orderProcessId)
+      .eq("date", today)
+      .eq("amount", quantity)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (latestResultError) {
+      alert("計量実績のロット紐づけに失敗しました");
+      throw latestResultError;
+    }
+
+    const measurementResultId = resultRows?.[0]?.id
+      ? String(resultRows[0].id)
+      : null;
+    const trimmedLotNo = lotNo.trim();
+    const trimmedMaterialLotNo = materialLotNo.trim();
+
+    const { data: existingLots, error: existingLotError } = await supabase
+      .from("lots")
+      .select("id,measured_amount,quantity")
+      .eq("post_id", selected.postId)
+      .eq("lot_no", trimmedLotNo)
+      .limit(1);
+
+    if (existingLotError) {
+      alert("ロット情報の確認に失敗しました");
+      throw existingLotError;
+    }
+
+    const existingLot = existingLots?.[0];
+    let lotId = existingLot?.id ? String(existingLot.id) : "";
+
+    if (existingLot) {
+      const nextMeasuredAmount =
+        Number(existingLot.measured_amount || 0) + quantity;
+      const nextQuantity = Number(existingLot.quantity || 0) + quantity;
+      const { error: lotUpdateError } = await supabase
+        .from("lots")
+        .update({
+          quantity: nextQuantity,
+          measured_amount: nextMeasuredAmount,
+          material_lot_no: trimmedMaterialLotNo || null,
+          measurement_result_id: measurementResultId,
+          measurement_order_process_id: orderProcessId,
+          status: "measured",
+          measured_at: today,
+          updated_at: now,
+        })
+        .eq("id", lotId);
+
+      if (lotUpdateError) {
+        alert("ロット情報の更新に失敗しました");
+        throw lotUpdateError;
+      }
+    } else {
+      const { data: insertedLot, error: lotInsertError } = await supabase
+        .from("lots")
+        .insert({
+          post_id: selected.postId,
+          order_no: selected.orderNo,
+          product_code: selected.productCode,
+          product_name: selected.productName,
+          customer_name: selected.customerName,
+          lot_no: trimmedLotNo,
+          lot_type: "normal",
+          quantity,
+          measured_amount: quantity,
+          material_lot_no: trimmedMaterialLotNo || null,
+          measurement_result_id: measurementResultId,
+          measurement_order_process_id: orderProcessId,
+          status: "measured",
+          measured_at: today,
+          created_at: now,
+          updated_at: now,
+        })
+        .select("id")
+        .single();
+
+      if (lotInsertError) {
+        alert("ロット情報の作成に失敗しました");
+        throw lotInsertError;
+      }
+
+      lotId = String(insertedLot.id || "");
+    }
+
+    if (measurementResultId && lotId) {
+      const { error: resultLotError } = await supabase
+        .from("production_results")
+        .update({ lot_id: lotId })
+        .eq("id", measurementResultId);
+
+      if (resultLotError) {
+        alert("計量実績とロットの紐づけに失敗しました");
+        throw resultLotError;
+      }
+    }
+
     await supabase
       .from("posts")
       .update({
-        lot_no: lotNo.trim(),
+        lot_no: trimmedLotNo,
         updated_at: now,
       })
       .eq("id", selected.postId);
 
     setFinalQuantity("");
+    setMaterialLotNo("");
     await fetchSchedules();
     alert("計量実績を登録しました。梱包完了後に在庫へ反映されます");
   };
@@ -379,6 +493,7 @@ export default function ManufacturingPage() {
     setScheduleId("");
     setFinalQuantity("");
     setLotNo("");
+    setMaterialLotNo("");
     await fetchSchedules();
     alert("選択した製品を削除しました");
   };
@@ -405,6 +520,7 @@ export default function ManufacturingPage() {
               const schedule = schedules.find((item) => item.id === value);
 
               setLotNo(schedule?.lotNo || "");
+              setMaterialLotNo("");
             }}
           >
             <option value="">計量する予定を選択</option>
@@ -419,6 +535,12 @@ export default function ManufacturingPage() {
             placeholder="ロットNo"
             value={lotNo}
             onChange={(e) => setLotNo(e.target.value)}
+          />
+          <input
+            className={styles.input}
+            placeholder="材料ロットNo"
+            value={materialLotNo}
+            onChange={(e) => setMaterialLotNo(e.target.value)}
           />
           <input
             className={styles.input}
