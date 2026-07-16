@@ -41,6 +41,13 @@
   gap: 16px;
 }
 
+.materialGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
 .infoCard {
   background: #f9fafb;
   padding: 16px;

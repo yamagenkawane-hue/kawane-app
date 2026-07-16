@@ -41,6 +41,20 @@ const DIRECT_ORDER_PROCESS_SELECT_COLUMNS =
 const AI_SETTINGS_SELECT_COLUMNS =
   "id,enabled,target_outsource_delay,target_shipping_delay,target_line_load,strength,use_line_operation_rate,use_past_results,use_outsource_process,use_holidays,use_current_delay,use_process_average_delay,updated_at";
 
+const PRODUCT_MATERIAL_SELECT_COLUMNS =
+  "material_code,material_number,material_name,material_size";
+
+const PRODUCT_MASTER_MATERIAL_SELECT_COLUMNS = "standard";
+
+const MATERIAL_SELECT_COLUMNS = "material_code,material_number,material_name,size";
+
+type MaterialInfo = {
+  materialCode: string;
+  materialNumber: string;
+  materialName: string;
+  materialSize: string;
+};
+
 const DEFAULT_AI_SETTINGS: AiPredictionSettings = {
   id: "global",
   enabled: true,
@@ -100,6 +114,7 @@ export default function ProgressDetail() {
   const [loadError, setLoadError] = useState("");
   const [ganttProcesses, setGanttProcesses] = useState<ProcessItem[]>([]);
   const [ganttCalendar, setGanttCalendar] = useState<CompanyCalendar[]>([]);
+  const [materialInfo, setMaterialInfo] = useState<MaterialInfo | null>(null);
 
   // =========================
   // 日付変換
@@ -282,6 +297,65 @@ export default function ProgressDetail() {
     return extraDays;
   }, []);
 
+  const fetchMaterialInfo = useCallback(async (productCode: string) => {
+    if (!productCode) {
+      setMaterialInfo(null);
+      return;
+    }
+
+    const { data: viewRow, error: viewError } = await supabase
+      .from("v_product_material_master")
+      .select(PRODUCT_MATERIAL_SELECT_COLUMNS)
+      .eq("product_code", productCode)
+      .maybeSingle();
+
+    if (!viewError && viewRow) {
+      setMaterialInfo({
+        materialCode: String(viewRow.material_code || ""),
+        materialNumber: String(viewRow.material_number || ""),
+        materialName: String(viewRow.material_name || ""),
+        materialSize: String(viewRow.material_size || ""),
+      });
+      return;
+    }
+
+    const { data: productRow, error: productError } = await supabase
+      .from("product_master")
+      .select(PRODUCT_MASTER_MATERIAL_SELECT_COLUMNS)
+      .eq("product_code", productCode)
+      .maybeSingle();
+
+    if (productError || !productRow?.standard) {
+      if (viewError) console.warn("v_product_material_master取得失敗", viewError);
+      setMaterialInfo(null);
+      return;
+    }
+
+    const materialCode = String(productRow.standard || "");
+    const { data: materialRow, error: materialError } = await supabase
+      .from("material_master")
+      .select(MATERIAL_SELECT_COLUMNS)
+      .eq("material_code", materialCode)
+      .maybeSingle();
+
+    if (materialError || !materialRow) {
+      setMaterialInfo({
+        materialCode,
+        materialNumber: "",
+        materialName: "",
+        materialSize: "",
+      });
+      return;
+    }
+
+    setMaterialInfo({
+      materialCode,
+      materialNumber: String(materialRow.material_number || ""),
+      materialName: String(materialRow.material_name || ""),
+      materialSize: String(materialRow.size || ""),
+    });
+  }, []);
+
   // =========================
   // 実績取得
   // =========================
@@ -391,6 +465,7 @@ export default function ProgressDetail() {
         };
 
         setPost(currentPost);
+        await fetchMaterialInfo(currentPost.productCode);
 
         // =========================
         // 工程マスタ
@@ -885,6 +960,7 @@ export default function ProgressDetail() {
     getPredictionExtraDays,
     getPredictionStart,
     getProcessLogs,
+    fetchMaterialInfo,
     id,
     safeDate,
   ]);
@@ -931,6 +1007,31 @@ export default function ProgressDetail() {
           <div className={styles.infoCard}>
             <span className={styles.label}>納期</span>
             <span className={styles.value}>{post.deliveryDate}</span>
+          </div>
+        </div>
+
+        <div className={styles.materialGrid}>
+          <div className={styles.infoCard}>
+            <span className={styles.label}>材番</span>
+            <span className={styles.value}>
+              {materialInfo?.materialNumber || "-"}
+            </span>
+          </div>
+
+          <div className={styles.infoCard}>
+            <span className={styles.label}>材料</span>
+            <span className={styles.value}>
+              {materialInfo?.materialName ||
+                materialInfo?.materialCode ||
+                "-"}
+            </span>
+          </div>
+
+          <div className={styles.infoCard}>
+            <span className={styles.label}>サイズ</span>
+            <span className={styles.value}>
+              {materialInfo?.materialSize || "-"}
+            </span>
           </div>
         </div>
       </div>
