@@ -568,7 +568,7 @@ export default function ProductionResultsPage() {
       setAmount("");
       await fetchData();
       alert("現場実績を登録しました");
-      router.push("/manufacturing");
+      router.push("/");
     } catch (error) {
       console.error(error);
       const message =
