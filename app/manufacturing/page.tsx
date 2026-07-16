@@ -333,11 +333,12 @@ export default function ManufacturingPage() {
         p_schedule_id: null,
         p_date: today,
         p_amount: quantity,
+        p_lot_id: null,
       },
     );
 
     if (resultError) {
-      alert("計量実績の登録に失敗しました");
+      alert(`計量実績の登録に失敗しました: ${resultError.message}`);
       throw resultError;
     }
 
