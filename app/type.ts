@@ -334,8 +334,8 @@ export type MaterialMaster = {
   id: string;
   materialCode: string;
   materialName: string;
-  supplierName: string;
-  unit: string;
+  size: string;
+  remainingAmount: number;
 };
 
 export type InventoryItem = {

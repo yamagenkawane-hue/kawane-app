@@ -7,15 +7,15 @@ import { MaterialMaster } from "@/app/type";
 import styles from "../masterCommon.module.css";
 
 const MATERIAL_SELECT_COLUMNS =
-  "id,material_code,material_name,supplier_name,unit";
+  "id,material_code,material_name,size,remaining_amount";
 
 export default function MaterialMasterPage() {
   const [items, setItems] = useState<MaterialMaster[]>([]);
   const [form, setForm] = useState({
     materialCode: "",
     materialName: "",
-    supplierName: "",
-    unit: "kg",
+    size: "",
+    remainingAmount: "",
   });
 
   const fetchItems = async () => {
@@ -32,8 +32,8 @@ export default function MaterialMasterPage() {
         id: row.id,
         materialCode: row.material_code || "",
         materialName: row.material_name || "",
-        supplierName: row.supplier_name || "",
-        unit: row.unit || "",
+        size: row.size || "",
+        remainingAmount: Number(row.remaining_amount || 0),
       })),
     );
   };
@@ -56,8 +56,8 @@ export default function MaterialMasterPage() {
         id: row.id,
         materialCode: row.material_code || "",
         materialName: row.material_name || "",
-        supplierName: row.supplier_name || "",
-        unit: row.unit || "",
+        size: row.size || "",
+        remainingAmount: Number(row.remaining_amount || 0),
       }));
 
       setItems(mappedItems);
@@ -68,20 +68,20 @@ export default function MaterialMasterPage() {
 
   const handleAdd = async () => {
     if (!form.materialCode || !form.materialName) {
-      alert("材料コードと材料名を入力してください");
+      alert("材番と材料名を入力してください");
       return;
     }
     await supabase.from("material_master").insert({
       material_code: form.materialCode,
       material_name: form.materialName,
-      supplier_name: form.supplierName,
-      unit: form.unit,
+      size: form.size,
+      remaining_amount: Number(form.remainingAmount || 0),
     });
     setForm({
       materialCode: "",
       materialName: "",
-      supplierName: "",
-      unit: "kg",
+      size: "",
+      remainingAmount: "",
     });
     await fetchItems();
   };
@@ -89,7 +89,7 @@ export default function MaterialMasterPage() {
   const updateItem = (
     id: string,
     field: keyof MaterialMaster,
-    value: string,
+    value: string | number,
   ) => {
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)),
@@ -102,8 +102,8 @@ export default function MaterialMasterPage() {
       .update({
         material_code: item.materialCode,
         material_name: item.materialName,
-        supplier_name: item.supplierName,
-        unit: item.unit,
+        size: item.size,
+        remaining_amount: Number(item.remainingAmount || 0),
       })
       .eq("id", item.id);
     await fetchItems();
@@ -121,7 +121,7 @@ export default function MaterialMasterPage() {
         <div className={styles.formGrid}>
           <input
             className={styles.input}
-            placeholder="材料コード"
+            placeholder="材番"
             value={form.materialCode}
             onChange={(e) => setForm({ ...form, materialCode: e.target.value })}
           />
@@ -133,15 +133,18 @@ export default function MaterialMasterPage() {
           />
           <input
             className={styles.input}
-            placeholder="仕入先"
-            value={form.supplierName}
-            onChange={(e) => setForm({ ...form, supplierName: e.target.value })}
+            placeholder="サイズ"
+            value={form.size}
+            onChange={(e) => setForm({ ...form, size: e.target.value })}
           />
           <input
             className={styles.input}
-            placeholder="単位"
-            value={form.unit}
-            onChange={(e) => setForm({ ...form, unit: e.target.value })}
+            inputMode="decimal"
+            placeholder="残量"
+            value={form.remainingAmount}
+            onChange={(e) =>
+              setForm({ ...form, remainingAmount: e.target.value })
+            }
           />
         </div>
         <div className={styles.buttonRow}>
@@ -154,10 +157,10 @@ export default function MaterialMasterPage() {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>材料コード</th>
+              <th>材番</th>
               <th>材料名</th>
-              <th>仕入先</th>
-              <th>単位</th>
+              <th>サイズ</th>
+              <th>残量</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -168,8 +171,8 @@ export default function MaterialMasterPage() {
                   [
                     "materialCode",
                     "materialName",
-                    "supplierName",
-                    "unit",
+                    "size",
+                    "remainingAmount",
                   ] as const
                 ).map((field) => (
                   <td key={field}>
@@ -177,7 +180,13 @@ export default function MaterialMasterPage() {
                       className={styles.tableInput}
                       value={item[field]}
                       onChange={(e) =>
-                        updateItem(item.id, field, e.target.value)
+                        updateItem(
+                          item.id,
+                          field,
+                          field === "remainingAmount"
+                            ? Number(e.target.value || 0)
+                            : e.target.value,
+                        )
                       }
                     />
                   </td>

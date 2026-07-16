@@ -199,7 +199,7 @@ export default function ProductMasterPage() {
           </select>
           <input
             className={styles.input}
-            placeholder="規格"
+            placeholder="材料"
             value={form.standard}
             onChange={(e) => setForm({ ...form, standard: e.target.value })}
           />
@@ -227,7 +227,7 @@ export default function ProductMasterPage() {
               <th>製品コード</th>
               <th>製品名</th>
               <th>得意先名</th>
-              <th>規格</th>
+              <th>材料</th>
               <th>単位</th>
               <th>操作</th>
             </tr>
