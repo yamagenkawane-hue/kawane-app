@@ -22,7 +22,13 @@ type OrderProcessRow = {
 type PostLotRow = {
   id: string;
   lot_no?: string;
+  order_amount?: number;
   measurement_registration_hidden?: boolean;
+};
+
+type LotMeasuredRow = {
+  post_id?: string;
+  measured_amount?: number;
 };
 
 type MeasurementSchedule = {
@@ -34,9 +40,12 @@ type MeasurementSchedule = {
   productName: string;
   customerName: string;
   lotNo: string;
+  orderAmount: number;
   planAmount: number;
   completedAmount: number;
   availableAmount: number;
+  measuredLotAmount: number;
+  orderRemainingAmount: number;
   previousProcessName: string;
   previousCompletedAmount: number;
   insertProcessOrder: number;
@@ -120,6 +129,8 @@ const resolveMeasurementLot = (
 const buildMeasurementSchedules = (
   processes: OrderProcessRow[],
   lotMap: Map<string, string>,
+  orderAmountMap: Map<string, number>,
+  measuredLotMap: Map<string, number>,
   hiddenPostIds: Set<string>,
 ): MeasurementSchedule[] => {
   const processesByPost = new Map<string, OrderProcessRow[]>();
@@ -156,9 +167,17 @@ const buildMeasurementSchedules = (
         measurementProcess.processOrder === 1
           ? measurementProcess.plannedAmount
           : previousCompletedAmount;
-      const availableAmount = Math.max(
+      const processRemainingAmount = Math.max(
         0,
         allowance - measurementProcess.completedAmount,
+      );
+      const orderAmount =
+        orderAmountMap.get(postId) || measurementProcess.plannedAmount;
+      const measuredLotAmount = measuredLotMap.get(postId) || 0;
+      const orderRemainingAmount = Math.max(0, orderAmount - measuredLotAmount);
+      const availableAmount = Math.min(
+        processRemainingAmount,
+        orderRemainingAmount,
       );
 
       if (availableAmount <= 0) continue;
@@ -172,9 +191,12 @@ const buildMeasurementSchedules = (
         productName: measurementProcess.productName,
         customerName: measurementProcess.customerName,
         lotNo: lotMap.get(postId) || "",
+        orderAmount,
         planAmount: measurementProcess.plannedAmount,
         completedAmount: measurementProcess.completedAmount,
         availableAmount,
+        measuredLotAmount,
+        orderRemainingAmount,
         previousProcessName: previousProcess?.processName || "",
         previousCompletedAmount,
         insertProcessOrder: measurementProcess.processOrder,
@@ -198,8 +220,13 @@ const buildMeasurementSchedules = (
       (process) => process.processOrder > completedInspectionProcess.processOrder,
     );
     const availableAmount = completedInspectionProcess.completedAmount;
+    const orderAmount =
+      orderAmountMap.get(postId) || completedInspectionProcess.plannedAmount;
+    const measuredLotAmount = measuredLotMap.get(postId) || 0;
+    const orderRemainingAmount = Math.max(0, orderAmount - measuredLotAmount);
+    const finalAvailableAmount = Math.min(availableAmount, orderRemainingAmount);
 
-    if (availableAmount <= 0) continue;
+    if (finalAvailableAmount <= 0) continue;
 
     schedules.push({
       id: `generated-measurement-${postId}`,
@@ -210,9 +237,12 @@ const buildMeasurementSchedules = (
       productName: completedInspectionProcess.productName,
       customerName: completedInspectionProcess.customerName,
       lotNo: lotMap.get(postId) || "",
+      orderAmount,
       planAmount: completedInspectionProcess.plannedAmount,
       completedAmount: 0,
-      availableAmount,
+      availableAmount: finalAvailableAmount,
+      measuredLotAmount,
+      orderRemainingAmount,
       previousProcessName: completedInspectionProcess.processName,
       previousCompletedAmount: completedInspectionProcess.completedAmount,
       insertProcessOrder:
@@ -238,14 +268,17 @@ export default function ManufacturingPage() {
   );
 
   const loadMeasurementSchedules = async () => {
-    const [processResult, postResult] = await Promise.all([
+    const [processResult, postResult, lotResult] = await Promise.all([
       supabase
         .from("v_order_processes_with_master")
         .select(
           "id,post_id,order_no,product_code,product_name,customer_name,process_name,process_order,planned_amount,completed_amount",
         )
         .order("process_order", { ascending: true }),
-      supabase.from("posts").select("id,lot_no,measurement_registration_hidden"),
+      supabase
+        .from("posts")
+        .select("id,lot_no,order_amount,measurement_registration_hidden"),
+      supabase.from("v_lot_flow_status").select("post_id,measured_amount"),
     ]);
 
     if (processResult.error) {
@@ -254,6 +287,9 @@ export default function ManufacturingPage() {
     if (postResult.error) {
       throw postResult.error;
     }
+    if (lotResult.error) {
+      throw lotResult.error;
+    }
 
     const lotMap = new Map(
       ((postResult.data || []) as PostLotRow[]).map((post) => [
@@ -261,13 +297,36 @@ export default function ManufacturingPage() {
         post.lot_no || "",
       ]),
     );
+    const orderAmountMap = new Map(
+      ((postResult.data || []) as PostLotRow[]).map((post) => [
+        post.id,
+        Number(post.order_amount || 0),
+      ]),
+    );
+    const measuredLotMap = new Map<string, number>();
+
+    for (const lot of (lotResult.data || []) as LotMeasuredRow[]) {
+      const postId = String(lot.post_id || "");
+      if (!postId) continue;
+      measuredLotMap.set(
+        postId,
+        (measuredLotMap.get(postId) || 0) + Number(lot.measured_amount || 0),
+      );
+    }
+
     const hiddenPostIds = new Set(
       ((postResult.data || []) as PostLotRow[])
         .filter((post) => post.measurement_registration_hidden === true)
         .map((post) => post.id),
     );
     const mappedProcesses = (processResult.data || []).map(mapOrderProcessRow);
-    return buildMeasurementSchedules(mappedProcesses, lotMap, hiddenPostIds);
+    return buildMeasurementSchedules(
+      mappedProcesses,
+      lotMap,
+      orderAmountMap,
+      measuredLotMap,
+      hiddenPostIds,
+    );
   };
 
   const fetchSchedules = async () => {
@@ -386,6 +445,30 @@ export default function ManufacturingPage() {
     const orderProcessId = selected.orderProcessId
       ? selected.orderProcessId
       : await createGeneratedMeasurementProcess(selected);
+
+    const { data: latestLots, error: latestLotsError } = await supabase
+      .from("v_lot_flow_status")
+      .select("measured_amount")
+      .eq("post_id", selected.postId);
+
+    if (latestLotsError) {
+      alert("計量済み数量の確認に失敗しました");
+      throw latestLotsError;
+    }
+
+    const latestMeasuredAmount = (latestLots || []).reduce(
+      (sum, lot) => sum + Number(lot.measured_amount || 0),
+      0,
+    );
+    const latestOrderRemaining = Math.max(
+      0,
+      Number(selected.orderAmount || 0) - latestMeasuredAmount,
+    );
+
+    if (quantity > latestOrderRemaining) {
+      alert(`注番全体の未計量残は${latestOrderRemaining}です`);
+      return;
+    }
 
     const { error: resultError } = await supabase.rpc(
       "register_order_process_result",
