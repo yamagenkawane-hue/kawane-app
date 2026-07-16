@@ -56,6 +56,67 @@ const mapOrderProcessRow = (row: Record<string, unknown>): OrderProcessRow => ({
   completedAmount: Number(row.completed_amount || 0),
 });
 
+type ExistingLotRow = {
+  id?: string;
+  lot_no?: string;
+  material_lot_no?: string | null;
+  measured_amount?: number;
+  quantity?: number;
+};
+
+const normalizeLotText = (value?: string | null) =>
+  String(value || "").trim();
+
+const resolveMeasurementLot = (
+  baseLotNo: string,
+  materialLotNo: string,
+  existingLots: ExistingLotRow[],
+) => {
+  const normalizedMaterial = normalizeLotText(materialLotNo);
+  const sameBaseLot = existingLots.find(
+    (lot) => normalizeLotText(lot.lot_no) === baseLotNo,
+  );
+  const sameBaseAndMaterial = existingLots.find(
+    (lot) =>
+      normalizeLotText(lot.lot_no) === baseLotNo &&
+      normalizeLotText(lot.material_lot_no) === normalizedMaterial,
+  );
+
+  if (sameBaseAndMaterial) {
+    return { lotNo: baseLotNo, existingLot: sameBaseAndMaterial };
+  }
+
+  if (!sameBaseLot) {
+    return { lotNo: baseLotNo, existingLot: undefined };
+  }
+
+  const sameMaterialSplitLot = existingLots.find(
+    (lot) =>
+      normalizeLotText(lot.lot_no).startsWith(`${baseLotNo}-`) &&
+      normalizeLotText(lot.material_lot_no) === normalizedMaterial,
+  );
+
+  if (sameMaterialSplitLot) {
+    return {
+      lotNo: normalizeLotText(sameMaterialSplitLot.lot_no),
+      existingLot: sameMaterialSplitLot,
+    };
+  }
+
+  const usedLotNos = new Set(
+    existingLots.map((lot) => normalizeLotText(lot.lot_no)).filter(Boolean),
+  );
+  let suffix = 2;
+  let nextLotNo = `${baseLotNo}-${suffix}`;
+
+  while (usedLotNos.has(nextLotNo)) {
+    suffix += 1;
+    nextLotNo = `${baseLotNo}-${suffix}`;
+  }
+
+  return { lotNo: nextLotNo, existingLot: undefined };
+};
+
 const buildMeasurementSchedules = (
   processes: OrderProcessRow[],
   lotMap: Map<string, string>,
@@ -365,17 +426,20 @@ export default function ManufacturingPage() {
 
     const { data: existingLots, error: existingLotError } = await supabase
       .from("lots")
-      .select("id,measured_amount,quantity")
+      .select("id,lot_no,material_lot_no,measured_amount,quantity")
       .eq("post_id", selected.postId)
-      .eq("lot_no", trimmedLotNo)
-      .limit(1);
+      .order("created_at", { ascending: true });
 
     if (existingLotError) {
       alert("ロット情報の確認に失敗しました");
       throw existingLotError;
     }
 
-    const existingLot = existingLots?.[0];
+    const { lotNo: resolvedLotNo, existingLot } = resolveMeasurementLot(
+      trimmedLotNo,
+      trimmedMaterialLotNo,
+      (existingLots || []) as ExistingLotRow[],
+    );
     let lotId = existingLot?.id ? String(existingLot.id) : "";
 
     if (existingLot) {
@@ -409,7 +473,7 @@ export default function ManufacturingPage() {
           product_code: selected.productCode,
           product_name: selected.productName,
           customer_name: selected.customerName,
-          lot_no: trimmedLotNo,
+          lot_no: resolvedLotNo,
           lot_type: "normal",
           quantity,
           measured_amount: quantity,
