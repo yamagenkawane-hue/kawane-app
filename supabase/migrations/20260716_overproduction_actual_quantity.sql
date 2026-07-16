@@ -7,6 +7,10 @@ alter table if exists order_processes
 alter table if exists production_schedules
   drop constraint if exists production_schedules_completed_not_over_plan_chk;
 
+drop function if exists register_order_process_result(uuid, uuid, date, integer);
+drop function if exists register_order_process_result(uuid, uuid, date, integer, uuid);
+drop function if exists register_order_process_result(uuid, uuid, date, integer, uuid, boolean);
+
 create or replace function register_order_process_result(
   p_order_process_id uuid,
   p_schedule_id uuid,
