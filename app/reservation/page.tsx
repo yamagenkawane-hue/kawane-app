@@ -88,6 +88,9 @@ const Reservation = () => {
         String(post.orderNo || "")
           .toLowerCase()
           .includes(keyword) ||
+        String(post.lotNo || "")
+          .toLowerCase()
+          .includes(keyword) ||
         String(post.productName || "")
           .toLowerCase()
           .includes(keyword) ||

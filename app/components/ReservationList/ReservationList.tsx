@@ -337,7 +337,7 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         )}
       </td>
       <td>{post.customerName}</td>
-      <td>{post.orderAmount}</td>
+      <td className={styles.orderAmountCell}>{post.orderAmount}</td>
       <td className={styles.manufacturingCell}>
         {isEdit && (
           <div className={styles.logArea}>

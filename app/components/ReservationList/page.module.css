@@ -60,6 +60,13 @@
   font-size: 14px;
 }
 
+.orderAmountCell {
+  font-size: 18px !important;
+  font-weight: 800;
+  line-height: 1.35;
+  vertical-align: middle !important;
+}
+
 .productName {
   min-width: 180px;
   padding: 8px !important;
