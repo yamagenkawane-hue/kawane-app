@@ -45,6 +45,8 @@ type EditingLot = {
   note: string;
 };
 
+const PAGE_SIZE = 7;
+
 const LOT_SELECT_COLUMNS = [
   "id",
   "post_id",
@@ -131,6 +133,7 @@ export default function LotsPage() {
   const [selectedLotId, setSelectedLotId] = useState("");
   const [editingLot, setEditingLot] = useState<EditingLot | null>(null);
   const [message, setMessage] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const dragState = useRef({ active: false, startX: 0, scrollLeft: 0 });
 
@@ -184,6 +187,26 @@ export default function LotsPage() {
       return statusMatches && textMatches;
     });
   }, [lots, search, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredLots.length / PAGE_SIZE));
+
+  const paginatedLots = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    return filteredLots.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [currentPage, filteredLots]);
+
+  const pageStart = filteredLots.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const pageEnd = Math.min(currentPage * PAGE_SIZE, filteredLots.length);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const selectedLot = useMemo(
     () => lots.find((lot) => lot.id === selectedLotId) || null,
@@ -375,7 +398,7 @@ export default function LotsPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredLots.map((lot) => (
+            {paginatedLots.map((lot) => (
               <tr
                 key={lot.id}
                 className={selectedLotId === lot.id ? styles.selectedRow : ""}
@@ -427,6 +450,36 @@ export default function LotsPage() {
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className={styles.pagination}>
+        <div className={styles.pageInfo}>
+          {formatNumber(filteredLots.length)}件中 {formatNumber(pageStart)}-
+          {formatNumber(pageEnd)}件を表示
+        </div>
+        <div className={styles.pageActions}>
+          <button
+            className={styles.pageButton}
+            type="button"
+            disabled={currentPage <= 1}
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+          >
+            前へ
+          </button>
+          <span className={styles.pageNumber}>
+            {currentPage} / {totalPages}
+          </span>
+          <button
+            className={styles.pageButton}
+            type="button"
+            disabled={currentPage >= totalPages}
+            onClick={() =>
+              setCurrentPage((page) => Math.min(totalPages, page + 1))
+            }
+          >
+            次へ
+          </button>
+        </div>
       </div>
 
       {selectedLot && (

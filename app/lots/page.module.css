@@ -221,6 +221,55 @@
   padding: 28px;
 }
 
+.pagination {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.07);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+}
+
+.pageInfo {
+  color: #475569;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.pageActions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.pageButton {
+  background: #2563eb;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 900;
+  min-height: 38px;
+  padding: 8px 14px;
+}
+
+.pageButton:disabled {
+  background: #cbd5e1;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+.pageNumber {
+  color: #111827;
+  font-weight: 900;
+  min-width: 64px;
+  text-align: center;
+}
+
 .badge {
   border-radius: 999px;
   display: inline-block;
@@ -387,5 +436,14 @@
   .flowSteps,
   .editGrid {
     grid-template-columns: 1fr;
+  }
+
+  .pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pageActions {
+    justify-content: space-between;
   }
 }
