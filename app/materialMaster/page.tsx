@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
 import { MaterialMaster } from "@/app/type";
 import styles from "../masterCommon.module.css";
@@ -17,6 +18,19 @@ export default function MaterialMasterPage() {
     size: "",
     remainingAmount: "",
   });
+  const [activeRemainingInput, setActiveRemainingInput] = useState<
+    "form" | string | null
+  >(null);
+
+  const numpadValue =
+    activeRemainingInput === "form"
+      ? form.remainingAmount
+      : activeRemainingInput
+        ? String(
+            items.find((item) => item.id === activeRemainingInput)
+              ?.remainingAmount || "",
+          )
+        : "";
 
   const fetchItems = async () => {
     const { data, error } = await supabase
@@ -109,6 +123,17 @@ export default function MaterialMasterPage() {
     await fetchItems();
   };
 
+  const handleNumpadChange = (value: string) => {
+    if (activeRemainingInput === "form") {
+      setForm({ ...form, remainingAmount: value });
+      return;
+    }
+
+    if (activeRemainingInput) {
+      updateItem(activeRemainingInput, "remainingAmount", Number(value || 0));
+    }
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
@@ -142,6 +167,7 @@ export default function MaterialMasterPage() {
             inputMode="decimal"
             placeholder="残量"
             value={form.remainingAmount}
+            onFocus={() => setActiveRemainingInput("form")}
             onChange={(e) =>
               setForm({ ...form, remainingAmount: e.target.value })
             }
@@ -179,6 +205,11 @@ export default function MaterialMasterPage() {
                     <input
                       className={styles.tableInput}
                       value={item[field]}
+                      onFocus={() => {
+                        if (field === "remainingAmount") {
+                          setActiveRemainingInput(item.id);
+                        }
+                      }}
                       onChange={(e) =>
                         updateItem(
                           item.id,
@@ -217,6 +248,12 @@ export default function MaterialMasterPage() {
           </tbody>
         </table>
       </div>
+      <Numpad
+        open={activeRemainingInput !== null}
+        value={numpadValue}
+        onChange={handleNumpadChange}
+        onClose={() => setActiveRemainingInput(null)}
+      />
     </div>
   );
 }
