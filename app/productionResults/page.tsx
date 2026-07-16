@@ -39,6 +39,36 @@ const isPackagingProcess = (processName: string) =>
   processName.includes("\u68b1\u5305") ||
   processName.includes("\u5305\u88c5");
 
+type LotFlowRow = {
+  id: string;
+  postId: string;
+  orderNo: string;
+  lotNo: string;
+  materialLotNo: string;
+  measuredAmount: number;
+  packagedAmount: number;
+  remainingAmount: number;
+  flowStatus: string;
+};
+
+const LOT_SELECT_COLUMNS =
+  "id,post_id,order_no,lot_no,material_lot_no,measured_amount,packaged_amount,remaining_amount,flow_status";
+
+const mapLotFlowRow = (row: Record<string, unknown>): LotFlowRow => ({
+  id: String(row.id || ""),
+  postId: String(row.post_id || ""),
+  orderNo: String(row.order_no || ""),
+  lotNo: String(row.lot_no || ""),
+  materialLotNo: String(row.material_lot_no || ""),
+  measuredAmount: Number(row.measured_amount || 0),
+  packagedAmount: Number(row.packaged_amount || 0),
+  remainingAmount: Number(row.remaining_amount || 0),
+  flowStatus: String(row.flow_status || ""),
+});
+
+const getLotPackagingRemaining = (lot: LotFlowRow) =>
+  Math.max(0, Number(lot.measuredAmount || 0) - Number(lot.packagedAmount || 0));
+
 const mapScheduleRow = (row: Record<string, unknown>): ProductionSchedule => ({
   id: String(row.id || ""),
   postId: row.post_id ? String(row.post_id) : "",
@@ -143,8 +173,10 @@ export default function ProductionResultsPage() {
   const [orderProcesses, setOrderProcesses] = useState<OrderProcess[]>([]);
   const [posts, setPosts] = useState<PostData[]>([]);
   const [results, setResults] = useState<ProcessResult[]>([]);
+  const [lots, setLots] = useState<LotFlowRow[]>([]);
   const [scheduleId, setScheduleId] = useState("");
   const [orderProcessId, setOrderProcessId] = useState("");
+  const [lotId, setLotId] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [amount, setAmount] = useState<number | "">("");
   const [loading, setLoading] = useState(false);
@@ -185,6 +217,25 @@ export default function ProductionResultsPage() {
   const selectedOrderProcess = useMemo(
     () => orderProcesses.find((item) => item.id === orderProcessId),
     [orderProcessId, orderProcesses],
+  );
+
+  const isSelectedPackagingProcess = useMemo(
+    () => Boolean(selectedOrderProcess && isPackagingProcess(selectedOrderProcess.processName)),
+    [selectedOrderProcess],
+  );
+
+  const selectableLots = useMemo(
+    () =>
+      lots
+        .filter((lot) => lot.postId === selectedPostId)
+        .filter((lot) => getLotPackagingRemaining(lot) > 0)
+        .sort((a, b) => a.lotNo.localeCompare(b.lotNo, "ja")),
+    [lots, selectedPostId],
+  );
+
+  const selectedLot = useMemo(
+    () => selectableLots.find((lot) => lot.id === lotId) || null,
+    [lotId, selectableLots],
   );
 
   const selectableOrderProcesses = useMemo(
@@ -266,6 +317,7 @@ export default function ProductionResultsPage() {
         orderProcessResult,
         postResult,
         resultResult,
+        lotResult,
       ] =
         await Promise.all([
           supabase
@@ -283,6 +335,10 @@ export default function ProductionResultsPage() {
             .select(RESULT_SELECT_COLUMNS)
             .order("created_at", { ascending: false })
             .limit(30),
+          supabase
+            .from("v_lot_flow_status")
+            .select(LOT_SELECT_COLUMNS)
+            .order("created_at", { ascending: false }),
         ]);
 
       if (scheduleResult.error) throw scheduleResult.error;
@@ -292,6 +348,7 @@ export default function ProductionResultsPage() {
       if (orderProcessResult.error) throw orderProcessResult.error;
       if (postResult.error) throw postResult.error;
       if (resultResult.error) throw resultResult.error;
+      if (lotResult.error) throw lotResult.error;
 
       const dailyRows: Record<string, unknown>[] = await dailyScheduleResult.json();
       const activePosts: PostData[] = (dailyRows || [])
@@ -314,6 +371,11 @@ export default function ProductionResultsPage() {
       );
       setPosts(activePosts);
       setResults((resultResult.data || []).map(mapResultRow));
+      setLots(
+        ((lotResult.data || []) as unknown as Record<string, unknown>[])
+          .map(mapLotFlowRow)
+          .filter((lot) => activePostIds.has(lot.postId)),
+      );
     } catch (error) {
       console.error(error);
       alert("現場実績データの取得に失敗しました");
@@ -333,6 +395,7 @@ export default function ProductionResultsPage() {
   const handleScheduleChange = async (value: string) => {
     setScheduleId(value);
     setOrderProcessId("");
+    setLotId("");
 
     const schedule = schedules.find((item) => item.id === value);
     if (!schedule) return;
@@ -409,9 +472,22 @@ export default function ProductionResultsPage() {
         ? Number(previousMeasurementProcess.completedAmount || 0) -
           Number(selectedOrderProcess.completedAmount || 0)
         : 0;
+      const lotPackagingRemaining = selectedLot
+        ? getLotPackagingRemaining(selectedLot)
+        : 0;
+      const packagingRemaining = isPackagingProcess(selectedOrderProcess.processName)
+        ? Math.min(measurementRemaining, lotPackagingRemaining)
+        : measurementRemaining;
+      const packagingRequiresLot =
+        isPackagingProcess(selectedOrderProcess.processName) && !selectedLot;
 
       if (!Number.isFinite(resultAmount) || resultAmount <= 0) {
         alert("数量は1以上で入力してください");
+        return;
+      }
+
+      if (packagingRequiresLot) {
+        alert("梱包/包装するロットを選択してください。");
         return;
       }
 
@@ -443,10 +519,10 @@ export default function ProductionResultsPage() {
 
       if (
         isPackagingProcess(selectedOrderProcess.processName) &&
-        resultAmount > measurementRemaining
+        resultAmount > packagingRemaining
       ) {
         alert(
-          `計量済み数量を超えて梱包/包装できません。登録可能数量は${measurementRemaining}です。`,
+          `計量済み数量または選択ロットの残数を超えて梱包/包装できません。登録可能数量は${packagingRemaining}です。`,
         );
         return;
       }
@@ -465,6 +541,9 @@ export default function ProductionResultsPage() {
           : selectedSchedule.id,
         p_date: date,
         p_amount: resultAmount,
+        p_lot_id: isPackagingProcess(selectedOrderProcess.processName)
+          ? selectedLot?.id || null
+          : null,
       });
 
       if (error) throw error;
@@ -531,7 +610,10 @@ export default function ProductionResultsPage() {
         <select
           className={styles.select}
           value={orderProcessId}
-          onChange={(e) => setOrderProcessId(e.target.value)}
+          onChange={(e) => {
+            setOrderProcessId(e.target.value);
+            setLotId("");
+          }}
           disabled={!selectedPostId || selectedScheduleOrderProcesses.length === 0}
         >
           <option value="">工程を選択</option>
@@ -548,6 +630,22 @@ export default function ProductionResultsPage() {
             );
           })}
         </select>
+
+        {isSelectedPackagingProcess && (
+          <select
+            className={styles.select}
+            value={lotId}
+            onChange={(e) => setLotId(e.target.value)}
+          >
+            <option value="">梱包/包装するロットを選択</option>
+            {selectableLots.map((lot) => (
+              <option key={lot.id} value={lot.id}>
+                {lot.lotNo} / 材料 {lot.materialLotNo || "-"} / 登録可能{" "}
+                {getLotPackagingRemaining(lot)}
+              </option>
+            ))}
+          </select>
+        )}
 
         {selectedPostId && hasMeasurementProcess && (
           <div className={styles.notice}>
