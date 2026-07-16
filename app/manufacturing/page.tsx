@@ -154,9 +154,17 @@ const buildMeasurementSchedules = (
     const measurementProcesses = orderedProcesses.filter((process) =>
       process.processName.includes("計量"),
     );
-    const measurementProcess = measurementProcesses.find(
-      (process) => process.completedAmount < process.plannedAmount,
-    );
+    const measurementProcess = measurementProcesses.find((process) => {
+      const previousProcess = [...orderedProcesses]
+        .filter((item) => item.processOrder < process.processOrder)
+        .sort((a, b) => b.processOrder - a.processOrder)[0];
+      const allowance =
+        process.processOrder === 1
+          ? process.plannedAmount
+          : previousProcess?.completedAmount || 0;
+
+      return process.completedAmount < allowance;
+    });
 
     if (measurementProcess) {
       const previousProcess = [...orderedProcesses]
@@ -175,10 +183,7 @@ const buildMeasurementSchedules = (
         orderAmountMap.get(postId) || measurementProcess.plannedAmount;
       const measuredLotAmount = measuredLotMap.get(postId) || 0;
       const orderRemainingAmount = Math.max(0, orderAmount - measuredLotAmount);
-      const availableAmount = Math.min(
-        processRemainingAmount,
-        orderRemainingAmount,
-      );
+      const availableAmount = processRemainingAmount;
 
       if (availableAmount <= 0) continue;
 
@@ -224,7 +229,7 @@ const buildMeasurementSchedules = (
       orderAmountMap.get(postId) || completedInspectionProcess.plannedAmount;
     const measuredLotAmount = measuredLotMap.get(postId) || 0;
     const orderRemainingAmount = Math.max(0, orderAmount - measuredLotAmount);
-    const finalAvailableAmount = Math.min(availableAmount, orderRemainingAmount);
+    const finalAvailableAmount = availableAmount;
 
     if (finalAvailableAmount <= 0) continue;
 
@@ -445,30 +450,6 @@ export default function ManufacturingPage() {
     const orderProcessId = selected.orderProcessId
       ? selected.orderProcessId
       : await createGeneratedMeasurementProcess(selected);
-
-    const { data: latestLots, error: latestLotsError } = await supabase
-      .from("v_lot_flow_status")
-      .select("measured_amount")
-      .eq("post_id", selected.postId);
-
-    if (latestLotsError) {
-      alert("計量済み数量の確認に失敗しました");
-      throw latestLotsError;
-    }
-
-    const latestMeasuredAmount = (latestLots || []).reduce(
-      (sum, lot) => sum + Number(lot.measured_amount || 0),
-      0,
-    );
-    const latestOrderRemaining = Math.max(
-      0,
-      Number(selected.orderAmount || 0) - latestMeasuredAmount,
-    );
-
-    if (quantity > latestOrderRemaining) {
-      alert(`注番全体の未計量残は${latestOrderRemaining}です`);
-      return;
-    }
 
     const { error: resultError } = await supabase.rpc(
       "register_order_process_result",

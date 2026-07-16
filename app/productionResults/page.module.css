@@ -100,6 +100,26 @@
   padding: 10px 12px;
 }
 
+.checkboxNotice {
+  align-items: center;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  color: #9a3412;
+  display: flex;
+  font-size: 13px;
+  font-weight: 900;
+  gap: 10px;
+  grid-column: 1 / -1;
+  padding: 10px 12px;
+}
+
+.checkboxNotice input {
+  cursor: pointer;
+  height: 18px;
+  width: 18px;
+}
+
 .inlineLink {
   color: #1d4ed8;
   font-weight: 900;

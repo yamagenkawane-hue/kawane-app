@@ -181,6 +181,7 @@ export default function ProductionResultsPage() {
   const [amount, setAmount] = useState<number | "">("");
   const [loading, setLoading] = useState(false);
   const [numpadOpen, setNumpadOpen] = useState(false);
+  const [allowOverProduction, setAllowOverProduction] = useState(false);
 
   const selectedSchedule = useMemo(
     () => schedules.find((item) => item.id === scheduleId),
@@ -221,6 +222,16 @@ export default function ProductionResultsPage() {
 
   const isSelectedPackagingProcess = useMemo(
     () => Boolean(selectedOrderProcess && isPackagingProcess(selectedOrderProcess.processName)),
+    [selectedOrderProcess],
+  );
+
+  const canAllowOverProduction = useMemo(
+    () =>
+      Boolean(
+        selectedOrderProcess &&
+          selectedOrderProcess.processOrder === 1 &&
+          !isPackagingProcess(selectedOrderProcess.processName),
+      ),
     [selectedOrderProcess],
   );
 
@@ -396,6 +407,7 @@ export default function ProductionResultsPage() {
     setScheduleId(value);
     setOrderProcessId("");
     setLotId("");
+    setAllowOverProduction(false);
 
     const schedule = schedules.find((item) => item.id === value);
     if (!schedule) return;
@@ -460,8 +472,11 @@ export default function ProductionResultsPage() {
       const resultAmount = Number(amount);
       const now = new Date().toISOString();
       const allowance = getProcessAllowance(selectedOrderProcess);
-      const remainingAllowance =
-        allowance - Number(selectedOrderProcess.completedAmount || 0);
+      const overProductionAllowed =
+        canAllowOverProduction && allowOverProduction;
+      const remainingAllowance = overProductionAllowed
+        ? Number.POSITIVE_INFINITY
+        : allowance - Number(selectedOrderProcess.completedAmount || 0);
       const shouldRedirectToMeasurement =
         isMeasurementProcess(selectedOrderProcess.processName);
       const previousMeasurementProcess =
@@ -544,6 +559,7 @@ export default function ProductionResultsPage() {
         p_lot_id: isPackagingProcess(selectedOrderProcess.processName)
           ? selectedLot?.id || null
           : null,
+        p_allow_overproduction: overProductionAllowed,
       });
 
       if (error) throw error;
@@ -613,6 +629,7 @@ export default function ProductionResultsPage() {
           onChange={(e) => {
             setOrderProcessId(e.target.value);
             setLotId("");
+            setAllowOverProduction(false);
           }}
           disabled={!selectedPostId || selectedScheduleOrderProcesses.length === 0}
         >
@@ -671,6 +688,19 @@ export default function ProductionResultsPage() {
                 Number(selectedOrderProcess.completedAmount || 0),
             )}
           </div>
+        )}
+
+        {canAllowOverProduction && (
+          <label className={styles.checkboxNotice}>
+            <input
+              type="checkbox"
+              checked={allowOverProduction}
+              onChange={(e) => setAllowOverProduction(e.target.checked)}
+            />
+            <span>
+              超過生産を許可する（この工程の実績数を正として、次工程の登録上限にします）
+            </span>
+          </label>
         )}
 
         <input

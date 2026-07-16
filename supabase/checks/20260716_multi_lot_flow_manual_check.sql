@@ -65,14 +65,13 @@ select
   'Different material lots are tracked separately for the same order.' as message
 union all
 select
-  'measured_total_within_order_amount' as check_name,
-  case
-    when (select measured_total from summary) <= coalesce((select order_amount from target_post), 0)
-      then 'PASSED'
-    else 'FAILED'
-  end as result,
+  'measured_total_vs_order_amount' as check_name,
+  'INFO' as result,
   (select measured_total from summary) as actual_count,
-  'Total measured amount for all lots does not exceed the order amount.' as message
+  concat(
+    'Measured total can exceed order amount when the first process is explicitly overproduced. order_amount=',
+    coalesce((select order_amount from target_post), 0)
+  ) as message
 union all
 select
   'packaged_not_over_measured' as check_name,
