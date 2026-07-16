@@ -63,6 +63,7 @@
 .orderAmountCell {
   font-size: 18px !important;
   line-height: 1.35;
+  min-width: 130px;
   vertical-align: middle !important;
 }
 

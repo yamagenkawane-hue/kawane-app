@@ -151,3 +151,7 @@
   border: 1px solid #777;
   padding: 8px;
 }
+
+.orderAmountHeader {
+  min-width: 130px;
+}

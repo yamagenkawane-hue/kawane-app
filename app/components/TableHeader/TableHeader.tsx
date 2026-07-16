@@ -22,7 +22,9 @@ const TableHeader = () => {
           得意先
         </th>
 
-        <th rowSpan={2}>受注数量</th>
+        <th rowSpan={2} className={styles.orderAmountHeader}>
+          受注数量
+        </th>
 
         <th colSpan={3} className={styles.processHeader}>
           製造
