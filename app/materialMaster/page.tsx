@@ -8,16 +8,28 @@ import { MaterialMaster } from "@/app/type";
 import styles from "../masterCommon.module.css";
 
 const MATERIAL_SELECT_COLUMNS =
-  "id,material_code,material_name,size,remaining_amount";
+  "id,material_code,material_number,material_name,size,remaining_amount";
+
+const emptyForm = {
+  materialCode: "",
+  materialNumber: "",
+  materialName: "",
+  size: "",
+  remainingAmount: "",
+};
+
+const mapMaterial = (row: any): MaterialMaster => ({
+  id: row.id,
+  materialCode: row.material_code || "",
+  materialNumber: row.material_number || "",
+  materialName: row.material_name || "",
+  size: row.size || "",
+  remainingAmount: Number(row.remaining_amount || 0),
+});
 
 export default function MaterialMasterPage() {
   const [items, setItems] = useState<MaterialMaster[]>([]);
-  const [form, setForm] = useState({
-    materialCode: "",
-    materialName: "",
-    size: "",
-    remainingAmount: "",
-  });
+  const [form, setForm] = useState(emptyForm);
   const [activeRemainingInput, setActiveRemainingInput] = useState<
     "form" | string | null
   >(null);
@@ -37,66 +49,39 @@ export default function MaterialMasterPage() {
       .from("material_master")
       .select(MATERIAL_SELECT_COLUMNS)
       .order("material_code", { ascending: true });
+
     if (error) {
       alert("材料マスタの取得に失敗しました");
       return;
     }
-    setItems(
-      (data || []).map((row) => ({
-        id: row.id,
-        materialCode: row.material_code || "",
-        materialName: row.material_name || "",
-        size: row.size || "",
-        remainingAmount: Number(row.remaining_amount || 0),
-      })),
-    );
+
+    setItems((data || []).map(mapMaterial));
   };
 
   useEffect(() => {
-    const loadItems = async () => {
-      const { data, error } = await supabase
-        .from("material_master")
-        .select(MATERIAL_SELECT_COLUMNS)
-        .order("material_code", {
-          ascending: true,
-        });
-
-      if (error) {
-        alert("材料マスタの取得に失敗しました");
-        return;
-      }
-
-      const mappedItems: MaterialMaster[] = (data || []).map((row) => ({
-        id: row.id,
-        materialCode: row.material_code || "",
-        materialName: row.material_name || "",
-        size: row.size || "",
-        remainingAmount: Number(row.remaining_amount || 0),
-      }));
-
-      setItems(mappedItems);
-    };
-
-    void loadItems();
+    void fetchItems();
   }, []);
 
   const handleAdd = async () => {
     if (!form.materialCode || !form.materialName) {
-      alert("材番と材料名を入力してください");
+      alert("材料コードと材料名を入力してください");
       return;
     }
-    await supabase.from("material_master").insert({
+
+    const { error } = await supabase.from("material_master").insert({
       material_code: form.materialCode,
+      material_number: form.materialNumber,
       material_name: form.materialName,
       size: form.size,
       remaining_amount: Number(form.remainingAmount || 0),
     });
-    setForm({
-      materialCode: "",
-      materialName: "",
-      size: "",
-      remainingAmount: "",
-    });
+
+    if (error) {
+      alert(`材料の追加に失敗しました: ${error.message}`);
+      return;
+    }
+
+    setForm(emptyForm);
     await fetchItems();
   };
 
@@ -111,15 +96,35 @@ export default function MaterialMasterPage() {
   };
 
   const handleSave = async (item: MaterialMaster) => {
-    await supabase
+    const { error } = await supabase
       .from("material_master")
       .update({
         material_code: item.materialCode,
+        material_number: item.materialNumber,
         material_name: item.materialName,
         size: item.size,
         remaining_amount: Number(item.remainingAmount || 0),
       })
       .eq("id", item.id);
+
+    if (error) {
+      alert(`材料の保存に失敗しました: ${error.message}`);
+      return;
+    }
+
+    await fetchItems();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("削除しますか？")) return;
+
+    const { error } = await supabase.from("material_master").delete().eq("id", id);
+
+    if (error) {
+      alert(`材料の削除に失敗しました: ${error.message}`);
+      return;
+    }
+
     await fetchItems();
   };
 
@@ -142,13 +147,22 @@ export default function MaterialMasterPage() {
         </Link>
         <h1 className={styles.title}>材料マスタ</h1>
       </div>
+
       <div className={styles.formCard}>
         <div className={styles.formGrid}>
           <input
             className={styles.input}
-            placeholder="材番"
+            placeholder="材料コード"
             value={form.materialCode}
             onChange={(e) => setForm({ ...form, materialCode: e.target.value })}
+          />
+          <input
+            className={styles.input}
+            placeholder="材番"
+            value={form.materialNumber}
+            onChange={(e) =>
+              setForm({ ...form, materialNumber: e.target.value })
+            }
           />
           <input
             className={styles.input}
@@ -179,10 +193,12 @@ export default function MaterialMasterPage() {
           </button>
         </div>
       </div>
+
       <div className={styles.tableCard}>
         <table className={styles.table}>
           <thead>
             <tr>
+              <th>材料コード</th>
               <th>材番</th>
               <th>材料名</th>
               <th>サイズ</th>
@@ -196,6 +212,7 @@ export default function MaterialMasterPage() {
                 {(
                   [
                     "materialCode",
+                    "materialNumber",
                     "materialName",
                     "size",
                     "remainingAmount",
@@ -231,14 +248,7 @@ export default function MaterialMasterPage() {
                   </button>
                   <button
                     className={styles.deleteButton}
-                    onClick={async () => {
-                      if (!confirm("削除しますか？")) return;
-                      await supabase
-                        .from("material_master")
-                        .delete()
-                        .eq("id", item.id);
-                      await fetchItems();
-                    }}
+                    onClick={() => handleDelete(item.id)}
                   >
                     削除
                   </button>
@@ -248,6 +258,7 @@ export default function MaterialMasterPage() {
           </tbody>
         </table>
       </div>
+
       <Numpad
         open={activeRemainingInput !== null}
         value={numpadValue}

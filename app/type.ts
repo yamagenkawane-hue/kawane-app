@@ -333,6 +333,7 @@ export type ProductMaster = {
 export type MaterialMaster = {
   id: string;
   materialCode: string;
+  materialNumber: string;
   materialName: string;
   size: string;
   remainingAmount: number;

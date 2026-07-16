@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import supabase from "@/lib/supabase";
-import { CustomerMaster, ProductMaster } from "@/app/type";
+import { CustomerMaster, MaterialMaster, ProductMaster } from "@/app/type";
 import styles from "../masterCommon.module.css";
 
 const PRODUCT_SELECT_COLUMNS =
@@ -12,42 +12,103 @@ const PRODUCT_SELECT_COLUMNS =
 const CUSTOMER_SELECT_COLUMNS =
   "id,customer_name,shipping_offset_days,note";
 
+const MATERIAL_SELECT_COLUMNS =
+  "id,material_code,material_number,material_name,size,remaining_amount";
+
+type ProductRow = {
+  id: string;
+  product_code: string | null;
+  product_name: string | null;
+  customer_name: string | null;
+  standard: string | null;
+  unit: string | null;
+};
+
+type CustomerRow = {
+  id: string;
+  customer_name: string | null;
+  shipping_offset_days: number | null;
+  note: string | null;
+};
+
+type MaterialRow = {
+  id: string;
+  material_code: string | null;
+  material_number: string | null;
+  material_name: string | null;
+  size: string | null;
+  remaining_amount: number | string | null;
+};
+
+const emptyForm = {
+  productCode: "",
+  productName: "",
+  customerName: "",
+  standard: "",
+  unit: "個",
+};
+
+const mapProduct = (row: ProductRow): ProductMaster => ({
+  id: row.id,
+  productCode: row.product_code || "",
+  productName: row.product_name || "",
+  customerName: row.customer_name || "",
+  standard: row.standard || "",
+  unit: row.unit || "",
+});
+
+const mapCustomer = (row: CustomerRow): CustomerMaster => ({
+  id: row.id,
+  customerName: row.customer_name || "",
+  shippingOffsetDays: row.shipping_offset_days || 0,
+  note: row.note || "",
+});
+
+const mapMaterial = (row: MaterialRow): MaterialMaster => ({
+  id: row.id,
+  materialCode: row.material_code || "",
+  materialNumber: row.material_number || "",
+  materialName: row.material_name || "",
+  size: row.size || "",
+  remainingAmount: Number(row.remaining_amount || 0),
+});
+
+const materialLabel = (material: MaterialMaster) => {
+  const details = [
+    material.materialName,
+    material.materialNumber ? `材番:${material.materialNumber}` : "",
+    material.size ? `サイズ:${material.size}` : "",
+  ].filter(Boolean);
+
+  return details.length
+    ? `${material.materialCode} / ${details.join(" / ")}`
+    : material.materialCode;
+};
+
 export default function ProductMasterPage() {
   const [items, setItems] = useState<ProductMaster[]>([]);
   const [customers, setCustomers] = useState<CustomerMaster[]>([]);
+  const [materials, setMaterials] = useState<MaterialMaster[]>([]);
   const [message, setMessage] = useState("");
-  const [form, setForm] = useState({
-    productCode: "",
-    productName: "",
-    customerName: "",
-    standard: "",
-    unit: "個",
-  });
+  const [form, setForm] = useState(emptyForm);
 
   const fetchItems = async () => {
     const { data, error } = await supabase
       .from("v_product_master_with_customer")
       .select(PRODUCT_SELECT_COLUMNS)
       .order("product_code", { ascending: true });
+
     if (error) {
       setMessage("製品マスタの取得に失敗しました");
       return;
     }
-    setItems(
-      (data || []).map((row) => ({
-        id: row.id,
-        productCode: row.product_code || "",
-        productName: row.product_name || "",
-        customerName: row.customer_name || "",
-        standard: row.standard || "",
-        unit: row.unit || "",
-      })),
-    );
+
+    setItems(((data || []) as ProductRow[]).map(mapProduct));
   };
 
   useEffect(() => {
     const loadItems = async () => {
-      const [productResult, customerResult] = await Promise.all([
+      const [productResult, customerResult, materialResult] = await Promise.all([
         supabase
           .from("v_product_master_with_customer")
           .select(PRODUCT_SELECT_COLUMNS)
@@ -56,35 +117,34 @@ export default function ProductMasterPage() {
           .from("customer_master")
           .select(CUSTOMER_SELECT_COLUMNS)
           .order("customer_name", { ascending: true }),
+        supabase
+          .from("material_master")
+          .select(MATERIAL_SELECT_COLUMNS)
+          .order("material_code", { ascending: true }),
       ]);
 
-      const { data, error } = productResult;
-
-      if (error) {
+      if (productResult.error) {
         setMessage("製品マスタの取得に失敗しました");
         return;
       }
 
-      const mappedItems: ProductMaster[] = (data || []).map((row) => ({
-        id: row.id,
-        productCode: row.product_code || "",
-        productName: row.product_name || "",
-        customerName: row.customer_name || "",
-        standard: row.standard || "",
-        unit: row.unit || "",
-      }));
+      if (customerResult.error) {
+        setMessage("得意先マスタの取得に失敗しました");
+        return;
+      }
 
-      const mappedCustomers: CustomerMaster[] = (customerResult.data || []).map(
-        (row) => ({
-          id: row.id,
-          customerName: row.customer_name || "",
-          shippingOffsetDays: row.shipping_offset_days || 0,
-          note: row.note || "",
-        }),
+      if (materialResult.error) {
+        setMessage("材料マスタの取得に失敗しました");
+        return;
+      }
+
+      setItems(((productResult.data || []) as ProductRow[]).map(mapProduct));
+      setCustomers(
+        ((customerResult.data || []) as CustomerRow[]).map(mapCustomer),
       );
-
-      setItems(mappedItems);
-      setCustomers(mappedCustomers);
+      setMaterials(
+        ((materialResult.data || []) as MaterialRow[]).map(mapMaterial),
+      );
     };
 
     void loadItems();
@@ -95,6 +155,7 @@ export default function ProductMasterPage() {
       setMessage("製品コード、製品名、得意先名を入力してください");
       return;
     }
+
     const { error } = await supabase.from("product_master").insert({
       product_code: form.productCode,
       product_name: form.productName,
@@ -108,13 +169,7 @@ export default function ProductMasterPage() {
       return;
     }
 
-    setForm({
-      productCode: "",
-      productName: "",
-      customerName: "",
-      standard: "",
-      unit: "個",
-    });
+    setForm(emptyForm);
     await fetchItems();
     setMessage("製品を追加しました");
   };
@@ -123,6 +178,7 @@ export default function ProductMasterPage() {
     const invalid = items.find(
       (item) => !item.productCode || !item.productName || !item.customerName,
     );
+
     if (invalid) {
       setMessage("未入力の製品コード、製品名、得意先名があります");
       return;
@@ -161,6 +217,21 @@ export default function ProductMasterPage() {
     );
   };
 
+  const renderMaterialOptions = (currentValue?: string) => (
+    <>
+      <option value="">材料コードを選択</option>
+      {currentValue &&
+        !materials.some((material) => material.materialCode === currentValue) && (
+          <option value={currentValue}>{currentValue}</option>
+        )}
+      {materials.map((material) => (
+        <option key={material.id} value={material.materialCode}>
+          {materialLabel(material)}
+        </option>
+      ))}
+    </>
+  );
+
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
@@ -169,6 +240,7 @@ export default function ProductMasterPage() {
         </Link>
         <h1 className={styles.title}>製品マスタ</h1>
       </div>
+
       <div className={styles.formCard}>
         <div className={styles.formGrid}>
           <input
@@ -197,12 +269,13 @@ export default function ProductMasterPage() {
               </option>
             ))}
           </select>
-          <input
-            className={styles.input}
-            placeholder="材料"
+          <select
+            className={styles.select}
             value={form.standard}
             onChange={(e) => setForm({ ...form, standard: e.target.value })}
-          />
+          >
+            {renderMaterialOptions(form.standard)}
+          </select>
           <input
             className={styles.input}
             placeholder="単位"
@@ -219,7 +292,9 @@ export default function ProductMasterPage() {
           </button>
         </div>
       </div>
+
       {message && <div className={styles.message}>{message}</div>}
+
       <div className={styles.tableCard}>
         <table className={styles.table}>
           <thead>
@@ -227,7 +302,7 @@ export default function ProductMasterPage() {
               <th>製品コード</th>
               <th>製品名</th>
               <th>得意先名</th>
-              <th>材料</th>
+              <th>材料コード</th>
               <th>単位</th>
               <th>操作</th>
             </tr>
@@ -270,13 +345,15 @@ export default function ProductMasterPage() {
                   </select>
                 </td>
                 <td>
-                  <input
-                    className={styles.tableInput}
+                  <select
+                    className={styles.select}
                     value={item.standard}
                     onChange={(e) =>
                       updateItem(item.id, "standard", e.target.value)
                     }
-                  />
+                  >
+                    {renderMaterialOptions(item.standard)}
+                  </select>
                 </td>
                 <td>
                   <input
