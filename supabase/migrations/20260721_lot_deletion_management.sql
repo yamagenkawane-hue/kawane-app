@@ -38,15 +38,15 @@ select
     when coalesce(l.packaged_amount, 0) > 0 then 'packaging'
     else 'measured'
   end as flow_status,
-  coalesce(l.deleted, false) as deleted,
-  l.deleted_at,
-  l.deleted_reason,
   l.measured_at,
   l.packaged_at,
   l.last_shipped_at,
   l.note,
   l.created_at,
-  l.updated_at
+  l.updated_at,
+  coalesce(l.deleted, false) as deleted,
+  l.deleted_at,
+  l.deleted_reason
 from lots l
 left join posts p on p.id = l.post_id
 left join product_master pm on pm.id = coalesce(l.product_id, p.product_id)
