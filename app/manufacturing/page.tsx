@@ -283,7 +283,10 @@ export default function ManufacturingPage() {
       supabase
         .from("posts")
         .select("id,lot_no,order_amount,measurement_registration_hidden"),
-      supabase.from("v_lot_flow_status").select("post_id,measured_amount"),
+      supabase
+        .from("v_lot_flow_status")
+        .select("post_id,measured_amount")
+        .eq("deleted", false),
     ]);
 
     if (processResult.error) {
@@ -440,6 +443,7 @@ export default function ManufacturingPage() {
     const readiness = await supabase
       .from("v_lot_flow_status")
       .select("id")
+      .eq("deleted", false)
       .limit(1);
 
     if (readiness.error) {

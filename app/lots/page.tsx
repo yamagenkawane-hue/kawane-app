@@ -39,10 +39,12 @@ type LotFlowRow = {
   updatedAt: string;
 };
 
-type EditingLot = {
+type LotHistoryRow = {
   id: string;
-  materialLotNo: string;
-  note: string;
+  date: string;
+  category: string;
+  amount: number;
+  detail: string;
 };
 
 const PAGE_SIZE = 7;
@@ -70,27 +72,6 @@ const LOT_SELECT_COLUMNS = [
   "created_at",
   "updated_at",
 ].join(",");
-
-const statusLabels: Record<LotFlowStatus, string> = {
-  measured: "計量済",
-  packaging: "梱包中",
-  stocked: "在庫あり",
-  allocated: "引当済",
-  partial_shipped: "一部出荷済",
-  shipped: "出荷完了",
-  cancelled: "取消",
-};
-
-const statusOptions: { value: "all" | LotFlowStatus; label: string }[] = [
-  { value: "all", label: "すべて" },
-  { value: "measured", label: "計量済" },
-  { value: "packaging", label: "梱包中" },
-  { value: "stocked", label: "在庫あり" },
-  { value: "allocated", label: "引当済" },
-  { value: "partial_shipped", label: "一部出荷済" },
-  { value: "shipped", label: "出荷完了" },
-  { value: "cancelled", label: "取消" },
-];
 
 const toNumber = (value: unknown) => Number(value || 0);
 
@@ -125,13 +106,20 @@ const formatDate = (value: string) => {
   return value.slice(0, 10);
 };
 
+const sortHistoryRows = (rows: LotHistoryRow[]) =>
+  [...rows].sort((a, b) => {
+    const dateCompare = a.date.localeCompare(b.date);
+    if (dateCompare !== 0) return dateCompare;
+    return a.category.localeCompare(b.category, "ja");
+  });
+
 export default function LotsPage() {
   const [lots, setLots] = useState<LotFlowRow[]>([]);
+  const [historyRows, setHistoryRows] = useState<LotHistoryRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | LotFlowStatus>("all");
   const [selectedLotId, setSelectedLotId] = useState("");
-  const [editingLot, setEditingLot] = useState<EditingLot | null>(null);
   const [message, setMessage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -145,6 +133,7 @@ export default function LotsPage() {
       const { data, error } = await supabase
         .from("v_lot_flow_status")
         .select(LOT_SELECT_COLUMNS)
+        .eq("deleted", false)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -153,7 +142,7 @@ export default function LotsPage() {
       setLots(rows.map(mapLotRow));
     } catch (error) {
       console.error(error);
-      alert("ロット情報の取得に失敗しました");
+      alert("ロット情報の取得に失敗しました。ロット削除管理SQLを実行してください。");
     } finally {
       setLoading(false);
     }
@@ -167,26 +156,22 @@ export default function LotsPage() {
     const lowerSearch = search.trim().toLowerCase();
 
     return lots.filter((lot) => {
-      const statusMatches =
-        statusFilter === "all" || lot.flowStatus === statusFilter;
-      const textMatches =
-        !lowerSearch ||
-        [
-          lot.orderNo,
-          lot.lotNo,
-          lot.materialLotNo,
-          lot.productCode,
-          lot.productName,
-          lot.customerName,
-          lot.note,
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(lowerSearch);
+      if (!lowerSearch) return true;
 
-      return statusMatches && textMatches;
+      return [
+        lot.orderNo,
+        lot.lotNo,
+        lot.materialLotNo,
+        lot.productCode,
+        lot.productName,
+        lot.customerName,
+        lot.note,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(lowerSearch);
     });
-  }, [lots, search, statusFilter]);
+  }, [lots, search]);
 
   const totalPages = Math.max(1, Math.ceil(filteredLots.length / PAGE_SIZE));
 
@@ -195,12 +180,13 @@ export default function LotsPage() {
     return filteredLots.slice(startIndex, startIndex + PAGE_SIZE);
   }, [currentPage, filteredLots]);
 
-  const pageStart = filteredLots.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const pageStart =
+    filteredLots.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const pageEnd = Math.min(currentPage * PAGE_SIZE, filteredLots.length);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter]);
+  }, [search]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -236,23 +222,113 @@ export default function LotsPage() {
     [filteredLots],
   );
 
-  const startEdit = (lot: LotFlowRow) => {
-    setEditingLot({
-      id: lot.id,
-      materialLotNo: lot.materialLotNo,
-      note: lot.note,
-    });
-    setSelectedLotId(lot.id);
-    setMessage("");
+  const fetchLotHistory = async (lot: LotFlowRow) => {
+    try {
+      setHistoryLoading(true);
+
+      const [
+        productionResult,
+        inventoryResult,
+        allocationResult,
+        shipmentResult,
+      ] = await Promise.all([
+        supabase
+          .from("production_results")
+          .select("id,process_name,date,amount,created_at")
+          .eq("lot_id", lot.id)
+          .order("date", { ascending: true }),
+        supabase
+          .from("inventory_items")
+          .select("id,current_stock,allocated_stock,created_at,updated_at")
+          .eq("lot_id", lot.id)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("inventory_allocations")
+          .select("id,allocated_amount,shipped_amount,confirmed_at")
+          .eq("lot_id", lot.id)
+          .order("confirmed_at", { ascending: true }),
+        supabase
+          .from("shipments")
+          .select("id,quantity,scheduled_date,delivery_date,customer_name,created_at")
+          .eq("lot_id", lot.id)
+          .order("scheduled_date", { ascending: true }),
+      ]);
+
+      if (productionResult.error) throw productionResult.error;
+      if (inventoryResult.error) throw inventoryResult.error;
+      if (allocationResult.error) throw allocationResult.error;
+      if (shipmentResult.error) throw shipmentResult.error;
+
+      const productionRows = (
+        (productionResult.data || []) as Record<string, unknown>[]
+      ).map((row) => ({
+        id: `result-${String(row.id || "")}`,
+        date: String(row.date || row.created_at || ""),
+        category: String(row.process_name || "実績"),
+        amount: toNumber(row.amount),
+        detail: "生産実績",
+      }));
+      const inventoryRows = (
+        (inventoryResult.data || []) as Record<string, unknown>[]
+      ).map((row) => ({
+        id: `inventory-${String(row.id || "")}`,
+        date: String(row.updated_at || row.created_at || ""),
+        category: "在庫",
+        amount: toNumber(row.current_stock),
+        detail: `引当済 ${formatNumber(toNumber(row.allocated_stock))}`,
+      }));
+      const allocationRows = (
+        (allocationResult.data || []) as Record<string, unknown>[]
+      ).map((row) => ({
+        id: `allocation-${String(row.id || "")}`,
+        date: String(row.confirmed_at || ""),
+        category: "引当",
+        amount: toNumber(row.allocated_amount),
+        detail: `出荷済 ${formatNumber(toNumber(row.shipped_amount))}`,
+      }));
+      const shipmentRows = (
+        (shipmentResult.data || []) as Record<string, unknown>[]
+      ).map((row) => ({
+        id: `shipment-${String(row.id || "")}`,
+        date: String(row.delivery_date || row.scheduled_date || row.created_at || ""),
+        category: "出荷",
+        amount: toNumber(row.quantity),
+        detail: String(row.customer_name || lot.customerName || "-"),
+      }));
+
+      setHistoryRows(
+        sortHistoryRows([
+          ...productionRows,
+          ...inventoryRows,
+          ...allocationRows,
+          ...shipmentRows,
+        ]),
+      );
+    } catch (error) {
+      console.error(error);
+      alert("ロット履歴の取得に失敗しました");
+      setHistoryRows([]);
+    } finally {
+      setHistoryLoading(false);
+    }
   };
 
-  const cancelEdit = () => {
-    setEditingLot(null);
-    setMessage("");
+  const toggleDetail = async (lot: LotFlowRow) => {
+    const nextLotId = selectedLotId === lot.id ? "" : lot.id;
+    setSelectedLotId(nextLotId);
+    setHistoryRows([]);
+
+    if (nextLotId) {
+      await fetchLotHistory(lot);
+    }
   };
 
-  const saveEdit = async () => {
-    if (!editingLot) return;
+  const softDeleteLot = async (lot: LotFlowRow) => {
+    const confirmed = confirm(
+      `${lot.lotNo || "選択ロット"} を削除済みロット一覧へ移動します。よろしいですか？`,
+    );
+
+    if (!confirmed) return;
 
     try {
       setLoading(true);
@@ -261,20 +337,23 @@ export default function LotsPage() {
       const { error } = await supabase
         .from("lots")
         .update({
-          material_lot_no: editingLot.materialLotNo.trim() || null,
-          note: editingLot.note.trim() || null,
+          deleted: true,
+          deleted_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .eq("id", editingLot.id);
+        .eq("id", lot.id);
 
       if (error) throw error;
 
-      setMessage("ロット情報を保存しました");
-      setEditingLot(null);
+      if (selectedLotId === lot.id) {
+        setSelectedLotId("");
+        setHistoryRows([]);
+      }
+      setMessage("ロットを削除済みロット一覧へ移動しました");
       await fetchLots();
     } catch (error) {
       console.error(error);
-      alert("ロット情報の保存に失敗しました");
+      alert("ロットの削除に失敗しました");
     } finally {
       setLoading(false);
     }
@@ -307,6 +386,9 @@ export default function LotsPage() {
         <Link href="/" className={styles.backButton}>
           ← トップへ戻る
         </Link>
+        <Link href="/lots/deleted" className={styles.secondaryButton}>
+          削除済みロット一覧
+        </Link>
         <h1 className={styles.title}>ロット管理</h1>
       </div>
 
@@ -317,19 +399,6 @@ export default function LotsPage() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <select
-          className={styles.select}
-          value={statusFilter}
-          onChange={(event) =>
-            setStatusFilter(event.target.value as "all" | LotFlowStatus)
-          }
-        >
-          {statusOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
         <button className={styles.reloadButton} onClick={fetchLots}>
           再読み込み
         </button>
@@ -380,7 +449,6 @@ export default function LotsPage() {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>状態</th>
               <th>ロットNo</th>
               <th>材料ロットNo</th>
               <th>注番</th>
@@ -403,47 +471,50 @@ export default function LotsPage() {
                 key={lot.id}
                 className={selectedLotId === lot.id ? styles.selectedRow : ""}
               >
-                <td>
-                  <span className={`${styles.badge} ${styles[lot.flowStatus]}`}>
-                    {statusLabels[lot.flowStatus] || lot.flowStatus}
-                  </span>
-                </td>
                 <td>{lot.lotNo || "-"}</td>
                 <td>{lot.materialLotNo || "-"}</td>
                 <td>{lot.orderNo || "-"}</td>
                 <td>{lot.productCode || "-"}</td>
                 <td className={styles.nameCell}>{lot.productName || "-"}</td>
                 <td className={styles.nameCell}>{lot.customerName || "-"}</td>
-                <td className={styles.numberCell}>{formatNumber(lot.measuredAmount)}</td>
-                <td className={styles.numberCell}>{formatNumber(lot.packagedAmount)}</td>
-                <td className={styles.numberCell}>{formatNumber(lot.inventoryAmount)}</td>
-                <td className={styles.numberCell}>{formatNumber(lot.allocatedAmount)}</td>
-                <td className={styles.numberCell}>{formatNumber(lot.shippedAmount)}</td>
-                <td className={styles.numberCell}>{formatNumber(lot.remainingAmount)}</td>
+                <td className={styles.numberCell}>
+                  {formatNumber(lot.measuredAmount)}
+                </td>
+                <td className={styles.numberCell}>
+                  {formatNumber(lot.packagedAmount)}
+                </td>
+                <td className={styles.numberCell}>
+                  {formatNumber(lot.inventoryAmount)}
+                </td>
+                <td className={styles.numberCell}>
+                  {formatNumber(lot.allocatedAmount)}
+                </td>
+                <td className={styles.numberCell}>
+                  {formatNumber(lot.shippedAmount)}
+                </td>
+                <td className={styles.numberCell}>
+                  {formatNumber(lot.remainingAmount)}
+                </td>
                 <td>{formatDate(lot.measuredAt)}</td>
                 <td className={styles.actionArea}>
                   <button
                     className={styles.detailButton}
-                    onClick={() =>
-                      setSelectedLotId((current) =>
-                        current === lot.id ? "" : lot.id,
-                      )
-                    }
+                    onClick={() => void toggleDetail(lot)}
                   >
-                    詳細
+                    履歴確認
                   </button>
                   <button
-                    className={styles.editButton}
-                    onClick={() => startEdit(lot)}
+                    className={styles.deleteButton}
+                    onClick={() => void softDeleteLot(lot)}
                   >
-                    編集
+                    削除
                   </button>
                 </td>
               </tr>
             ))}
             {filteredLots.length === 0 && (
               <tr>
-                <td className={styles.emptyCell} colSpan={15}>
+                <td className={styles.emptyCell} colSpan={14}>
                   表示できるロットがありません
                 </td>
               </tr>
@@ -486,12 +557,9 @@ export default function LotsPage() {
         <div className={styles.detailCard}>
           <div className={styles.detailHeader}>
             <div>
-              <span>選択ロット</span>
+              <span>履歴確認</span>
               <strong>{selectedLot.lotNo}</strong>
             </div>
-            <span className={`${styles.badge} ${styles[selectedLot.flowStatus]}`}>
-              {statusLabels[selectedLot.flowStatus] || selectedLot.flowStatus}
-            </span>
           </div>
 
           <div className={styles.detailGrid}>
@@ -510,22 +578,6 @@ export default function LotsPage() {
             <div>
               <span>材料ロットNo</span>
               <strong>{selectedLot.materialLotNo || "-"}</strong>
-            </div>
-            <div>
-              <span>計量日</span>
-              <strong>{formatDate(selectedLot.measuredAt)}</strong>
-            </div>
-            <div>
-              <span>最終梱包日</span>
-              <strong>{formatDate(selectedLot.packagedAt)}</strong>
-            </div>
-            <div>
-              <span>最終出荷日</span>
-              <strong>{formatDate(selectedLot.lastShippedAt)}</strong>
-            </div>
-            <div>
-              <span>備考</span>
-              <strong>{selectedLot.note || "-"}</strong>
             </div>
           </div>
 
@@ -555,44 +607,42 @@ export default function LotsPage() {
               <strong>{formatNumber(selectedLot.remainingAmount)}</strong>
             </div>
           </div>
-        </div>
-      )}
 
-      {editingLot && (
-        <div className={styles.editCard}>
-          <h2>ロット補助情報</h2>
-          <div className={styles.editGrid}>
-            <label>
-              材料ロットNo
-              <input
-                className={styles.input}
-                value={editingLot.materialLotNo}
-                onChange={(event) =>
-                  setEditingLot({
-                    ...editingLot,
-                    materialLotNo: event.target.value,
-                  })
-                }
-              />
-            </label>
-            <label>
-              備考
-              <input
-                className={styles.input}
-                value={editingLot.note}
-                onChange={(event) =>
-                  setEditingLot({ ...editingLot, note: event.target.value })
-                }
-              />
-            </label>
-          </div>
-          <div className={styles.editActions}>
-            <button className={styles.saveButton} onClick={saveEdit}>
-              保存
-            </button>
-            <button className={styles.cancelButton} onClick={cancelEdit}>
-              キャンセル
-            </button>
+          <div className={styles.historyArea}>
+            <h2>ロットの動き</h2>
+            {historyLoading ? (
+              <div className={styles.loading}>履歴を読み込み中...</div>
+            ) : (
+              <table className={styles.historyTable}>
+                <thead>
+                  <tr>
+                    <th>日付</th>
+                    <th>区分</th>
+                    <th>数量</th>
+                    <th>内容</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyRows.map((history) => (
+                    <tr key={history.id}>
+                      <td>{formatDate(history.date)}</td>
+                      <td>{history.category}</td>
+                      <td className={styles.numberCell}>
+                        {formatNumber(history.amount)}
+                      </td>
+                      <td>{history.detail}</td>
+                    </tr>
+                  ))}
+                  {historyRows.length === 0 && (
+                    <tr>
+                      <td className={styles.emptyCell} colSpan={4}>
+                        表示できる履歴がありません
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}

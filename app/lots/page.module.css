@@ -45,8 +45,7 @@
 .filterCard,
 .summaryGrid,
 .tableCard,
-.detailCard,
-.editCard {
+.detailCard {
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 20px;
@@ -55,7 +54,7 @@
 
 .filterCard {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) 180px 140px;
+  grid-template-columns: minmax(260px, 1fr) 140px;
   gap: 14px;
   margin-bottom: 18px;
   padding: 20px;
@@ -73,11 +72,12 @@
   width: 100%;
 }
 
+.secondaryButton,
 .reloadButton,
 .detailButton,
-.editButton,
-.saveButton,
-.cancelButton {
+.deleteButton,
+.restoreButton,
+.dangerButton {
   border: none;
   border-radius: 10px;
   color: #fff;
@@ -88,21 +88,26 @@
   white-space: nowrap;
 }
 
+.secondaryButton {
+  align-items: center;
+  background: #0f766e;
+  display: inline-flex;
+  justify-content: center;
+  text-decoration: none;
+}
+
 .reloadButton,
 .detailButton {
   background: #2563eb;
 }
 
-.editButton {
-  background: #0f766e;
+.deleteButton,
+.dangerButton {
+  background: #dc2626;
 }
 
-.saveButton {
+.restoreButton {
   background: #16a34a;
-}
-
-.cancelButton {
-  background: #64748b;
 }
 
 .summaryGrid {
@@ -168,7 +173,7 @@
 
 .table {
   border-collapse: collapse;
-  min-width: 1600px;
+  min-width: 1480px;
   width: 100%;
 }
 
@@ -213,6 +218,36 @@
   display: flex;
   gap: 8px;
   justify-content: center;
+}
+
+.historyArea {
+  margin-top: 18px;
+}
+
+.historyArea h2 {
+  color: #111827;
+  font-size: 20px;
+  margin: 0 0 12px;
+}
+
+.historyTable {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.historyTable th {
+  background: #e2e8f0;
+  color: #334155;
+  font-weight: 900;
+  padding: 10px;
+  text-align: center;
+}
+
+.historyTable td {
+  border-bottom: 1px solid #e5e7eb;
+  color: #111827;
+  padding: 10px;
+  text-align: center;
 }
 
 .emptyCell {
@@ -316,8 +351,7 @@
   color: #991b1b;
 }
 
-.detailCard,
-.editCard {
+.detailCard {
   margin-top: 20px;
   padding: 22px;
 }
@@ -375,39 +409,11 @@
   font-weight: 900;
 }
 
-.editCard h2 {
-  color: #111827;
-  font-size: 20px;
-  margin: 0 0 16px;
-}
-
-.editGrid {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
-}
-
-.editGrid label {
-  color: #334155;
-  font-weight: 900;
-}
-
-.editGrid label input {
-  margin-top: 8px;
-}
-
-.editActions {
-  display: flex;
-  gap: 10px;
-  margin-top: 16px;
-}
-
 @media (max-width: 1100px) {
   .filterCard,
   .summaryGrid,
   .detailGrid,
-  .flowSteps,
-  .editGrid {
+  .flowSteps {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -433,8 +439,7 @@
   .filterCard,
   .summaryGrid,
   .detailGrid,
-  .flowSteps,
-  .editGrid {
+  .flowSteps {
     grid-template-columns: 1fr;
   }
 

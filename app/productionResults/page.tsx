@@ -349,6 +349,7 @@ export default function ProductionResultsPage() {
           supabase
             .from("v_lot_flow_status")
             .select(LOT_SELECT_COLUMNS)
+            .eq("deleted", false)
             .order("created_at", { ascending: false }),
         ]);
 
