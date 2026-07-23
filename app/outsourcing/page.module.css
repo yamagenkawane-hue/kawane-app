@@ -38,10 +38,16 @@
 
 .outsourceTable th,
 .outsourceTable td {
+  border-right: 1px solid #e5e7eb;
   line-height: 1.45;
-  padding: 14px 16px;
+  padding: 16px 18px;
   vertical-align: middle;
   white-space: nowrap;
+}
+
+.outsourceTable th:last-child,
+.outsourceTable td:last-child {
+  border-right: 0;
 }
 
 .outsourceTable tbody tr:hover {
@@ -179,4 +185,18 @@
   min-width: 292px;
   resize: vertical;
   white-space: pre-wrap;
+}
+
+.outsourceTable td:last-child {
+  min-width: 132px;
+}
+
+.outsourceTable td:last-child button {
+  display: block;
+  margin: 0 0 8px;
+  width: 100%;
+}
+
+.outsourceTable td:last-child button:last-child {
+  margin-bottom: 0;
 }
