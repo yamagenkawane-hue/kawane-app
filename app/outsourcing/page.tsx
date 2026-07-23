@@ -329,14 +329,7 @@ export default function OutsourcingPage() {
           トップへ戻る
         </Link>
         <h1 className={styles.title}>外注管理</h1>
-        <div className={styles.buttonRow}>
-          <Link href="/productionResults" className={styles.backButton}>
-            実績登録へ
-          </Link>
-          <Link href="/orderProcesses" className={styles.backButton}>
-            工程編集へ
-          </Link>
-        </div>
+        <div />
       </div>
 
       <div className={styles.summaryCard}>
@@ -407,7 +400,9 @@ export default function OutsourcingPage() {
 
               return (
                 <tr key={row.id}>
-                  <td>{row.deliveryDate || "-"}</td>
+                  <td className={outsourcingStyles.dateCell}>
+                    {row.deliveryDate || "-"}
+                  </td>
                   <td>{row.orderNo}</td>
                   <td>{row.customerName}</td>
                   <td className={outsourcingStyles.productCell}>
@@ -483,7 +478,9 @@ export default function OutsourcingPage() {
                       />
                     </label>
                   </td>
-                  <td>{row.completedDate || "-"}</td>
+                  <td className={outsourcingStyles.dateCell}>
+                    {row.completedDate || "-"}
+                  </td>
                   <td className={outsourcingStyles.noteCell}>
                     <textarea
                       className={`${styles.tableInput} ${outsourcingStyles.noteInput}`}

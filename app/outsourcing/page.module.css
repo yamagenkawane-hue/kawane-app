@@ -29,21 +29,26 @@
 
 .scrollSpacer {
   height: 1px;
-  width: 1180px;
+  width: 1780px;
 }
 
 .outsourceTable {
-  min-width: 1180px;
+  min-width: 1780px;
 }
 
 .outsourceTable th,
 .outsourceTable td {
-  vertical-align: top;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .productCell {
-  min-width: 210px;
-  white-space: normal;
+  min-width: 260px;
+}
+
+.dateCell {
+  font-variant-numeric: tabular-nums;
+  min-width: 118px;
 }
 
 .quantityHeader {
@@ -126,11 +131,14 @@
 }
 
 .scheduleHeader {
-  min-width: 188px;
+  min-width: 520px;
 }
 
 .scheduleCell {
-  min-width: 188px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(158px, 1fr));
+  min-width: 520px;
 }
 
 .scheduleCell label {
@@ -138,15 +146,10 @@
   display: grid;
   gap: 6px;
   grid-template-columns: 38px minmax(0, 1fr);
-  margin-bottom: 6px;
-}
-
-.scheduleCell label:last-child {
-  margin-bottom: 0;
 }
 
 .scheduleCell input {
-  min-width: 0;
+  min-width: 120px;
   padding: 8px 10px;
 }
 
