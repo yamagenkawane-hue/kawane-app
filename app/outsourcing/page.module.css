@@ -1,6 +1,6 @@
 .tableCard {
   cursor: grab;
-  padding: 18px;
+  padding: 22px;
   user-select: none;
 }
 
@@ -29,34 +29,40 @@
 
 .scrollSpacer {
   height: 1px;
-  width: 1780px;
+  width: 1640px;
 }
 
 .outsourceTable {
-  min-width: 1780px;
+  min-width: 1640px;
 }
 
 .outsourceTable th,
 .outsourceTable td {
+  line-height: 1.45;
+  padding: 14px 16px;
   vertical-align: middle;
   white-space: nowrap;
 }
 
+.outsourceTable tbody tr:hover {
+  background: #f8fafc;
+}
+
 .productCell {
-  min-width: 260px;
+  min-width: 300px;
 }
 
 .dateCell {
   font-variant-numeric: tabular-nums;
-  min-width: 118px;
+  min-width: 128px;
 }
 
 .quantityHeader {
-  min-width: 190px;
+  min-width: 220px;
 }
 
 .quantityCell {
-  min-width: 190px;
+  min-width: 220px;
 }
 
 .quantityGroup {
@@ -80,14 +86,14 @@
 .quantityGroup span {
   background: #eef2f7;
   border-bottom: 1px solid #e2e8f0;
-  padding: 5px 6px;
+  padding: 7px 8px;
 }
 
 .quantityCell strong {
   color: #111827;
-  font-size: 16px;
+  font-size: 18px;
   font-variant-numeric: tabular-nums;
-  padding: 8px 6px;
+  padding: 10px 8px;
 }
 
 .remainingLabel {
@@ -100,11 +106,11 @@
 }
 
 .statusHeader {
-  min-width: 120px;
+  min-width: 136px;
 }
 
 .statusCell {
-  min-width: 120px;
+  min-width: 136px;
 }
 
 .statusCell select[value="not_sent"] {
@@ -127,44 +133,50 @@
 }
 
 .statusSelect {
-  min-width: 104px;
+  min-width: 116px;
 }
 
 .scheduleHeader {
-  min-width: 520px;
+  min-width: 236px;
 }
 
 .scheduleCell {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(3, minmax(158px, 1fr));
-  min-width: 520px;
+  min-width: 236px;
 }
 
 .scheduleCell label {
   align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
   display: grid;
-  gap: 6px;
-  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 8px;
+  grid-template-columns: 42px minmax(0, 1fr);
+  margin-bottom: 8px;
+  padding: 8px;
+}
+
+.scheduleCell label:last-child {
+  margin-bottom: 0;
 }
 
 .scheduleCell input {
-  min-width: 120px;
+  min-width: 150px;
   padding: 8px 10px;
 }
 
 .noteHeader {
-  min-width: 260px;
+  min-width: 320px;
 }
 
 .noteCell {
-  min-width: 260px;
+  min-width: 320px;
 }
 
 .noteInput {
   line-height: 1.45;
-  min-height: 76px;
-  min-width: 240px;
+  min-height: 92px;
+  min-width: 292px;
   resize: vertical;
   white-space: pre-wrap;
 }
