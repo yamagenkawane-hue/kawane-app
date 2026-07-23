@@ -231,6 +231,58 @@ export default function LotsPage() {
   const fetchLotHistory = async (lot: LotFlowRow) => {
     try {
       setHistoryLoading(true);
+      const baseRows: LotHistoryRow[] = [
+        lot.measuredAmount > 0
+          ? {
+              id: `lot-measured-${lot.id}`,
+              date: lot.measuredAt || lot.createdAt,
+              sortOrder: 5,
+              category: "計量",
+              amount: lot.measuredAmount,
+              detail: `材料ロットNo: ${lot.materialLotNo || "-"}`,
+            }
+          : null,
+        lot.packagedAmount > 0
+          ? {
+              id: `lot-packaged-${lot.id}`,
+              date: lot.packagedAt || lot.updatedAt,
+              sortOrder: 20,
+              category: "梱包",
+              amount: lot.packagedAmount,
+              detail: "梱包実績から在庫登録",
+            }
+          : null,
+        lot.inventoryAmount > 0
+          ? {
+              id: `lot-inventory-${lot.id}`,
+              date: lot.packagedAt || lot.updatedAt,
+              sortOrder: 30,
+              category: "在庫登録",
+              amount: lot.inventoryAmount,
+              detail: `現在庫 ${formatNumber(lot.inventoryAmount)}`,
+            }
+          : null,
+        lot.allocatedAmount > 0
+          ? {
+              id: `lot-allocated-${lot.id}`,
+              date: lot.updatedAt,
+              sortOrder: 40,
+              category: "在庫引当",
+              amount: lot.allocatedAmount,
+              detail: `未出荷引当 ${formatNumber(lot.allocatedAmount)}`,
+            }
+          : null,
+        lot.shippedAmount > 0
+          ? {
+              id: `lot-shipped-${lot.id}`,
+              date: lot.lastShippedAt || lot.updatedAt,
+              sortOrder: 50,
+              category: "出荷",
+              amount: lot.shippedAmount,
+              detail: "ロット出荷数合計",
+            }
+          : null,
+      ].filter((row): row is LotHistoryRow => row !== null);
 
       const [
         productionResult,
@@ -256,17 +308,25 @@ export default function LotsPage() {
         supabase
           .from("shipments")
           .select("id,quantity,scheduled_date,delivery_date,customer_name,created_at")
-          .eq("lot_id", lot.id)
+          .or(`lot_id.eq.${lot.id},lot_no.eq.${lot.lotNo}`)
           .order("scheduled_date", { ascending: true }),
       ]);
 
-      if (productionResult.error) throw productionResult.error;
-      if (inventoryResult.error) throw inventoryResult.error;
-      if (allocationResult.error) throw allocationResult.error;
-      if (shipmentResult.error) throw shipmentResult.error;
+      if (productionResult.error) {
+        console.warn("ロット実績履歴の取得に失敗", productionResult.error);
+      }
+      if (inventoryResult.error) {
+        console.warn("ロット在庫履歴の取得に失敗", inventoryResult.error);
+      }
+      if (allocationResult.error) {
+        console.warn("ロット引当履歴の取得に失敗", allocationResult.error);
+      }
+      if (shipmentResult.error) {
+        console.warn("ロット出荷履歴の取得に失敗", shipmentResult.error);
+      }
 
       const productionRows = (
-        (productionResult.data || []) as Record<string, unknown>[]
+        (productionResult.error ? [] : productionResult.data || []) as Record<string, unknown>[]
       ).map((row) => ({
         id: `result-${String(row.id || "")}`,
         date: String(row.date || row.created_at || ""),
@@ -276,7 +336,7 @@ export default function LotsPage() {
         detail: `${String(row.process_name || "工程")} 実績登録`,
       }));
       const inventoryRows = (
-        (inventoryResult.data || []) as Record<string, unknown>[]
+        (inventoryResult.error ? [] : inventoryResult.data || []) as Record<string, unknown>[]
       ).map((row) => ({
         id: `inventory-${String(row.id || "")}`,
         date: String(row.updated_at || row.created_at || ""),
@@ -288,7 +348,7 @@ export default function LotsPage() {
         )}`,
       }));
       const allocationRows = (
-        (allocationResult.data || []) as Record<string, unknown>[]
+        (allocationResult.error ? [] : allocationResult.data || []) as Record<string, unknown>[]
       ).map((row) => ({
         id: `allocation-${String(row.id || "")}`,
         date: String(row.confirmed_at || ""),
@@ -300,7 +360,7 @@ export default function LotsPage() {
         )} / 出荷済 ${formatNumber(toNumber(row.shipped_amount))}`,
       }));
       const shipmentRows = (
-        (shipmentResult.data || []) as Record<string, unknown>[]
+        (shipmentResult.error ? [] : shipmentResult.data || []) as Record<string, unknown>[]
       ).map((row) => {
         const detailParts = [
           `得意先: ${String(row.customer_name || lot.customerName || "-")}`,
@@ -318,14 +378,18 @@ export default function LotsPage() {
         };
       });
 
-      setHistoryRows(
-        sortHistoryRows([
-          ...productionRows,
-          ...inventoryRows,
-          ...allocationRows,
-          ...shipmentRows,
-        ]),
+      const detailRows = [
+        ...productionRows,
+        ...inventoryRows,
+        ...allocationRows,
+        ...shipmentRows,
+      ];
+      const detailCategories = new Set(detailRows.map((row) => row.category));
+      const fallbackRows = baseRows.filter(
+        (row) => !detailCategories.has(row.category),
       );
+
+      setHistoryRows(sortHistoryRows([...detailRows, ...fallbackRows]));
     } catch (error) {
       console.error(error);
       alert("ロット履歴の取得に失敗しました");
