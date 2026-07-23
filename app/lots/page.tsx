@@ -42,6 +42,7 @@ type LotFlowRow = {
 type LotHistoryRow = {
   id: string;
   date: string;
+  sortOrder: number;
   category: string;
   amount: number;
   detail: string;
@@ -106,11 +107,16 @@ const formatDate = (value: string) => {
   return value.slice(0, 10);
 };
 
+const buildDateLabel = (label: string, value: unknown) => {
+  const date = formatDate(String(value || ""));
+  return date === "-" ? "" : `${label}: ${date}`;
+};
+
 const sortHistoryRows = (rows: LotHistoryRow[]) =>
   [...rows].sort((a, b) => {
     const dateCompare = a.date.localeCompare(b.date);
     if (dateCompare !== 0) return dateCompare;
-    return a.category.localeCompare(b.category, "ja");
+    return a.sortOrder - b.sortOrder;
   });
 
 export default function LotsPage() {
@@ -264,37 +270,53 @@ export default function LotsPage() {
       ).map((row) => ({
         id: `result-${String(row.id || "")}`,
         date: String(row.date || row.created_at || ""),
+        sortOrder: 10,
         category: String(row.process_name || "実績"),
         amount: toNumber(row.amount),
-        detail: "生産実績",
+        detail: `${String(row.process_name || "工程")} 実績登録`,
       }));
       const inventoryRows = (
         (inventoryResult.data || []) as Record<string, unknown>[]
       ).map((row) => ({
         id: `inventory-${String(row.id || "")}`,
         date: String(row.updated_at || row.created_at || ""),
-        category: "在庫",
+        sortOrder: 30,
+        category: "在庫登録",
         amount: toNumber(row.current_stock),
-        detail: `引当済 ${formatNumber(toNumber(row.allocated_stock))}`,
+        detail: `現在庫 ${formatNumber(toNumber(row.current_stock))} / 引当済 ${formatNumber(
+          toNumber(row.allocated_stock),
+        )}`,
       }));
       const allocationRows = (
         (allocationResult.data || []) as Record<string, unknown>[]
       ).map((row) => ({
         id: `allocation-${String(row.id || "")}`,
         date: String(row.confirmed_at || ""),
-        category: "引当",
+        sortOrder: 40,
+        category: "在庫引当",
         amount: toNumber(row.allocated_amount),
-        detail: `出荷済 ${formatNumber(toNumber(row.shipped_amount))}`,
+        detail: `引当 ${formatNumber(
+          toNumber(row.allocated_amount),
+        )} / 出荷済 ${formatNumber(toNumber(row.shipped_amount))}`,
       }));
       const shipmentRows = (
         (shipmentResult.data || []) as Record<string, unknown>[]
-      ).map((row) => ({
-        id: `shipment-${String(row.id || "")}`,
-        date: String(row.delivery_date || row.scheduled_date || row.created_at || ""),
-        category: "出荷",
-        amount: toNumber(row.quantity),
-        detail: String(row.customer_name || lot.customerName || "-"),
-      }));
+      ).map((row) => {
+        const detailParts = [
+          `得意先: ${String(row.customer_name || lot.customerName || "-")}`,
+          buildDateLabel("出荷予定", row.scheduled_date),
+          buildDateLabel("納品日", row.delivery_date),
+        ].filter(Boolean);
+
+        return {
+          id: `shipment-${String(row.id || "")}`,
+          date: String(row.delivery_date || row.scheduled_date || row.created_at || ""),
+          sortOrder: 50,
+          category: "出荷",
+          amount: toNumber(row.quantity),
+          detail: detailParts.join(" / "),
+        };
+      });
 
       setHistoryRows(
         sortHistoryRows([
