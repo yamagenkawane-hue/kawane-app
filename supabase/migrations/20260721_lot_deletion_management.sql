@@ -70,6 +70,37 @@ left join (
   group by lot_id
 ) s on s.lot_id = l.id;
 
+create or replace function soft_delete_lot(p_lot_id uuid)
+returns void as $$
+begin
+  update lots
+     set deleted = true,
+         deleted_at = now(),
+         updated_at = now()
+   where id = p_lot_id;
+
+  if not found then
+    raise exception 'ロットが見つからないか、削除できません';
+  end if;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+create or replace function restore_deleted_lot(p_lot_id uuid)
+returns void as $$
+begin
+  update lots
+     set deleted = false,
+         deleted_at = null,
+         deleted_reason = null,
+         updated_at = now()
+   where id = p_lot_id;
+
+  if not found then
+    raise exception 'ロットが見つからないか、復元できません';
+  end if;
+end;
+$$ language plpgsql security definer set search_path = public;
+
 create or replace function permanently_delete_lot(p_lot_id uuid)
 returns void as $$
 declare
@@ -106,4 +137,6 @@ begin
 end;
 $$ language plpgsql security definer set search_path = public;
 
+grant execute on function soft_delete_lot(uuid) to anon, authenticated;
+grant execute on function restore_deleted_lot(uuid) to anon, authenticated;
 grant execute on function permanently_delete_lot(uuid) to anon, authenticated;

@@ -17,7 +17,11 @@ function_check as (
   from pg_proc p
   join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public'
-    and p.proname = 'permanently_delete_lot'
+    and p.proname in (
+      'soft_delete_lot',
+      'restore_deleted_lot',
+      'permanently_delete_lot'
+    )
 )
 select
   'lot_delete_columns' as check_name,
@@ -34,8 +38,8 @@ select
 from view_check
 union all
 select
-  'permanent_delete_rpc' as check_name,
-  case when actual_count >= 1 then 'PASSED' else 'FAILED' end as result,
+  'lot_delete_rpcs' as check_name,
+  case when actual_count >= 3 then 'PASSED' else 'FAILED' end as result,
   actual_count,
-  'permanently_delete_lot(uuid) exists for UI-driven physical deletion.' as message
+  'soft_delete_lot, restore_deleted_lot, and permanently_delete_lot exist for UI-driven deletion.' as message
 from function_check;

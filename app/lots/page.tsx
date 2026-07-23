@@ -334,14 +334,9 @@ export default function LotsPage() {
       setLoading(true);
       setMessage("");
 
-      const { error } = await supabase
-        .from("lots")
-        .update({
-          deleted: true,
-          deleted_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", lot.id);
+      const { error } = await supabase.rpc("soft_delete_lot", {
+        p_lot_id: lot.id,
+      });
 
       if (error) throw error;
 

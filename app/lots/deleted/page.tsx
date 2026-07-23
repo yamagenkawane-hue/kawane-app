@@ -153,14 +153,9 @@ export default function DeletedLotsPage() {
 
     try {
       setLoading(true);
-      const { error } = await supabase
-        .from("lots")
-        .update({
-          deleted: false,
-          deleted_at: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", lot.id);
+      const { error } = await supabase.rpc("restore_deleted_lot", {
+        p_lot_id: lot.id,
+      });
 
       if (error) throw error;
 
