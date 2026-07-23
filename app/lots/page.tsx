@@ -344,6 +344,7 @@ export default function LotsPage() {
         setSelectedLotId("");
         setHistoryRows([]);
       }
+      setLots((currentLots) => currentLots.filter((item) => item.id !== lot.id));
       setMessage("ロットを削除済みロット一覧へ移動しました");
       await fetchLots();
     } catch (error) {
@@ -493,13 +494,17 @@ export default function LotsPage() {
                 <td>{formatDate(lot.measuredAt)}</td>
                 <td className={styles.actionArea}>
                   <button
+                    type="button"
                     className={styles.detailButton}
+                    onPointerDown={(event) => event.stopPropagation()}
                     onClick={() => void toggleDetail(lot)}
                   >
                     履歴確認
                   </button>
                   <button
+                    type="button"
                     className={styles.deleteButton}
+                    onPointerDown={(event) => event.stopPropagation()}
                     onClick={() => void softDeleteLot(lot)}
                   >
                     削除

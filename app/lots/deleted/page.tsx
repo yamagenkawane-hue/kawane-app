@@ -296,13 +296,17 @@ export default function DeletedLotsPage() {
                 <td>{formatDate(lot.deletedAt)}</td>
                 <td className={styles.actionArea}>
                   <button
+                    type="button"
                     className={styles.restoreButton}
+                    onPointerDown={(event) => event.stopPropagation()}
                     onClick={() => void restoreLot(lot)}
                   >
                     復元
                   </button>
                   <button
+                    type="button"
                     className={styles.dangerButton}
+                    onPointerDown={(event) => event.stopPropagation()}
                     onClick={() => void permanentlyDeleteLot(lot)}
                   >
                     完全削除
