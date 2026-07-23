@@ -188,16 +188,19 @@
 }
 
 .actionCell {
-  align-items: stretch;
-  border-bottom-color: transparent;
-  flex-direction: column;
-  gap: 10px;
-  justify-content: center;
+  display: table-cell;
   min-width: 132px;
+  text-align: center;
+  vertical-align: middle;
 }
 
 .actionCell button {
   display: block;
-  margin: 0;
-  width: 100%;
+  margin: 0 auto 10px;
+  min-width: 64px;
+  width: auto;
+}
+
+.actionCell button:last-child {
+  margin-bottom: 0;
 }
