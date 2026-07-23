@@ -491,7 +491,7 @@ export default function OutsourcingPage() {
                       }
                     />
                   </td>
-                  <td className={styles.actionArea}>
+                  <td className={`${styles.actionArea} ${outsourcingStyles.actionCell}`}>
                     <button
                       className={styles.saveButton}
                       type="button"

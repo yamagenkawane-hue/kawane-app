@@ -187,16 +187,17 @@
   white-space: pre-wrap;
 }
 
-.outsourceTable td:last-child {
+.actionCell {
+  align-items: stretch;
+  border-bottom-color: transparent;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
   min-width: 132px;
 }
 
-.outsourceTable td:last-child button {
+.actionCell button {
   display: block;
-  margin: 0 0 8px;
+  margin: 0;
   width: 100%;
-}
-
-.outsourceTable td:last-child button:last-child {
-  margin-bottom: 0;
 }
