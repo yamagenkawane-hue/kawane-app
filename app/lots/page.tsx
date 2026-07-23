@@ -579,14 +579,13 @@ export default function LotsPage() {
                 </td>
                 <td>{formatDate(lot.measuredAt)}</td>
                 <td className={styles.actionArea}>
-                  <button
-                    type="button"
+                  <Link
+                    href={`/lots/${lot.id}`}
                     className={styles.detailButton}
                     onPointerDown={(event) => event.stopPropagation()}
-                    onClick={() => void toggleDetail(lot)}
                   >
                     履歴確認
-                  </button>
+                  </Link>
                   <button
                     type="button"
                     className={styles.deleteButton}

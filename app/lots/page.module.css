@@ -98,7 +98,11 @@
 
 .reloadButton,
 .detailButton {
+  align-items: center;
   background: #2563eb;
+  display: inline-flex;
+  justify-content: center;
+  text-decoration: none;
 }
 
 .deleteButton,
