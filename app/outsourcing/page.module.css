@@ -119,27 +119,29 @@
   min-width: 136px;
 }
 
-.statusCell select[value="not_sent"] {
-  background: #f8fafc;
+.statusBadge {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 900;
+  justify-content: center;
+  min-width: 86px;
+  padding: 8px 12px;
 }
 
-.statusCell select[value="sent"] {
-  background: #eff6ff;
-  border-color: #93c5fd;
+.status_not_sent {
+  background: #f1f5f9;
+  color: #334155;
 }
 
-.statusCell select[value="returned"] {
-  background: #f0fdf4;
-  border-color: #86efac;
+.status_sent {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
-.statusCell select[value="hold"] {
-  background: #fffbeb;
-  border-color: #fcd34d;
-}
-
-.statusSelect {
-  min-width: 116px;
+.status_returned {
+  background: #dcfce7;
+  color: #166534;
 }
 
 .scheduleHeader {

@@ -24,12 +24,22 @@ type OutsourceRow = OrderProcess & {
 const ORDER_PROCESS_SELECT_COLUMNS =
   "id,post_id,product_id,customer_id,product_process_id,order_no,product_code,product_name,customer_name,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,subcontractor_name,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,outsource_status,outsource_note,locked,created_at,updated_at,delivery_date";
 
-const outsourceStatusOptions = [
-  { value: "not_sent", label: "未出し" },
-  { value: "sent", label: "外注中" },
-  { value: "returned", label: "戻り済み" },
-  { value: "hold", label: "保留" },
-];
+type DerivedOutsourceStatus = "not_sent" | "sent" | "returned";
+
+const getDerivedOutsourceStatus = (row: {
+  outsourceSentDate?: string;
+  outsourceReturnedDate?: string;
+}): DerivedOutsourceStatus => {
+  if (row.outsourceReturnedDate) return "returned";
+  if (row.outsourceSentDate) return "sent";
+  return "not_sent";
+};
+
+const outsourceStatusLabels: Record<DerivedOutsourceStatus, string> = {
+  not_sent: "\u672a\u51fa\u3057",
+  sent: "\u5916\u6ce8\u4e2d",
+  returned: "\u623b\u308a\u6e08\u307f",
+};
 
 const mapOrderProcess = (row: Record<string, unknown>): OutsourceRow => {
   const plannedAmount = Number(row.planned_amount || 0);
@@ -184,11 +194,15 @@ export default function OutsourcingPage() {
   const visibleRows = useMemo(
     () =>
       rows.filter(
-        (row) =>
-          showCompleted ||
-          row.remainingAmount > 0 ||
-          row.outsourceStatus !== "returned" ||
-          !row.outsourceReturnedDate,
+        (row) => {
+          const derivedStatus = getDerivedOutsourceStatus(row);
+
+          return (
+            showCompleted ||
+            row.remainingAmount > 0 ||
+            derivedStatus !== "returned"
+          );
+        },
       ),
     [rows, showCompleted],
   );
@@ -219,11 +233,7 @@ export default function OutsourcingPage() {
     try {
       setSavingId(row.id);
 
-      const nextStatus = row.outsourceReturnedDate
-        ? "returned"
-        : row.outsourceSentDate && row.outsourceStatus === "not_sent"
-          ? "sent"
-          : row.outsourceStatus || "not_sent";
+      const nextStatus = getDerivedOutsourceStatus(row);
 
       const { error } = await supabase
         .from("order_processes")
@@ -396,7 +406,7 @@ export default function OutsourcingPage() {
           </thead>
           <tbody>
             {visibleRows.map((row) => {
-              const outsourceStatus = row.outsourceStatus || "not_sent";
+              const outsourceStatus = getDerivedOutsourceStatus(row);
 
               return (
                 <tr key={row.id}>
@@ -425,19 +435,13 @@ export default function OutsourcingPage() {
                     </div>
                   </td>
                   <td className={outsourcingStyles.statusCell}>
-                    <select
-                      className={`${styles.tableInput} ${outsourcingStyles.statusSelect}`}
-                      value={outsourceStatus}
-                      onChange={(e) =>
-                        updateRow(row.id, "outsourceStatus", e.target.value)
-                      }
+                    <span
+                      className={`${outsourcingStyles.statusBadge} ${
+                        outsourcingStyles[`status_${outsourceStatus}`]
+                      }`}
                     >
-                      {outsourceStatusOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      {outsourceStatusLabels[outsourceStatus]}
+                    </span>
                   </td>
                   <td className={outsourcingStyles.scheduleCell}>
                     <label>
