@@ -155,11 +155,13 @@
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
+  box-sizing: border-box;
   display: grid;
   gap: 8px;
   grid-template-columns: 42px minmax(0, 1fr);
   margin-bottom: 8px;
   padding: 8px;
+  width: 100%;
 }
 
 .scheduleCell label:last-child {
@@ -167,8 +169,11 @@
 }
 
 .scheduleCell input {
-  min-width: 150px;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
   padding: 8px 10px;
+  width: 100%;
 }
 
 .noteHeader {
