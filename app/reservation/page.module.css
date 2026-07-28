@@ -1,6 +1,9 @@
 .reservationImg {
   display: grid;
-  grid-template-columns: minmax(160px, auto) minmax(180px, 1fr) minmax(280px, auto);
+  grid-template-columns: minmax(160px, auto) minmax(180px, 1fr) minmax(
+      280px,
+      auto
+    );
   align-items: center;
   margin-bottom: 20px;
   gap: 10px;
@@ -31,7 +34,8 @@
 }
 
 .center h1 {
-  font-size: 40px;
+  font-size: 32px;
+  font-weight: bold;
   margin: 0;
   overflow-wrap: anywhere;
 }
