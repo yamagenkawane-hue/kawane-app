@@ -29,6 +29,7 @@ const mapProduct = (row: Record<string, unknown>): ProductMaster => ({
 const mapSubcontractor = (row: Record<string, unknown>): Subcontractor => ({
   id: String(row.id || ""),
   name: String(row.name || ""),
+  processName: String(row.process_name || ""),
   createdAt: String(row.created_at || ""),
   updatedAt: String(row.updated_at || ""),
 });
@@ -105,6 +106,29 @@ export default function ProductProcessesPage() {
     );
   }, [processMasters, processes]);
 
+  const getProcessMasterByName = useCallback(
+    (processName: string) =>
+      processMasters.find(
+        (process) =>
+          process.name === processName || process.processId === processName,
+      ),
+    [processMasters],
+  );
+
+  const getSubcontractorsForProcess = useCallback(
+    (processName: string) =>
+      subcontractors.filter(
+        (subcontractor) => subcontractor.processName === processName,
+      ),
+    [subcontractors],
+  );
+
+  const isOutsourceProcess = useCallback(
+    (processName: string) =>
+      Boolean(getProcessMasterByName(processName)?.outsourcing),
+    [getProcessMasterByName],
+  );
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -113,21 +137,20 @@ export default function ProductProcessesPage() {
         processMasterResponse,
         subcontractorResponse,
         processResponse,
-      ] =
-        await Promise.all([
-          supabase
-            .from("v_product_master_with_customer")
-            .select(PRODUCT_SELECT_COLUMNS)
-            .order("product_code"),
-          fetch("/api/processes"),
-          fetch("/api/masters/subcontractors"),
-          fetch("/api/masters/product-processes"),
-        ]);
+      ] = await Promise.all([
+        supabase
+          .from("v_product_master_with_customer")
+          .select(PRODUCT_SELECT_COLUMNS)
+          .order("product_code"),
+        fetch("/api/processes"),
+        fetch("/api/masters/subcontractors"),
+        fetch("/api/masters/product-processes"),
+      ]);
 
       if (productResult.error) throw productResult.error;
-      if (!processMasterResponse.ok) throw new Error("process master fetch failed");
-      if (!subcontractorResponse.ok) throw new Error("外注先の取得に失敗しました");
-      if (!processResponse.ok) throw new Error("製品工程の取得に失敗しました");
+      if (!processMasterResponse.ok) throw new Error("工程マスタの取得に失敗しました");
+      if (!subcontractorResponse.ok) throw new Error("外注先マスタの取得に失敗しました");
+      if (!processResponse.ok) throw new Error("製品工程マスタの取得に失敗しました");
 
       const productRows = (productResult.data || []).map(mapProduct);
       const processMasterRows: ProcessMaster[] = (
@@ -167,6 +190,34 @@ export default function ProductProcessesPage() {
 
     void loadData();
   }, [fetchData]);
+
+  const handleFormProcessNameChange = (processName: string) => {
+    const matchingSubcontractors = getSubcontractorsForProcess(processName);
+    setForm((prev) => ({
+      ...prev,
+      processName,
+      subcontractorId: isOutsourceProcess(processName)
+        ? matchingSubcontractors[0]?.id || ""
+        : "",
+    }));
+  };
+
+  const handleProcessNameChange = (id: string, processName: string) => {
+    const matchingSubcontractors = getSubcontractorsForProcess(processName);
+    setProcesses((prev) =>
+      prev.map((process) =>
+        process.id === id
+          ? {
+              ...process,
+              processName,
+              subcontractorId: isOutsourceProcess(processName)
+                ? matchingSubcontractors[0]?.id || null
+                : null,
+            }
+          : process,
+      ),
+    );
+  };
 
   const addProcess = async () => {
     if (!form.productCode || !form.processName || Number(form.processOrder) <= 0) {
@@ -293,7 +344,7 @@ export default function ProductProcessesPage() {
           <select
             className={styles.select}
             value={form.processName}
-            onChange={(e) => setForm({ ...form, processName: e.target.value })}
+            onChange={(e) => handleFormProcessNameChange(e.target.value)}
           >
             <option value="">工程名を選択</option>
             {processNameOptions.map((process) => (
@@ -315,20 +366,31 @@ export default function ProductProcessesPage() {
               </option>
             ))}
           </select>
-          <select
-            className={styles.select}
-            value={form.subcontractorId}
-            onChange={(e) =>
-              setForm({ ...form, subcontractorId: e.target.value })
-            }
-          >
-            <option value="">社内工程</option>
-            {subcontractors.map((subcontractor) => (
-              <option key={subcontractor.id} value={subcontractor.id}>
-                {subcontractor.name}
-              </option>
-            ))}
-          </select>
+          {isOutsourceProcess(form.processName) ? (
+            <select
+              className={styles.select}
+              value={form.subcontractorId}
+              onChange={(e) =>
+                setForm({ ...form, subcontractorId: e.target.value })
+              }
+            >
+              <option value="">外注先を選択</option>
+              {getSubcontractorsForProcess(form.processName).map(
+                (subcontractor) => (
+                  <option key={subcontractor.id} value={subcontractor.id}>
+                    {subcontractor.name}
+                  </option>
+                ),
+              )}
+            </select>
+          ) : (
+            <input
+              className={styles.input}
+              value="社内加工"
+              disabled
+              readOnly
+            />
+          )}
         </div>
         <div className={styles.buttonRow}>
           <button className={styles.addButton} onClick={addProcess}>
@@ -365,7 +427,7 @@ export default function ProductProcessesPage() {
               <th>品番</th>
               <th>工程順</th>
               <th>工程名</th>
-              <th>外注先</th>
+              <th>加工区分</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -393,7 +455,7 @@ export default function ProductProcessesPage() {
                     className={styles.select}
                     value={process.processName}
                     onChange={(e) =>
-                      updateProcess(process.id, "processName", e.target.value)
+                      handleProcessNameChange(process.id, e.target.value)
                     }
                   >
                     <option value="">工程名を選択</option>
@@ -405,24 +467,35 @@ export default function ProductProcessesPage() {
                   </select>
                 </td>
                 <td>
-                  <select
-                    className={styles.select}
-                    value={process.subcontractorId || ""}
-                    onChange={(e) =>
-                      updateProcess(
-                        process.id,
-                        "subcontractorId",
-                        e.target.value || null,
-                      )
-                    }
-                  >
-                    <option value="">社内工程</option>
-                    {subcontractors.map((subcontractor) => (
-                      <option key={subcontractor.id} value={subcontractor.id}>
-                        {subcontractor.name}
-                      </option>
-                    ))}
-                  </select>
+                  {isOutsourceProcess(process.processName) ? (
+                    <select
+                      className={styles.select}
+                      value={process.subcontractorId || ""}
+                      onChange={(e) =>
+                        updateProcess(
+                          process.id,
+                          "subcontractorId",
+                          e.target.value || null,
+                        )
+                      }
+                    >
+                      <option value="">外注先を選択</option>
+                      {getSubcontractorsForProcess(process.processName).map(
+                        (subcontractor) => (
+                          <option key={subcontractor.id} value={subcontractor.id}>
+                            {subcontractor.name}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  ) : (
+                    <input
+                      className={styles.tableInput}
+                      value="社内加工"
+                      disabled
+                      readOnly
+                    />
+                  )}
                 </td>
                 <td className={styles.actionArea}>
                   <button

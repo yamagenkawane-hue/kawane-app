@@ -392,6 +392,7 @@ export type InventoryAllocation = {
 export type Subcontractor = {
   id: string;
   name: string;
+  processName: string;
   createdAt: string;
   updatedAt: string;
 };

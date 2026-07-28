@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import supabase from "@/lib/supabase";
 
 const SUBCONTRACTOR_SELECT_COLUMNS =
-  "id,name,created_at,updated_at";
+  "id,name,process_name,created_at,updated_at";
 
 export default async function handler(
   req: NextApiRequest,
@@ -20,11 +20,12 @@ export default async function handler(
 
     if (req.method === "POST") {
       const name = String(req.body?.name || "").trim();
+      const processName = String(req.body?.process_name || "").trim();
       if (!name) return res.status(400).json({ error: "外注先名は必須です" });
 
       const { data, error } = await supabase
         .from("subcontractors")
-        .insert({ name })
+        .insert({ name, process_name: processName })
         .select()
         .single();
       if (error) throw error;
@@ -34,13 +35,18 @@ export default async function handler(
     if (req.method === "PUT") {
       const id = String(req.body?.id || "");
       const name = String(req.body?.name || "").trim();
+      const processName = String(req.body?.process_name || "").trim();
       if (!id || !name) {
         return res.status(400).json({ error: "IDと外注先名は必須です" });
       }
 
       const { data, error } = await supabase
         .from("subcontractors")
-        .update({ name, updated_at: new Date().toISOString() })
+        .update({
+          name,
+          process_name: processName,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", id)
         .select()
         .single();
