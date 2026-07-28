@@ -37,6 +37,34 @@
   white-space: nowrap;
 }
 
+.csvImportArea {
+  display: flex;
+  justify-content: flex-end;
+  margin: -8px auto 18px;
+  max-width: 980px;
+}
+
+.csvImportButton {
+  align-items: center;
+  background: #0f766e;
+  border: 1px solid #0f766e;
+  border-radius: 12px;
+  box-shadow: 0 10px 22px rgba(15, 118, 110, 0.18);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 18px;
+  white-space: nowrap;
+}
+
+.csvImportButton:hover {
+  opacity: 0.86;
+}
+
 .formCard {
   background: rgba(255, 255, 255, 0.86);
   border: 1px solid rgba(255, 255, 255, 0.7);

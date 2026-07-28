@@ -136,6 +136,10 @@ const Create = () => {
     );
   };
 
+  const handleCsvImportClick = () => {
+    alert("CSV入力機能は今後追加予定です。");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const normalizedOrderAmount = Number(orderAmount);
@@ -259,6 +263,16 @@ const Create = () => {
       </div>
 
       {/* フォーム */}
+      <div className={styles.csvImportArea}>
+        <button
+          type="button"
+          className={styles.csvImportButton}
+          onClick={handleCsvImportClick}
+        >
+          CSV入力
+        </button>
+      </div>
+
       <form className={styles.formCard} onSubmit={handleSubmit}>
         {/* 注番 */}
         <div className={styles.formGroup}>
