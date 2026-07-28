@@ -4,7 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import ProcessSorter from "@/app/components/ProcessSorter/ProcessSorter";
 import supabase from "@/lib/supabase";
-import { ProductMaster, ProductProcess, Subcontractor } from "@/app/type";
+import {
+  ProcessMaster,
+  ProductMaster,
+  ProductProcess,
+  Subcontractor,
+} from "@/app/type";
 import styles from "../masterCommon.module.css";
 
 const processOrderOptions = Array.from({ length: 50 }, (_, index) => index + 1);
@@ -28,6 +33,16 @@ const mapSubcontractor = (row: Record<string, unknown>): Subcontractor => ({
   updatedAt: String(row.updated_at || ""),
 });
 
+const mapProcessMaster = (row: Record<string, unknown>): ProcessMaster => ({
+  id: String(row.id || ""),
+  processId: String(row.process_id || ""),
+  name: String(row.name || ""),
+  days: Number(row.days || 0),
+  sort: Number(row.sort || 0),
+  enabled: Boolean(row.enabled ?? true),
+  outsourcing: Boolean(row.outsourcing || false),
+});
+
 const mapProcess = (row: Record<string, unknown>): ProductProcess => {
   const subcontractor = row.subcontractors as { name?: string } | null;
 
@@ -45,6 +60,7 @@ const mapProcess = (row: Record<string, unknown>): ProductProcess => {
 
 export default function ProductProcessesPage() {
   const [products, setProducts] = useState<ProductMaster[]>([]);
+  const [processMasters, setProcessMasters] = useState<ProcessMaster[]>([]);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [processes, setProcesses] = useState<ProductProcess[]>([]);
   const [form, setForm] = useState({
@@ -63,26 +79,63 @@ export default function ProductProcessesPage() {
     [form.productCode, processes],
   );
 
+  const processNameOptions = useMemo(() => {
+    const optionMap = new Map<string, ProcessMaster>();
+
+    processMasters.forEach((process) => {
+      if (process.name) optionMap.set(process.name, process);
+    });
+
+    processes.forEach((process) => {
+      if (process.processName && !optionMap.has(process.processName)) {
+        optionMap.set(process.processName, {
+          id: process.processName,
+          processId: process.processName,
+          name: process.processName,
+          days: 0,
+          sort: 9999,
+          enabled: true,
+          outsourcing: false,
+        });
+      }
+    });
+
+    return Array.from(optionMap.values()).sort(
+      (a, b) => a.sort - b.sort || a.name.localeCompare(b.name, "ja"),
+    );
+  }, [processMasters, processes]);
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [productResult, subcontractorResponse, processResponse] =
+      const [
+        productResult,
+        processMasterResponse,
+        subcontractorResponse,
+        processResponse,
+      ] =
         await Promise.all([
           supabase
             .from("v_product_master_with_customer")
             .select(PRODUCT_SELECT_COLUMNS)
             .order("product_code"),
+          fetch("/api/processes"),
           fetch("/api/masters/subcontractors"),
           fetch("/api/masters/product-processes"),
         ]);
 
       if (productResult.error) throw productResult.error;
+      if (!processMasterResponse.ok) throw new Error("process master fetch failed");
       if (!subcontractorResponse.ok) throw new Error("外注先の取得に失敗しました");
       if (!processResponse.ok) throw new Error("製品工程の取得に失敗しました");
 
       const productRows = (productResult.data || []).map(mapProduct);
+      const processMasterRows: ProcessMaster[] = (
+        await processMasterResponse.json()
+      ).map(mapProcessMaster);
       const processRows: ProductProcess[] = (await processResponse.json()).map(mapProcess);
       setProducts(productRows);
+      setProcessMasters(processMasterRows);
       setSubcontractors((await subcontractorResponse.json()).map(mapSubcontractor));
       setProcesses(processRows);
 
@@ -237,12 +290,18 @@ export default function ProductProcessesPage() {
               </option>
             ))}
           </select>
-          <input
-            className={styles.input}
-            placeholder="工程名"
+          <select
+            className={styles.select}
             value={form.processName}
             onChange={(e) => setForm({ ...form, processName: e.target.value })}
-          />
+          >
+            <option value="">工程名を選択</option>
+            {processNameOptions.map((process) => (
+              <option key={process.id} value={process.name}>
+                {process.name}
+              </option>
+            ))}
+          </select>
           <select
             className={styles.select}
             value={form.processOrder}
@@ -330,13 +389,20 @@ export default function ProductProcessesPage() {
                   </select>
                 </td>
                 <td>
-                  <input
-                    className={styles.tableInput}
+                  <select
+                    className={styles.select}
                     value={process.processName}
                     onChange={(e) =>
                       updateProcess(process.id, "processName", e.target.value)
                     }
-                  />
+                  >
+                    <option value="">工程名を選択</option>
+                    {processNameOptions.map((option) => (
+                      <option key={option.id} value={option.name}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
                 </td>
                 <td>
                   <select
