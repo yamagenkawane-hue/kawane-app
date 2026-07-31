@@ -637,30 +637,30 @@ export default function ProgressDetail() {
           }
         }
 
-        const { data: directOrderProcessRows, error: directOrderProcessError } =
+        const { data: viewOrderProcessRows, error: viewOrderProcessError } =
           await supabase
-            .from("order_processes")
-            .select(DIRECT_ORDER_PROCESS_SELECT_COLUMNS)
-            .eq("post_id", id)
-            .order("process_order", { ascending: true });
-
-        let orderProcessRows = directOrderProcessRows || [];
-        if (directOrderProcessError) {
-          console.warn(
-            "order_processes取得失敗。v_order_processes_with_masterを参照します。",
-            directOrderProcessError,
-          );
-
-          const { data: viewRows, error: viewError } = await supabase
             .from("v_order_processes_with_master")
             .select(ORDER_PROCESS_SELECT_COLUMNS)
             .eq("post_id", id)
             .order("process_order", { ascending: true });
 
-          if (viewError) {
-            console.warn("v_order_processes_with_master取得失敗", viewError);
+        let orderProcessRows: Record<string, unknown>[] = viewOrderProcessRows || [];
+        if (viewOrderProcessError) {
+          console.warn(
+            "v_order_processes_with_master取得失敗。order_processesを参照します。",
+            viewOrderProcessError,
+          );
+
+          const { data: directRows, error: directError } = await supabase
+            .from("order_processes")
+            .select(DIRECT_ORDER_PROCESS_SELECT_COLUMNS)
+            .eq("post_id", id)
+            .order("process_order", { ascending: true });
+
+          if (directError) {
+            console.warn("order_processes取得失敗", directError);
           }
-          orderProcessRows = viewRows || [];
+          orderProcessRows = directRows || [];
         }
 
         const orderProcessData: OrderProcess[] = (orderProcessRows || []).map(
