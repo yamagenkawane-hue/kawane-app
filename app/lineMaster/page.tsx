@@ -226,16 +226,16 @@ export default function LineMasterPage() {
       </div>
 
       {/* タイトル */}
-      <h1 className={styles.title}>ライン能力設定</h1>
+      <h1 className={styles.title}>工程能力設定</h1>
 
       {/* 追加フォーム */}
       <div className={styles.formCard}>
         <div className={styles.formGrid}>
           <label className={styles.fieldLabel}>
-            <span className={styles.fieldLabelText}>ライン名</span>
+            <span className={styles.fieldLabelText}>能力名</span>
           <input
             type="text"
-            placeholder="ライン名"
+            placeholder="能力名"
             value={form.lineName}
             onChange={(e) => setForm({ ...form, lineName: e.target.value })}
             className={styles.input}
@@ -309,7 +309,7 @@ export default function LineMasterPage() {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>ライン名</th>
+              <th>能力名</th>
               <th>工程</th>
               <th>日産能力</th>
               <th>稼働率</th>

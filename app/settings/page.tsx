@@ -24,8 +24,8 @@ const mainMenus = [
     icon: <Database size={34} />,
   },
   {
-    title: "ライン能力設定",
-    text: "ライン別の日産能力を管理",
+    title: "工程能力設定",
+    text: "工程別の日産能力と稼働率を管理",
     href: "/lineMaster",
     icon: <Factory size={34} />,
   },

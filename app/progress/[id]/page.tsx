@@ -551,7 +551,7 @@ export default function ProgressDetail() {
         );
 
         // =========================
-        // ライン能力
+        // 工程能力
         // =========================
 
         const { data: lineRows, error: lineError } = await supabase
