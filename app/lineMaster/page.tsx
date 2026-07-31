@@ -238,7 +238,7 @@ export default function LineMasterPage() {
           <select
             value={form.processId}
             onChange={(e) => setForm({ ...form, processId: e.target.value })}
-            className={styles.select}
+            className={styles.tableInput}
           >
             <option value="">工程選択</option>
             {processes.map((process) => (
