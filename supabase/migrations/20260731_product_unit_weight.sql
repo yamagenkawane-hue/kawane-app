@@ -37,11 +37,11 @@ select
   pm.product_name,
   pm.standard,
   pm.unit,
-  pm.unit_weight,
   pm.customer_id,
   coalesce(cm.customer_name, pm.customer_name) as customer_name,
   pm.created_at,
-  pm.updated_at
+  pm.updated_at,
+  pm.unit_weight
 from public.product_master pm
 left join public.customer_master cm
   on cm.id = pm.customer_id;
@@ -54,12 +54,12 @@ select
   pm.customer_name,
   pm.standard as material_code,
   pm.unit,
-  pm.unit_weight,
   mm.id as material_id,
   mm.material_number,
   mm.material_name,
   mm.size as material_size,
   mm.remaining_amount,
+  pm.unit_weight,
   case
     when coalesce(pm.unit_weight, 0) <= 0 then null
     else floor(coalesce(mm.remaining_amount, 0) / pm.unit_weight)
