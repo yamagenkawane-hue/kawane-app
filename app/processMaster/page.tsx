@@ -260,8 +260,6 @@ export default function ProcessMasterPage() {
         </select>
         </label>
 
-        <div className={styles.fieldLabel}>
-          <span className={styles.fieldLabelText}>外注工程</span>
         <label className={styles.checkbox}>
           <input
             type="checkbox"
@@ -270,8 +268,6 @@ export default function ProcessMasterPage() {
           />
           外注工程
         </label>
-
-        </div>
 
         <button onClick={handleAdd} className={styles.addButton}>
           追加

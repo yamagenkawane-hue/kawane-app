@@ -232,6 +232,8 @@ export default function LineMasterPage() {
       {/* 追加フォーム */}
       <div className={styles.formCard}>
         <div className={styles.formGrid}>
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>ライン名</span>
           <input
             type="text"
             placeholder="ライン名"
@@ -239,7 +241,10 @@ export default function LineMasterPage() {
             onChange={(e) => setForm({ ...form, lineName: e.target.value })}
             className={styles.input}
           />
+          </label>
 
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>工程</span>
           <select
             value={form.processId}
             onChange={(e) => setForm({ ...form, processId: e.target.value })}
@@ -253,7 +258,10 @@ export default function LineMasterPage() {
               </option>
             ))}
           </select>
+          </label>
 
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>日産能力</span>
           <input
             type="text"
             inputMode="none"
@@ -265,7 +273,10 @@ export default function LineMasterPage() {
             }
             className={`${styles.input} ${styles.numpadInput}`}
           />
+          </label>
 
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>稼働率</span>
           <input
             type="text"
             inputMode="none"
@@ -277,6 +288,7 @@ export default function LineMasterPage() {
             }
             className={`${styles.input} ${styles.numpadInput}`}
           />
+          </label>
 
           <label className={styles.checkbox}>
             <input
