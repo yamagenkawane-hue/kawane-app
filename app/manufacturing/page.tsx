@@ -31,6 +31,11 @@ type LotMeasuredRow = {
   measured_amount?: number;
 };
 
+type ProductUnitWeightRow = {
+  product_code?: string | null;
+  unit_weight?: number | string | null;
+};
+
 type MeasurementSchedule = {
   id: string;
   postId: string;
@@ -44,6 +49,7 @@ type MeasurementSchedule = {
   planAmount: number;
   completedAmount: number;
   availableAmount: number;
+  unitWeight: number;
   measuredLotAmount: number;
   orderRemainingAmount: number;
   previousProcessName: string;
@@ -70,6 +76,7 @@ type ExistingLotRow = {
   lot_no?: string;
   material_lot_no?: string | null;
   measured_amount?: number;
+  measured_weight?: number;
   quantity?: number;
 };
 
@@ -130,6 +137,7 @@ const buildMeasurementSchedules = (
   processes: OrderProcessRow[],
   lotMap: Map<string, string>,
   orderAmountMap: Map<string, number>,
+  unitWeightMap: Map<string, number>,
   measuredLotMap: Map<string, number>,
   hiddenPostIds: Set<string>,
 ): MeasurementSchedule[] => {
@@ -200,6 +208,7 @@ const buildMeasurementSchedules = (
         planAmount: measurementProcess.plannedAmount,
         completedAmount: measurementProcess.completedAmount,
         availableAmount,
+        unitWeight: unitWeightMap.get(measurementProcess.productCode) || 0,
         measuredLotAmount,
         orderRemainingAmount,
         previousProcessName: previousProcess?.processName || "",
@@ -246,6 +255,7 @@ const buildMeasurementSchedules = (
       planAmount: completedInspectionProcess.plannedAmount,
       completedAmount: 0,
       availableAmount: finalAvailableAmount,
+      unitWeight: unitWeightMap.get(completedInspectionProcess.productCode) || 0,
       measuredLotAmount,
       orderRemainingAmount,
       previousProcessName: completedInspectionProcess.processName,
@@ -262,7 +272,7 @@ const buildMeasurementSchedules = (
 export default function ManufacturingPage() {
   const [schedules, setSchedules] = useState<MeasurementSchedule[]>([]);
   const [scheduleId, setScheduleId] = useState("");
-  const [finalQuantity, setFinalQuantity] = useState<number | "">("");
+  const [measuredWeight, setMeasuredWeight] = useState<number | "">("");
   const [lotNo, setLotNo] = useState("");
   const [materialLotNo, setMaterialLotNo] = useState("");
   const [numpadOpen, setNumpadOpen] = useState(false);
@@ -272,8 +282,18 @@ export default function ManufacturingPage() {
     [scheduleId, schedules],
   );
 
+  const calculatedQuantity = useMemo(() => {
+    if (!selected || measuredWeight === "") return "";
+
+    const weight = Number(measuredWeight);
+    const unitWeight = Number(selected.unitWeight || 0);
+    if (!Number.isFinite(weight) || weight <= 0 || unitWeight <= 0) return "";
+
+    return Math.floor(weight / unitWeight);
+  }, [measuredWeight, selected]);
+
   const loadMeasurementSchedules = async () => {
-    const [processResult, postResult, lotResult] = await Promise.all([
+    const [processResult, postResult, lotResult, productResult] = await Promise.all([
       supabase
         .from("v_order_processes_with_master")
         .select(
@@ -287,6 +307,9 @@ export default function ManufacturingPage() {
         .from("v_lot_flow_status")
         .select("post_id,measured_amount")
         .eq("deleted", false),
+      supabase
+        .from("product_master")
+        .select("product_code,unit_weight"),
     ]);
 
     if (processResult.error) {
@@ -297,6 +320,9 @@ export default function ManufacturingPage() {
     }
     if (lotResult.error) {
       throw lotResult.error;
+    }
+    if (productResult.error) {
+      throw productResult.error;
     }
 
     const lotMap = new Map(
@@ -312,6 +338,12 @@ export default function ManufacturingPage() {
       ]),
     );
     const measuredLotMap = new Map<string, number>();
+    const unitWeightMap = new Map(
+      ((productResult.data || []) as ProductUnitWeightRow[]).map((product) => [
+        String(product.product_code || ""),
+        Number(product.unit_weight || 0),
+      ]),
+    );
 
     for (const lot of (lotResult.data || []) as LotMeasuredRow[]) {
       const postId = String(lot.post_id || "");
@@ -332,6 +364,7 @@ export default function ManufacturingPage() {
       mappedProcesses,
       lotMap,
       orderAmountMap,
+      unitWeightMap,
       measuredLotMap,
       hiddenPostIds,
     );
@@ -416,8 +449,8 @@ export default function ManufacturingPage() {
   };
 
   const handleConfirm = async () => {
-    if (!selected || finalQuantity === "") {
-      alert("計量する予定と最終確定数量を入力してください");
+    if (!selected || measuredWeight === "") {
+      alert("計量する予定と計測重量を入力してください");
       return;
     }
 
@@ -426,12 +459,24 @@ export default function ManufacturingPage() {
       return;
     }
 
-    const quantity = Number(finalQuantity);
+    const weight = Number(measuredWeight);
+    const unitWeight = Number(selected.unitWeight || 0);
+    const quantity = Number(calculatedQuantity);
     const now = new Date().toISOString();
     const today = now.slice(0, 10);
 
+    if (!Number.isFinite(weight) || weight <= 0) {
+      alert("計測重量は0より大きい値で入力してください");
+      return;
+    }
+
+    if (!Number.isFinite(unitWeight) || unitWeight <= 0) {
+      alert("製品マスタに単重を設定してください");
+      return;
+    }
+
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      alert("数量は1以上で入力してください");
+      alert("計測重量と単重から数量を計算できません");
       return;
     }
 
@@ -494,7 +539,7 @@ export default function ManufacturingPage() {
 
     const { data: existingLots, error: existingLotError } = await supabase
       .from("lots")
-      .select("id,lot_no,material_lot_no,measured_amount,quantity")
+      .select("id,lot_no,material_lot_no,measured_amount,measured_weight,quantity")
       .eq("post_id", selected.postId)
       .order("created_at", { ascending: true });
 
@@ -513,12 +558,14 @@ export default function ManufacturingPage() {
     if (existingLot) {
       const nextMeasuredAmount =
         Number(existingLot.measured_amount || 0) + quantity;
+      const nextMeasuredWeight = Number(existingLot.measured_weight || 0) + weight;
       const nextQuantity = Number(existingLot.quantity || 0) + quantity;
       const { error: lotUpdateError } = await supabase
         .from("lots")
         .update({
           quantity: nextQuantity,
           measured_amount: nextMeasuredAmount,
+          measured_weight: nextMeasuredWeight,
           material_lot_no: trimmedMaterialLotNo || null,
           measurement_result_id: measurementResultId,
           measurement_order_process_id: orderProcessId,
@@ -545,6 +592,7 @@ export default function ManufacturingPage() {
           lot_type: "normal",
           quantity,
           measured_amount: quantity,
+          measured_weight: weight,
           material_lot_no: trimmedMaterialLotNo || null,
           measurement_result_id: measurementResultId,
           measurement_order_process_id: orderProcessId,
@@ -584,7 +632,7 @@ export default function ManufacturingPage() {
       })
       .eq("id", selected.postId);
 
-    setFinalQuantity("");
+    setMeasuredWeight("");
     setMaterialLotNo("");
     await fetchSchedules();
     alert("計量実績を登録しました。梱包完了後に在庫へ反映されます");
@@ -624,7 +672,7 @@ export default function ManufacturingPage() {
     }
 
     setScheduleId("");
-    setFinalQuantity("");
+    setMeasuredWeight("");
     setLotNo("");
     setMaterialLotNo("");
     await fetchSchedules();
@@ -654,6 +702,7 @@ export default function ManufacturingPage() {
 
               setLotNo(schedule?.lotNo || "");
               setMaterialLotNo("");
+              setMeasuredWeight("");
             }}
           >
             <option value="">計量する予定を選択</option>
@@ -677,15 +726,21 @@ export default function ManufacturingPage() {
           />
           <input
             className={styles.input}
-            inputMode="numeric"
-            placeholder="計量後の最終確定数量"
-            value={finalQuantity}
+            inputMode="decimal"
+            placeholder="計測重量"
+            value={measuredWeight}
             onFocus={() => setNumpadOpen(true)}
             onChange={(e) =>
-              setFinalQuantity(
+              setMeasuredWeight(
                 e.target.value === "" ? "" : Number(e.target.value),
               )
             }
+          />
+          <input
+            className={styles.input}
+            readOnly
+            value={calculatedQuantity === "" ? "" : calculatedQuantity}
+            placeholder="自動計算数量"
           />
         </div>
         <div className={styles.buttonRow}>
@@ -715,6 +770,14 @@ export default function ManufacturingPage() {
             <strong>{selected.completedAmount}</strong>
           </div>
           <div>
+            <span>単重</span>
+            <strong>{selected.unitWeight || "-"}</strong>
+          </div>
+          <div>
+            <span>計算数量</span>
+            <strong>{calculatedQuantity === "" ? "-" : calculatedQuantity}</strong>
+          </div>
+          <div>
             <span>登録可能数</span>
             <strong>{selected.availableAmount}</strong>
           </div>
@@ -729,9 +792,9 @@ export default function ManufacturingPage() {
 
       <Numpad
         open={numpadOpen}
-        value={finalQuantity === "" ? "" : String(finalQuantity)}
+        value={measuredWeight === "" ? "" : String(measuredWeight)}
         onChange={(value) =>
-          setFinalQuantity(value === "" ? "" : Number(value))
+          setMeasuredWeight(value === "" ? "" : Number(value))
         }
         onClose={() => setNumpadOpen(false)}
       />

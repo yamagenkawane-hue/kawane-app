@@ -8,7 +8,7 @@ import styles from "./page.module.css";
 import { CustomerMaster, ProductMaster } from "../type";
 
 const PRODUCT_SELECT_COLUMNS =
-  "id,customer_id,product_code,product_name,customer_name,standard,unit";
+  "id,customer_id,product_code,product_name,customer_name,standard,unit,unit_weight";
 
 const CUSTOMER_SELECT_COLUMNS = "id,customer_name,shipping_offset_days,note";
 
@@ -60,6 +60,7 @@ const Create = () => {
           customerName: row.customer_name || "",
           standard: row.standard || "",
           unit: row.unit || "",
+          unitWeight: Number(row.unit_weight || 0),
         })),
       );
 

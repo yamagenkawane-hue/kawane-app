@@ -329,6 +329,7 @@ export type ProductMaster = {
   customerName: string;
   standard: string;
   unit: string;
+  unitWeight: number | string;
 };
 
 export type MaterialMaster = {

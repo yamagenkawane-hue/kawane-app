@@ -16,7 +16,7 @@ import styles from "../masterCommon.module.css";
 const processOrderOptions = Array.from({ length: 50 }, (_, index) => index + 1);
 
 const PRODUCT_SELECT_COLUMNS =
-  "id,product_code,product_name,customer_name,standard,unit";
+  "id,product_code,product_name,customer_name,standard,unit,unit_weight";
 
 type NumpadTarget =
   | { kind: "form"; field: "overlapDays" }
@@ -30,6 +30,7 @@ const mapProduct = (row: Record<string, unknown>): ProductMaster => ({
   customerName: String(row.customer_name || ""),
   standard: String(row.standard || ""),
   unit: String(row.unit || ""),
+  unitWeight: Number(row.unit_weight || 0),
 });
 
 const mapSubcontractor = (row: Record<string, unknown>): Subcontractor => ({

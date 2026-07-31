@@ -7,7 +7,7 @@ import { CustomerMaster, MaterialMaster, ProductMaster } from "@/app/type";
 import styles from "../masterCommon.module.css";
 
 const PRODUCT_SELECT_COLUMNS =
-  "id,product_code,product_name,customer_name,standard,unit";
+  "id,product_code,product_name,customer_name,standard,unit,unit_weight";
 
 const CUSTOMER_SELECT_COLUMNS =
   "id,customer_name,shipping_offset_days,note";
@@ -22,6 +22,7 @@ type ProductRow = {
   customer_name: string | null;
   standard: string | null;
   unit: string | null;
+  unit_weight: number | string | null;
 };
 
 type CustomerRow = {
@@ -46,6 +47,7 @@ const emptyForm = {
   customerName: "",
   standard: "",
   unit: "個",
+  unitWeight: "",
 };
 
 const mapProduct = (row: ProductRow): ProductMaster => ({
@@ -55,6 +57,7 @@ const mapProduct = (row: ProductRow): ProductMaster => ({
   customerName: row.customer_name || "",
   standard: row.standard || "",
   unit: row.unit || "",
+  unitWeight: Number(row.unit_weight || 0),
 });
 
 const mapCustomer = (row: CustomerRow): CustomerMaster => ({
@@ -162,6 +165,7 @@ export default function ProductMasterPage() {
       customer_name: form.customerName,
       standard: form.standard,
       unit: form.unit,
+      unit_weight: form.unitWeight === "" ? 0 : Number(form.unitWeight),
     });
 
     if (error) {
@@ -193,6 +197,7 @@ export default function ProductMasterPage() {
           customer_name: item.customerName,
           standard: item.standard,
           unit: item.unit,
+          unit_weight: Number(item.unitWeight || 0),
         })
         .eq("id", item.id);
 
@@ -231,6 +236,18 @@ export default function ProductMasterPage() {
       ))}
     </>
   );
+
+  const getMaterialCapacityText = (item: ProductMaster) => {
+    const unitWeight = Number(item.unitWeight || 0);
+    if (!Number.isFinite(unitWeight) || unitWeight <= 0) return "-";
+
+    const material = materials.find(
+      (materialItem) => materialItem.materialCode === item.standard,
+    );
+    if (!material) return "-";
+
+    return `${Math.floor(material.remainingAmount / unitWeight).toLocaleString()} 個`;
+  };
 
   return (
     <div className={styles.container}>
@@ -278,9 +295,10 @@ export default function ProductMasterPage() {
           </select>
           <input
             className={styles.input}
-            placeholder="単位"
-            value={form.unit}
-            onChange={(e) => setForm({ ...form, unit: e.target.value })}
+            inputMode="decimal"
+            placeholder="単重"
+            value={form.unitWeight}
+            onChange={(e) => setForm({ ...form, unitWeight: e.target.value })}
           />
         </div>
         <div className={styles.buttonRow}>
@@ -303,7 +321,8 @@ export default function ProductMasterPage() {
               <th>製品名</th>
               <th>得意先名</th>
               <th>材料コード</th>
-              <th>単位</th>
+              <th>単重</th>
+              <th>材料残量目安</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -358,12 +377,14 @@ export default function ProductMasterPage() {
                 <td>
                   <input
                     className={styles.tableInput}
-                    value={item.unit}
+                    inputMode="decimal"
+                    value={item.unitWeight}
                     onChange={(e) =>
-                      updateItem(item.id, "unit", e.target.value)
+                      updateItem(item.id, "unitWeight", e.target.value)
                     }
                   />
                 </td>
+                <td>{getMaterialCapacityText(item)}</td>
                 <td className={styles.actionArea}>
                   <button
                     className={styles.deleteButton}
