@@ -52,6 +52,7 @@ const mapProcess = (row: Record<string, unknown>): ProductProcess => {
     productCode: String(row.product_code || ""),
     processName: String(row.process_name || ""),
     processOrder: Number(row.process_order || 0),
+    overlapDays: Number(row.overlap_days || 0),
     subcontractorId: row.subcontractor_id ? String(row.subcontractor_id) : null,
     subcontractorName: String(row.subcontractor_name || subcontractor?.name || ""),
     createdAt: String(row.created_at || ""),
@@ -68,6 +69,7 @@ export default function ProductProcessesPage() {
     productCode: "",
     processName: "",
     processOrder: 1,
+    overlapDays: 0,
     subcontractorId: "",
   });
   const [loading, setLoading] = useState(false);
@@ -220,7 +222,12 @@ export default function ProductProcessesPage() {
   };
 
   const addProcess = async () => {
-    if (!form.productCode || !form.processName || Number(form.processOrder) <= 0) {
+    if (
+      !form.productCode ||
+      !form.processName ||
+      Number(form.processOrder) <= 0 ||
+      Number(form.overlapDays) < 0
+    ) {
       alert("製品、工程名、工程順を入力してください");
       return;
     }
@@ -232,6 +239,7 @@ export default function ProductProcessesPage() {
         product_code: form.productCode,
         process_name: form.processName,
         process_order: Number(form.processOrder),
+        overlap_days: Number(form.overlapDays || 0),
         subcontractor_id: form.subcontractorId || null,
       }),
     });
@@ -245,6 +253,7 @@ export default function ProductProcessesPage() {
       ...prev,
       processName: "",
       processOrder: Math.min(50, selectedProcesses.length + 2),
+      overlapDays: 0,
       subcontractorId: "",
     }));
     await fetchData();
@@ -271,6 +280,7 @@ export default function ProductProcessesPage() {
         product_code: process.productCode,
         process_name: process.processName,
         process_order: Number(process.processOrder),
+        overlap_days: Number(process.overlapDays || 0),
         subcontractor_id: process.subcontractorId || null,
       }),
     });
@@ -289,6 +299,7 @@ export default function ProductProcessesPage() {
           product_code: process.productCode,
           process_name: process.processName,
           process_order: process.processOrder,
+          overlap_days: Number(process.overlapDays || 0),
           subcontractor_id: process.subcontractorId || null,
         }),
       });
@@ -366,6 +377,17 @@ export default function ProductProcessesPage() {
               </option>
             ))}
           </select>
+          <input
+            className={styles.input}
+            type="number"
+            min="0"
+            step="1"
+            placeholder="重複日数"
+            value={form.overlapDays}
+            onChange={(e) =>
+              setForm({ ...form, overlapDays: Number(e.target.value || 0) })
+            }
+          />
           {isOutsourceProcess(form.processName) ? (
             <select
               className={styles.select}
@@ -427,6 +449,7 @@ export default function ProductProcessesPage() {
               <th>品番</th>
               <th>工程順</th>
               <th>工程名</th>
+              <th>重複日数</th>
               <th>加工区分</th>
               <th>操作</th>
             </tr>
@@ -465,6 +488,22 @@ export default function ProductProcessesPage() {
                       </option>
                     ))}
                   </select>
+                </td>
+                <td>
+                  <input
+                    className={styles.tableInput}
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={process.overlapDays}
+                    onChange={(e) =>
+                      updateProcess(
+                        process.id,
+                        "overlapDays",
+                        Number(e.target.value || 0),
+                      )
+                    }
+                  />
                 </td>
                 <td>
                   {isOutsourceProcess(process.processName) ? (

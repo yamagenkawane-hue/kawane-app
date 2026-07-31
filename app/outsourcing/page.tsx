@@ -22,7 +22,7 @@ type OutsourceRow = OrderProcess & {
 };
 
 const ORDER_PROCESS_SELECT_COLUMNS =
-  "id,post_id,product_id,customer_id,product_process_id,order_no,product_code,product_name,customer_name,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,subcontractor_name,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,outsource_status,outsource_note,locked,created_at,updated_at,delivery_date";
+  "id,post_id,product_id,customer_id,product_process_id,order_no,product_code,product_name,customer_name,process_name,process_order,overlap_days,planned_amount,completed_amount,completed_date,subcontractor_id,subcontractor_name,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,outsource_status,outsource_note,locked,created_at,updated_at,delivery_date";
 
 type DerivedOutsourceStatus = "not_sent" | "sent" | "returned";
 
@@ -59,6 +59,7 @@ const mapOrderProcess = (row: Record<string, unknown>): OutsourceRow => {
     customerName: String(row.customer_name || ""),
     processName: String(row.process_name || ""),
     processOrder: Number(row.process_order || 0),
+    overlapDays: Number(row.overlap_days || 0),
     plannedAmount,
     completedAmount,
     completedDate: String(row.completed_date || ""),
@@ -86,6 +87,7 @@ const mapProductProcess = (row: Record<string, unknown>): ProductProcess => ({
   productCode: String(row.product_code || ""),
   processName: String(row.process_name || ""),
   processOrder: Number(row.process_order || 0),
+  overlapDays: Number(row.overlap_days || 0),
   subcontractorId: row.subcontractor_id ? String(row.subcontractor_id) : null,
   subcontractorName: String(row.subcontractor_name || ""),
   outsourcing: Boolean(row.outsourcing || false),

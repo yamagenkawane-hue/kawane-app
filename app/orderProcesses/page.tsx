@@ -28,10 +28,10 @@ const POST_SELECT_COLUMNS =
   "id,product_id,customer_id,order_no,lot_no,product_code,product_name,customer_name,order_amount,remaining_amount,status,delivery_date,delete";
 
 const ORDER_PROCESS_SELECT_COLUMNS =
-  "id,post_id,product_id,customer_id,product_process_id,order_no,product_code,product_name,customer_name,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,subcontractor_name,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,outsource_status,outsource_note,locked,created_at,updated_at";
+  "id,post_id,product_id,customer_id,product_process_id,order_no,product_code,product_name,customer_name,process_name,process_order,overlap_days,planned_amount,completed_amount,completed_date,subcontractor_id,subcontractor_name,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,outsource_status,outsource_note,locked,created_at,updated_at";
 
 const PRODUCT_PROCESS_SELECT_COLUMNS =
-  "id,product_id,product_code,process_name,process_order,subcontractor_id,subcontractor_name,outsourcing,created_at,updated_at";
+  "id,product_id,product_code,process_name,process_order,overlap_days,subcontractor_id,subcontractor_name,outsourcing,created_at,updated_at";
 
 const mapPost = (row: Record<string, unknown>): PostData => ({
   id: String(row.id || ""),
@@ -60,6 +60,7 @@ const mapOrderProcess = (row: Record<string, unknown>): OrderProcess => ({
   customerName: String(row.customer_name || ""),
   processName: String(row.process_name || ""),
   processOrder: Number(row.process_order || 0),
+  overlapDays: Number(row.overlap_days || 0),
   plannedAmount: Number(row.planned_amount || 0),
   completedAmount: Number(row.completed_amount || 0),
   completedDate: String(row.completed_date || ""),
@@ -81,6 +82,7 @@ const mapProductProcess = (row: Record<string, unknown>): ProductProcess => ({
   productCode: String(row.product_code || ""),
   processName: String(row.process_name || ""),
   processOrder: Number(row.process_order || 0),
+  overlapDays: Number(row.overlap_days || 0),
   subcontractorId: row.subcontractor_id ? String(row.subcontractor_id) : null,
   subcontractorName: String(row.subcontractor_name || ""),
   outsourcing: Boolean(row.outsourcing || false),
@@ -471,6 +473,7 @@ export default function OrderProcessesPage() {
             matchingProductProcess?.subcontractorId || process.subcontractorId || null,
           process_name: process.processName,
           process_order: nextOrder,
+          overlap_days: matchingProductProcess?.overlapDays ?? process.overlapDays ?? 0,
           planned_amount: plannedAmount,
           completed_amount: completedAmount,
           completed_date: process.completedDate || null,
@@ -519,6 +522,7 @@ export default function OrderProcessesPage() {
         subcontractor_id: null,
         process_name: newProcessName.trim(),
         process_order: nextOrder,
+        overlap_days: 0,
         planned_amount: Number(selectedPost.orderAmount || 0),
         completed_amount: 0,
         locked: false,

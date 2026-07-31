@@ -33,10 +33,10 @@ const RESULT_SELECT_COLUMNS =
   "id,post_id,schedule_id,order_process_id,process_id,process_name,date,amount,created_at";
 
 const ORDER_PROCESS_SELECT_COLUMNS =
-  "id,post_id,product_id,customer_id,product_process_id,order_no,product_code,product_name,customer_name,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,subcontractor_name,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,outsource_status,outsource_note,locked,created_at,updated_at";
+  "id,post_id,product_id,customer_id,product_process_id,order_no,product_code,product_name,customer_name,process_name,process_order,overlap_days,planned_amount,completed_amount,completed_date,subcontractor_id,subcontractor_name,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,outsource_status,outsource_note,locked,created_at,updated_at";
 
 const DIRECT_ORDER_PROCESS_SELECT_COLUMNS =
-  "id,post_id,order_no,product_code,product_name,customer_name,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,locked,created_at,updated_at";
+  "id,post_id,order_no,product_code,product_name,customer_name,process_name,process_order,overlap_days,planned_amount,completed_amount,completed_date,subcontractor_id,locked,created_at,updated_at";
 
 const AI_SETTINGS_SELECT_COLUMNS =
   "id,enabled,target_outsource_delay,target_shipping_delay,target_line_load,strength,use_line_operation_rate,use_past_results,use_outsource_process,use_holidays,use_current_delay,use_process_average_delay,updated_at";
@@ -168,6 +168,23 @@ export default function ProgressDetail() {
     return result;
   }, [isHoliday]);
 
+  const shiftBusinessDays = useCallback((
+    startDate: Date,
+    days: number,
+    calendarData: CompanyCalendar[],
+  ) => {
+    const result = new Date(startDate);
+    const direction = days >= 0 ? 1 : -1;
+    let remaining = Math.abs(days);
+
+    while (remaining > 0) {
+      result.setDate(result.getDate() + direction);
+      if (!isHoliday(result, calendarData)) remaining--;
+    }
+
+    return result;
+  }, [isHoliday]);
+
   // =========================
   // 次営業日取得
   // =========================
@@ -296,6 +313,21 @@ export default function ProgressDetail() {
 
     return extraDays;
   }, []);
+
+  const getNextProcessStart = useCallback((
+    predictedStart: Date,
+    predictedEnd: Date,
+    overlapDays: number,
+    calendarData: CompanyCalendar[],
+  ) => {
+    const normalizedOverlapDays = Math.max(0, Math.floor(overlapDays || 0));
+    const candidate = shiftBusinessDays(
+      predictedEnd,
+      1 - normalizedOverlapDays,
+      calendarData,
+    );
+    return getLaterDate(candidate, predictedStart);
+  }, [getLaterDate, shiftBusinessDays]);
 
   const fetchMaterialInfo = useCallback(async (productCode: string) => {
     if (!productCode) {
@@ -640,6 +672,7 @@ export default function ProgressDetail() {
             customerName: String(row.customer_name || ""),
             processName: String(row.process_name || ""),
             processOrder: Number(row.process_order || 0),
+            overlapDays: Number(row.overlap_days || 0),
             plannedAmount: Number(row.planned_amount || 0),
             completedAmount: Number(row.completed_amount || 0),
             completedDate: String(row.completed_date || ""),
@@ -826,7 +859,12 @@ export default function ProgressDetail() {
               remainingAmount,
             });
 
-            currentDate = getNextBusinessDay(predictedEnd, predictionCalendar);
+            currentDate = getNextProcessStart(
+              predictedStart,
+              predictedEnd,
+              process.overlapDays,
+              predictionCalendar,
+            );
           });
 
           console.log("ganttList", ganttList);
@@ -955,6 +993,7 @@ export default function ProgressDetail() {
     getActualCapacity,
     getBusinessDayOnOrAfter,
     getNextBusinessDay,
+    getNextProcessStart,
     getOrderProcessLogs,
     getPredictedEnd,
     getPredictionExtraDays,

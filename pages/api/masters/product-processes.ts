@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import supabase from "@/lib/supabase";
 
 const PRODUCT_PROCESS_SELECT_COLUMNS =
-  "id,product_id,product_code,process_name,process_order,subcontractor_id,subcontractor_name,outsourcing,created_at,updated_at";
+  "id,product_id,product_code,process_name,process_order,overlap_days,subcontractor_id,subcontractor_name,outsourcing,created_at,updated_at";
 
 export default async function handler(
   req: NextApiRequest,
@@ -28,8 +28,15 @@ export default async function handler(
       const productCode = String(req.body?.product_code || "").trim();
       const processName = String(req.body?.process_name || "").trim();
       const processOrder = Number(req.body?.process_order);
+      const overlapDays = Number(req.body?.overlap_days || 0);
 
-      if (!productCode || !processName || !Number.isFinite(processOrder)) {
+      if (
+        !productCode ||
+        !processName ||
+        !Number.isFinite(processOrder) ||
+        !Number.isFinite(overlapDays) ||
+        overlapDays < 0
+      ) {
         return res.status(400).json({ error: "品番、工程名、工程順は必須です" });
       }
 
@@ -39,6 +46,7 @@ export default async function handler(
           product_code: productCode,
           process_name: processName,
           process_order: processOrder,
+          overlap_days: overlapDays,
           subcontractor_id: req.body?.subcontractor_id || null,
         })
         .select()
@@ -57,6 +65,7 @@ export default async function handler(
           product_code: req.body?.product_code,
           process_name: req.body?.process_name,
           process_order: Number(req.body?.process_order),
+          overlap_days: Number(req.body?.overlap_days || 0),
           subcontractor_id: req.body?.subcontractor_id || null,
           updated_at: new Date().toISOString(),
         })

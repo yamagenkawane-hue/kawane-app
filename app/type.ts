@@ -269,6 +269,7 @@ export type OrderProcess = {
   customerName: string;
   processName: string;
   processOrder: number;
+  overlapDays: number;
   plannedAmount: number;
   completedAmount: number;
   completedDate: string;
@@ -403,6 +404,7 @@ export type ProductProcess = {
   productCode: string;
   processName: string;
   processOrder: number;
+  overlapDays: number;
   subcontractorId: string | null;
   subcontractorName?: string;
   outsourcing?: boolean;
