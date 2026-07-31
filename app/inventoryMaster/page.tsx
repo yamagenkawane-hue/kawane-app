@@ -205,8 +205,8 @@ export default function InventoryMasterPage() {
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
-        <Link href="/masterSettings" className={styles.backButton}>
-          ← マスタ設定に戻る
+        <Link href="/" className={styles.backButton}>
+          ← ホームへ戻る
         </Link>
         <h1 className={styles.title}>在庫マスタ</h1>
       </div>

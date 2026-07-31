@@ -23,8 +23,8 @@ const NewRegistration = () => {
     <div className={styles.container}>
       {/* Header */}
       <div className={styles.header}>
-        <Link href="/" className={styles.backButton}>
-          ← ホームへ戻る
+        <Link href="/settings" className={styles.backButton}>
+          ← 設定へ戻る
         </Link>
 
         <div>
@@ -89,7 +89,7 @@ const NewRegistration = () => {
             登録
           </button>
 
-          <Link href="/" className={styles.cancelButton}>
+          <Link href="/settings" className={styles.cancelButton}>
             戻る
           </Link>
         </div>

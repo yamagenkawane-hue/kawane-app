@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   CalendarDays,
-  Database,
   Factory,
   Package,
   Settings2,
@@ -53,12 +52,6 @@ const masterMenus = [
     text: "製造で使用する材料情報を管理",
     href: "/materialMaster",
     icon: <Settings2 size={34} />,
-  },
-  {
-    title: "在庫マスタ",
-    text: "現在庫数と入出庫連携用の在庫情報を管理",
-    href: "/inventoryMaster",
-    icon: <Database size={34} />,
   },
 ];
 

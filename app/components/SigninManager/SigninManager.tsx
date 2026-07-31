@@ -2,7 +2,7 @@ import React from "react";
 
 import Link from "next/link";
 
-import { UserPlus, Settings, PackagePlus, Tags } from "lucide-react";
+import { Database, Settings, PackagePlus, Tags } from "lucide-react";
 
 import styles from "./page.module.css";
 
@@ -23,9 +23,9 @@ const menus = [
     icon: <Settings size={28} />,
   },
   {
-    title: "ユーザー登録",
-    href: "/newRegistration",
-    icon: <UserPlus size={28} />,
+    title: "在庫マスタ",
+    href: "/inventoryMaster",
+    icon: <Database size={28} />,
   },
 ];
 

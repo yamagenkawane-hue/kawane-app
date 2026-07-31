@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Cpu, Database, Factory, Users } from "lucide-react";
+import { Cpu, Database, Factory, UserPlus, Users } from "lucide-react";
 import styles from "./page.module.css";
 
 const mainMenus = [
@@ -10,6 +10,12 @@ const mainMenus = [
     text: "ユーザー編集・削除・復元を管理",
     href: "/userManager",
     icon: <Users size={34} />,
+  },
+  {
+    title: "ユーザー登録",
+    text: "新しいユーザーIDとパスワードを登録",
+    href: "/newRegistration",
+    icon: <UserPlus size={34} />,
   },
   {
     title: "マスタ設定",
