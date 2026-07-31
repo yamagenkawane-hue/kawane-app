@@ -314,20 +314,24 @@ export default function ProgressDetail() {
     return extraDays;
   }, []);
 
-  const getNextProcessStart = useCallback((
-    predictedStart: Date,
-    predictedEnd: Date,
+  const getOverlappedProcessStart = useCallback((
+    previousStart: Date,
+    previousEnd: Date,
     overlapDays: number,
     calendarData: CompanyCalendar[],
   ) => {
     const normalizedOverlapDays = Math.max(0, Math.floor(overlapDays || 0));
+    if (normalizedOverlapDays <= 0) {
+      return getNextBusinessDay(previousEnd, calendarData);
+    }
+
     const candidate = shiftBusinessDays(
-      predictedEnd,
+      previousEnd,
       1 - normalizedOverlapDays,
       calendarData,
     );
-    return getLaterDate(candidate, predictedStart);
-  }, [getLaterDate, shiftBusinessDays]);
+    return getLaterDate(candidate, previousStart);
+  }, [getLaterDate, getNextBusinessDay, shiftBusinessDays]);
 
   const fetchMaterialInfo = useCallback(async (productCode: string) => {
     if (!productCode) {
@@ -702,10 +706,21 @@ export default function ProgressDetail() {
           aiSettings.enabled && !aiSettings.useHolidays ? [] : calendarData;
         setGanttCalendar(predictionCalendar);
         let currentDate = getBusinessDayOnOrAfter(new Date(), predictionCalendar);
+        let previousPredictedStart: Date | null = null;
+        let previousPredictedEnd: Date | null = null;
         const orderAmount = Number(currentPost.orderAmount || 0);
 
         if (orderProcessData.length > 0) {
           orderProcessData.forEach((process, processIndex) => {
+            if (previousPredictedStart && previousPredictedEnd) {
+              currentDate = getOverlappedProcessStart(
+                previousPredictedStart,
+                previousPredictedEnd,
+                process.overlapDays,
+                predictionCalendar,
+              );
+            }
+
             const processMaster = processData.find(
               (item) =>
                 item.name === process.processName ||
@@ -859,12 +874,9 @@ export default function ProgressDetail() {
               remainingAmount,
             });
 
-            currentDate = getNextProcessStart(
-              predictedStart,
-              predictedEnd,
-              process.overlapDays,
-              predictionCalendar,
-            );
+            previousPredictedStart = predictedStart;
+            previousPredictedEnd = predictedEnd;
+            currentDate = getNextBusinessDay(predictedEnd, predictionCalendar);
           });
 
           console.log("ganttList", ganttList);
@@ -993,7 +1005,7 @@ export default function ProgressDetail() {
     getActualCapacity,
     getBusinessDayOnOrAfter,
     getNextBusinessDay,
-    getNextProcessStart,
+    getOverlappedProcessStart,
     getOrderProcessLogs,
     getPredictedEnd,
     getPredictionExtraDays,
