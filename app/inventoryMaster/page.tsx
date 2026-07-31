@@ -212,24 +212,35 @@ export default function InventoryMasterPage() {
       </div>
       <div className={styles.formCard}>
         <div className={styles.formGrid}>
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>製品コード</span>
           <input
             className={styles.input}
             placeholder="製品コード"
             value={form.productCode}
             onChange={(e) => setForm({ ...form, productCode: e.target.value })}
           />
+          </label>
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>製品名</span>
           <input
             className={styles.input}
             placeholder="製品名"
             value={form.productName}
             onChange={(e) => setForm({ ...form, productName: e.target.value })}
           />
+          </label>
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>ロットNo</span>
           <input
             className={styles.input}
             placeholder="ロットNo"
             value={form.lotNo}
             onChange={(e) => setForm({ ...form, lotNo: e.target.value })}
           />
+          </label>
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>現在庫数</span>
           <input
             className={styles.input}
             inputMode="numeric"
@@ -242,6 +253,9 @@ export default function InventoryMasterPage() {
               setForm({ ...form, currentStock: Number(e.target.value) })
             }
           />
+          </label>
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>引当済数</span>
           <input
             className={styles.input}
             inputMode="numeric"
@@ -254,6 +268,7 @@ export default function InventoryMasterPage() {
               setForm({ ...form, allocatedStock: Number(e.target.value) })
             }
           />
+          </label>
         </div>
         <div className={styles.buttonRow}>
           <button className={styles.addButton} onClick={handleAdd}>

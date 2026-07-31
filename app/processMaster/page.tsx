@@ -208,6 +208,8 @@ export default function ProcessMasterPage() {
 
       {/* 入力フォーム */}
       <div className={styles.form}>
+        <label className={styles.fieldLabel}>
+          <span className={styles.fieldLabelText}>工程ID</span>
         <input
           type="text"
           placeholder="工程ID"
@@ -215,7 +217,10 @@ export default function ProcessMasterPage() {
           onChange={(e) => setProcessId(e.target.value)}
           className={styles.input}
         />
+        </label>
 
+        <label className={styles.fieldLabel}>
+          <span className={styles.fieldLabelText}>工程名</span>
         <input
           type="text"
           placeholder="工程名"
@@ -223,7 +228,10 @@ export default function ProcessMasterPage() {
           onChange={(e) => setName(e.target.value)}
           className={styles.input}
         />
+        </label>
 
+        <label className={styles.fieldLabel}>
+          <span className={styles.fieldLabelText}>日数</span>
         <select
           value={days}
           onChange={(e) => setDays(Number(e.target.value))}
@@ -235,7 +243,10 @@ export default function ProcessMasterPage() {
             </option>
           ))}
         </select>
+        </label>
 
+        <label className={styles.fieldLabel}>
+          <span className={styles.fieldLabelText}>順番</span>
         <select
           value={sort}
           onChange={(e) => setSort(Number(e.target.value))}
@@ -247,7 +258,10 @@ export default function ProcessMasterPage() {
             </option>
           ))}
         </select>
+        </label>
 
+        <div className={styles.fieldLabel}>
+          <span className={styles.fieldLabelText}>外注工程</span>
         <label className={styles.checkbox}>
           <input
             type="checkbox"
@@ -256,6 +270,8 @@ export default function ProcessMasterPage() {
           />
           外注工程
         </label>
+
+        </div>
 
         <button onClick={handleAdd} className={styles.addButton}>
           追加

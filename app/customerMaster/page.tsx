@@ -138,12 +138,17 @@ export default function CustomerMasterPage() {
 
       <div className={styles.formCard}>
         <div className={styles.formGrid}>
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>得意先名</span>
           <input
             className={styles.input}
             placeholder="得意先名"
             value={form.customerName}
             onChange={(e) => setForm({ ...form, customerName: e.target.value })}
           />
+          </label>
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>出荷日ルール</span>
           <select
             className={styles.select}
             value={form.shippingOffsetDays}
@@ -157,12 +162,16 @@ export default function CustomerMasterPage() {
               </option>
             ))}
           </select>
+          </label>
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>備考</span>
           <input
             className={styles.input}
             placeholder="備考"
             value={form.note}
             onChange={(e) => setForm({ ...form, note: e.target.value })}
           />
+          </label>
         </div>
         <div className={styles.buttonRow}>
           <button className={styles.addButton} onClick={handleAdd}>
