@@ -33,12 +33,15 @@ export default function LineMasterPage() {
   const [loading, setLoading] = useState(true);
   const [numpadTarget, setNumpadTarget] = useState<NumpadTarget>(null);
   const [form, setForm] = useState({
-    lineName: "",
     processId: "",
     dailyCapacity: 0,
     operationRate: 100,
     enabled: true,
   });
+
+  const getProcessName = (processId: string) =>
+    processes.find((process) => process.processId === processId)?.name ||
+    processId;
 
   const currentNumpadValue = () => {
     if (!numpadTarget) return "";
@@ -135,14 +138,14 @@ export default function LineMasterPage() {
   // =========================
 
   const handleAdd = async () => {
-    if (!form.lineName || !form.processId) {
+    if (!form.processId) {
       alert("必須項目を入力してください");
       return;
     }
 
     try {
       const { error } = await supabase.from("line_master").insert({
-        line_name: form.lineName,
+        line_name: getProcessName(form.processId),
         process_id: form.processId,
         daily_capacity: Number(form.dailyCapacity),
         operation_rate: Number(form.operationRate),
@@ -152,7 +155,6 @@ export default function LineMasterPage() {
       if (error) throw error;
 
       setForm({
-        lineName: "",
         processId: "",
         dailyCapacity: 0,
         operationRate: 100,
@@ -174,7 +176,7 @@ export default function LineMasterPage() {
       const { error } = await supabase
         .from("line_master")
         .update({
-          line_name: item.lineName,
+          line_name: getProcessName(item.processId),
           process_id: item.processId,
           daily_capacity: Number(item.dailyCapacity),
           operation_rate: Number(item.operationRate),
@@ -231,17 +233,6 @@ export default function LineMasterPage() {
       {/* 追加フォーム */}
       <div className={styles.formCard}>
         <div className={styles.formGrid}>
-          <label className={styles.fieldLabel}>
-            <span className={styles.fieldLabelText}>能力名</span>
-          <input
-            type="text"
-            placeholder="能力名"
-            value={form.lineName}
-            onChange={(e) => setForm({ ...form, lineName: e.target.value })}
-            className={styles.input}
-          />
-          </label>
-
           <label className={styles.fieldLabel}>
             <span className={styles.fieldLabelText}>工程</span>
           <select
@@ -309,7 +300,6 @@ export default function LineMasterPage() {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>能力名</th>
               <th>工程</th>
               <th>日産能力</th>
               <th>稼働率</th>
@@ -322,23 +312,7 @@ export default function LineMasterPage() {
             {lines.map((item) => (
               <tr key={item.id}>
                 <td>
-                  <input
-                    value={item.lineName}
-                    onChange={(e) =>
-                      setLines((prev) =>
-                        prev.map((v) =>
-                          v.id === item.id
-                            ? { ...v, lineName: e.target.value }
-                            : v,
-                        ),
-                      )
-                    }
-                    className={styles.tableInput}
-                  />
-                </td>
-
-                <td>
-                  <input
+                  <select
                     value={item.processId}
                     onChange={(e) =>
                       setLines((prev) =>
@@ -350,7 +324,14 @@ export default function LineMasterPage() {
                       )
                     }
                     className={styles.tableInput}
-                  />
+                  >
+                    {processes.map((process) => (
+                      <option key={process.id} value={process.processId}>
+                        {process.name}
+                        {process.outsourcing ? "（外注）" : ""}
+                      </option>
+                    ))}
+                  </select>
                 </td>
 
                 <td>
