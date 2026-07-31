@@ -190,7 +190,6 @@ export type ProcessMaster = {
   id: string;
   processId: string;
   name: string;
-  days: number;
   sort: number;
   enabled: boolean;
   outsourcing?: boolean;

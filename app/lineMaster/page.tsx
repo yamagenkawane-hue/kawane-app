@@ -25,7 +25,7 @@ const LINE_SELECT_COLUMNS =
   "id,line_name,process_id,daily_capacity,operation_rate,enabled";
 
 const PROCESS_SELECT_COLUMNS =
-  "id,process_id,name,days,sort,enabled,outsourcing";
+  "id,process_id,name,sort,enabled,outsourcing";
 
 export default function LineMasterPage() {
   const [lines, setLines] = useState<LineMaster[]>([]);
@@ -105,7 +105,6 @@ export default function LineMasterPage() {
             id: row.id,
             processId: row.process_id,
             name: row.name,
-            days: row.days,
             sort: row.sort,
             enabled: row.enabled,
             outsourcing: row.outsourcing || false,

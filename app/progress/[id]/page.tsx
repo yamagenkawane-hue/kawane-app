@@ -21,7 +21,7 @@ const POST_SELECT_COLUMNS =
   "id,order_no,product_code,lot_no,product_name,customer_name,order_amount,remaining_amount,delivery_date,completion_scheduled_date,remark,status,delete,created_at,updated_at";
 
 const PROCESS_SELECT_COLUMNS =
-  "id,process_id,name,days,sort,enabled,outsourcing";
+  "id,process_id,name,sort,enabled,outsourcing";
 
 const CALENDAR_SELECT_COLUMNS =
   "id,date,name,is_holiday,type";
@@ -520,7 +520,6 @@ export default function ProgressDetail() {
             id: row.id,
             processId: row.process_id,
             name: row.name,
-            days: row.days,
             sort: row.sort,
             enabled: row.enabled,
             outsourcing: row.outsourcing || false,

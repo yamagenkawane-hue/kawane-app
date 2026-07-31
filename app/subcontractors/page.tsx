@@ -17,7 +17,6 @@ const mapProcessMaster = (row: Record<string, unknown>): ProcessMaster => ({
   id: String(row.id || ""),
   processId: String(row.process_id || ""),
   name: String(row.name || ""),
-  days: Number(row.days || 0),
   sort: Number(row.sort || 0),
   enabled: Boolean(row.enabled ?? true),
   outsourcing: Boolean(row.outsourcing || false),

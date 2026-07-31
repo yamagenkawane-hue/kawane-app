@@ -13,7 +13,7 @@ import styles from "../settings/page.module.css";
 const masterMenus = [
   {
     title: "工程マスタ",
-    text: "工程順・工程日数・使用可否を管理",
+    text: "工程順・使用可否・外注工程区分を管理",
     href: "/processMaster",
     icon: <Settings2 size={34} />,
   },

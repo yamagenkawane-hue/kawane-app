@@ -6,17 +6,15 @@ import supabase from "@/lib/supabase";
 import { ProcessMaster } from "@/app/type";
 import styles from "./page.module.css";
 
-const dayOptions = Array.from({ length: 31 }, (_, index) => index);
 const orderOptions = Array.from({ length: 50 }, (_, index) => index + 1);
 
 const PROCESS_SELECT_COLUMNS =
-  "id,process_id,name,days,sort,enabled,outsourcing";
+  "id,process_id,name,sort,enabled,outsourcing";
 
 export default function ProcessMasterPage() {
   const [processes, setProcesses] = useState<ProcessMaster[]>([]);
   const [processId, setProcessId] = useState("");
   const [name, setName] = useState("");
-  const [days, setDays] = useState(1);
   const [sort, setSort] = useState(1);
   const [outsourcing, setOutsourcing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -39,7 +37,6 @@ export default function ProcessMasterPage() {
         id: row.id,
         processId: row.process_id,
         name: row.name,
-        days: row.days,
         sort: row.sort,
         enabled: row.enabled,
         outsourcing: row.outsourcing || false,
@@ -78,7 +75,6 @@ export default function ProcessMasterPage() {
       const { error } = await supabase.from("process_master").insert({
         process_id: processId,
         name,
-        days,
         sort,
         enabled: true,
         outsourcing,
@@ -88,7 +84,6 @@ export default function ProcessMasterPage() {
 
       setProcessId("");
       setName("");
-      setDays(1);
       setSort(1);
       setOutsourcing(false);
 
@@ -127,7 +122,6 @@ export default function ProcessMasterPage() {
         .update({
           process_id: process.processId,
           name: process.name,
-          days: process.days,
           sort: process.sort,
           enabled: process.enabled,
           outsourcing: process.outsourcing || false,
@@ -231,21 +225,6 @@ export default function ProcessMasterPage() {
         </label>
 
         <label className={styles.fieldLabel}>
-          <span className={styles.fieldLabelText}>日数</span>
-        <select
-          value={days}
-          onChange={(e) => setDays(Number(e.target.value))}
-          className={styles.numberInput}
-        >
-          {dayOptions.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-        </label>
-
-        <label className={styles.fieldLabel}>
           <span className={styles.fieldLabelText}>順番</span>
         <select
           value={sort}
@@ -283,7 +262,6 @@ export default function ProcessMasterPage() {
           <tr>
             <th>工程ID</th>
             <th>工程名</th>
-            <th>日数</th>
             <th>順番</th>
             <th>外注</th>
             <th>状態</th>
@@ -312,22 +290,6 @@ export default function ProcessMasterPage() {
                   }
                   className={styles.input}
                 />
-              </td>
-
-              <td>
-                <select
-                  value={process.days}
-                  onChange={(e) =>
-                    handleChange(process.id, "days", Number(e.target.value))
-                  }
-                  className={styles.numberInput}
-                >
-                  {dayOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
               </td>
 
               <td>
