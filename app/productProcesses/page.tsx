@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Numpad from "@/app/components/Numpad/Numpad";
 import ProcessSorter from "@/app/components/ProcessSorter/ProcessSorter";
 import supabase from "@/lib/supabase";
 import {
@@ -16,6 +17,11 @@ const processOrderOptions = Array.from({ length: 50 }, (_, index) => index + 1);
 
 const PRODUCT_SELECT_COLUMNS =
   "id,product_code,product_name,customer_name,standard,unit";
+
+type NumpadTarget =
+  | { kind: "form"; field: "overlapDays" }
+  | { kind: "process"; id: string; field: "overlapDays" }
+  | null;
 
 const mapProduct = (row: Record<string, unknown>): ProductMaster => ({
   id: String(row.id || ""),
@@ -73,6 +79,7 @@ export default function ProductProcessesPage() {
     subcontractorId: "",
   });
   const [loading, setLoading] = useState(false);
+  const [numpadTarget, setNumpadTarget] = useState<NumpadTarget>(null);
 
   const selectedProcesses = useMemo(
     () =>
@@ -221,6 +228,29 @@ export default function ProductProcessesPage() {
     );
   };
 
+  const currentNumpadValue = () => {
+    if (!numpadTarget) return "";
+
+    if (numpadTarget.kind === "form") {
+      return String(form[numpadTarget.field] || "");
+    }
+
+    const process = processes.find((item) => item.id === numpadTarget.id);
+    return process ? String(process[numpadTarget.field] || "") : "";
+  };
+
+  const handleNumpadChange = (value: string) => {
+    if (!numpadTarget) return;
+    const nextValue = Math.max(0, Math.floor(Number(value || 0)));
+
+    if (numpadTarget.kind === "form") {
+      setForm((prev) => ({ ...prev, [numpadTarget.field]: nextValue }));
+      return;
+    }
+
+    updateProcess(numpadTarget.id, numpadTarget.field, nextValue);
+  };
+
   const addProcess = async () => {
     if (
       !form.productCode ||
@@ -331,6 +361,8 @@ export default function ProductProcessesPage() {
 
       <div className={styles.formCard}>
         <div className={styles.formGrid}>
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>製品</span>
           <select
             className={styles.select}
             value={form.productCode}
@@ -352,6 +384,9 @@ export default function ProductProcessesPage() {
               </option>
             ))}
           </select>
+          </label>
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>工程名</span>
           <select
             className={styles.select}
             value={form.processName}
@@ -364,6 +399,9 @@ export default function ProductProcessesPage() {
               </option>
             ))}
           </select>
+          </label>
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>工程順</span>
           <select
             className={styles.select}
             value={form.processOrder}
@@ -377,17 +415,23 @@ export default function ProductProcessesPage() {
               </option>
             ))}
           </select>
+          </label>
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>重複日数</span>
           <input
-            className={styles.input}
-            type="number"
-            min="0"
-            step="1"
+            className={`${styles.input} ${styles.numpadInput}`}
+            type="text"
+            inputMode="none"
+            readOnly
             placeholder="重複日数"
             value={form.overlapDays}
-            onChange={(e) =>
-              setForm({ ...form, overlapDays: Number(e.target.value || 0) })
+            onFocus={() =>
+              setNumpadTarget({ kind: "form", field: "overlapDays" })
             }
           />
+          </label>
+          <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>加工区分</span>
           {isOutsourceProcess(form.processName) ? (
             <select
               className={styles.select}
@@ -413,6 +457,7 @@ export default function ProductProcessesPage() {
               readOnly
             />
           )}
+          </label>
         </div>
         <div className={styles.buttonRow}>
           <button className={styles.addButton} onClick={addProcess}>
@@ -491,17 +536,17 @@ export default function ProductProcessesPage() {
                 </td>
                 <td>
                   <input
-                    className={styles.tableInput}
-                    type="number"
-                    min="0"
-                    step="1"
+                    className={`${styles.tableInput} ${styles.numpadInput}`}
+                    type="text"
+                    inputMode="none"
+                    readOnly
                     value={process.overlapDays}
-                    onChange={(e) =>
-                      updateProcess(
-                        process.id,
-                        "overlapDays",
-                        Number(e.target.value || 0),
-                      )
+                    onFocus={() =>
+                      setNumpadTarget({
+                        kind: "process",
+                        id: process.id,
+                        field: "overlapDays",
+                      })
                     }
                   />
                 </td>
@@ -555,6 +600,13 @@ export default function ProductProcessesPage() {
           </tbody>
         </table>
       </div>
+
+      <Numpad
+        open={numpadTarget !== null}
+        value={currentNumpadValue()}
+        onChange={handleNumpadChange}
+        onClose={() => setNumpadTarget(null)}
+      />
     </div>
   );
 }
