@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
 import { CustomerMaster, MaterialMaster, ProductMaster } from "@/app/type";
 import styles from "../masterCommon.module.css";
@@ -40,6 +41,11 @@ type MaterialRow = {
   size: string | null;
   remaining_amount: number | string | null;
 };
+
+type NumpadTarget =
+  | { kind: "form"; field: "unitWeight" }
+  | { kind: "item"; id: string; field: "unitWeight" }
+  | null;
 
 const emptyForm = {
   productCode: "",
@@ -94,6 +100,7 @@ export default function ProductMasterPage() {
   const [materials, setMaterials] = useState<MaterialMaster[]>([]);
   const [message, setMessage] = useState("");
   const [form, setForm] = useState(emptyForm);
+  const [numpadTarget, setNumpadTarget] = useState<NumpadTarget>(null);
 
   const fetchItems = async () => {
     const { data, error } = await supabase
@@ -249,6 +256,25 @@ export default function ProductMasterPage() {
     return `${Math.floor(material.remainingAmount / unitWeight).toLocaleString()} 個`;
   };
 
+  const getNumpadValue = () => {
+    if (!numpadTarget) return "";
+    if (numpadTarget.kind === "form") return String(form.unitWeight || "");
+
+    const item = items.find((currentItem) => currentItem.id === numpadTarget.id);
+    return String(item?.unitWeight || "");
+  };
+
+  const handleNumpadChange = (value: string) => {
+    if (!numpadTarget) return;
+
+    if (numpadTarget.kind === "form") {
+      setForm((prev) => ({ ...prev, unitWeight: value }));
+      return;
+    }
+
+    updateItem(numpadTarget.id, "unitWeight", value);
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
@@ -294,11 +320,17 @@ export default function ProductMasterPage() {
             {renderMaterialOptions(form.standard)}
           </select>
           <input
-            className={styles.input}
+            className={`${styles.input} ${styles.numpadInput}`}
             inputMode="decimal"
             placeholder="単重"
             value={form.unitWeight}
-            onChange={(e) => setForm({ ...form, unitWeight: e.target.value })}
+            readOnly
+            onFocus={() =>
+              setNumpadTarget({ kind: "form", field: "unitWeight" })
+            }
+            onClick={() =>
+              setNumpadTarget({ kind: "form", field: "unitWeight" })
+            }
           />
         </div>
         <div className={styles.buttonRow}>
@@ -376,11 +408,23 @@ export default function ProductMasterPage() {
                 </td>
                 <td>
                   <input
-                    className={styles.tableInput}
+                    className={`${styles.tableInput} ${styles.numpadInput}`}
                     inputMode="decimal"
                     value={item.unitWeight}
-                    onChange={(e) =>
-                      updateItem(item.id, "unitWeight", e.target.value)
+                    readOnly
+                    onFocus={() =>
+                      setNumpadTarget({
+                        kind: "item",
+                        id: item.id,
+                        field: "unitWeight",
+                      })
+                    }
+                    onClick={() =>
+                      setNumpadTarget({
+                        kind: "item",
+                        id: item.id,
+                        field: "unitWeight",
+                      })
                     }
                   />
                 </td>
@@ -410,6 +454,13 @@ export default function ProductMasterPage() {
           </tbody>
         </table>
       </div>
+
+      <Numpad
+        open={Boolean(numpadTarget)}
+        value={getNumpadValue()}
+        onChange={handleNumpadChange}
+        onClose={() => setNumpadTarget(null)}
+      />
     </div>
   );
 }
