@@ -17,24 +17,9 @@
 
 ## 2. システム構成図
 
-```mermaid
-flowchart LR
-  User["利用者"]
-  NextApp["Next.js App Router / Pages Router"]
-  API["Next.js API Routes"]
-  Supabase["Supabase PostgreSQL"]
-  Auth["ユーザー管理 / 認証"]
-  Views["Read Model Views"]
-  RPC["RPC / DB Functions"]
+![図2-1 システム構成図。利用者、Next.js、API、Supabase、ビュー、RPCの接続関係を示す。](assets/system_design_architecture_20260819.png)
 
-  User --> NextApp
-  NextApp --> API
-  NextApp --> Supabase
-  API --> Supabase
-  Supabase --> Views
-  Supabase --> RPC
-  Auth --> NextApp
-```
+図2-1 システム構成図。利用者、Next.js、API、Supabase、ビュー、RPCの接続関係を示す。
 
 ## 3. 主要画面構成
 
@@ -55,110 +40,9 @@ flowchart LR
 
 ## 4. ER図
 
-```mermaid
-erDiagram
-  posts ||--o{ order_processes : "has"
-  posts ||--o{ production_results : "has"
-  posts ||--o{ lots : "has"
-  posts ||--o{ production_schedules : "has"
-  posts ||--o{ inventory_allocations : "allocates"
-  posts ||--o{ shipments : "ships"
+![図4-1 ER図。注番を中心に、工程、ロット、在庫、引当、出荷、各マスタの関係を示す。](assets/system_design_er_20260819.png)
 
-  product_master ||--o{ posts : "ordered product"
-  customer_master ||--o{ posts : "customer"
-  customer_master ||--o{ product_master : "customer products"
-  material_master ||--o{ product_master : "material_code"
-
-  product_master ||--o{ product_processes : "process template"
-  process_master ||--o{ product_processes : "process"
-  subcontractors ||--o{ product_processes : "outsourced by"
-
-  product_processes ||--o{ order_processes : "copied to order"
-  order_processes ||--o{ production_results : "results"
-  lots ||--o{ production_results : "result lot"
-  lots ||--o{ inventory_items : "stock lot"
-  lots ||--o{ inventory_allocations : "allocation lot"
-  lots ||--o{ shipments : "shipment lot"
-  inventory_items ||--o{ inventory_allocations : "allocated item"
-
-  posts {
-    uuid id PK
-    text order_no
-    uuid product_id FK
-    uuid customer_id FK
-    text product_code
-    text product_name
-    text customer_name
-    integer order_amount
-    integer remaining_amount
-    date delivery_date
-    boolean delete
-  }
-
-  order_processes {
-    uuid id PK
-    uuid post_id FK
-    uuid product_process_id FK
-    integer process_order
-    text process_name
-    integer planned_amount
-    integer completed_amount
-    integer overlap_days
-    date completed_date
-    uuid subcontractor_id FK
-  }
-
-  lots {
-    uuid id PK
-    uuid post_id FK
-    text order_no
-    text lot_no
-    text material_lot_no
-    integer measured_amount
-    integer packaged_amount
-    integer inventory_amount
-    integer allocated_amount
-    integer shipped_amount
-    boolean deleted
-  }
-
-  production_results {
-    uuid id PK
-    uuid post_id FK
-    uuid order_process_id FK
-    uuid lot_id FK
-    date date
-    integer amount
-  }
-
-  inventory_items {
-    uuid id PK
-    uuid product_id FK
-    uuid lot_id FK
-    text product_code
-    text lot_no
-    integer current_stock
-    integer allocated_stock
-  }
-
-  inventory_allocations {
-    uuid id PK
-    uuid post_id FK
-    uuid inventory_item_id FK
-    uuid lot_id FK
-    integer allocated_amount
-    integer shipped_amount
-  }
-
-  shipments {
-    uuid id PK
-    uuid post_id FK
-    uuid lot_id FK
-    text order_no
-    integer quantity
-    date delivery_date
-  }
-```
+図4-1 ER図。注番を中心に、工程、ロット、在庫、引当、出荷、各マスタの関係を示す。
 
 ## 5. DB設計
 
@@ -246,63 +130,33 @@ erDiagram
 
 ### 8.1 受注登録から工程作成
 
-```mermaid
-flowchart TD
-  A["受注登録"] --> B["postsへ登録"]
-  B --> C["create_order_processes_for_post"]
-  C --> D["product_processesを取得"]
-  D --> E["order_processesへ注番別工程を作成"]
-  E --> F["進捗管理に表示"]
-```
+![図8-1 受注登録から注番別工程作成までの処理フロー。](assets/flow_order_to_process_20260819.png)
+
+図8-1 受注登録から注番別工程作成までの処理フロー。
 
 ### 8.2 製造実績登録とロット確定
 
-```mermaid
-flowchart TD
-  A["進捗管理で納期をクリック"] --> B["実績登録へ遷移 order_noを渡す"]
-  B --> C["部署プルダウンで対象予定を表示"]
-  C --> D["製造工程で数量とロットを入力"]
-  D --> E["production_resultsへ登録"]
-  E --> F["lotsへロットを作成または更新"]
-  F --> G["登録数量を次工程へ自動移動"]
-  G --> H["工程移動履歴を保存"]
-  H --> I["進捗管理へ戻り最新化"]
-```
+![図8-2 製造実績登録、ロット確定、次工程移動までの処理フロー。](assets/flow_result_lot_confirm_20260819.png)
+
+図8-2 製造実績登録、ロット確定、次工程移動までの処理フロー。
 
 ### 8.3 工程間移動
 
-```mermaid
-flowchart TD
-  A["実績登録完了"] --> B["対象工程の現在数量を減算"]
-  B --> C["次工程の現在数量を加算"]
-  C --> D{"元工程の残数が0か"}
-  D -->|Yes| E["元工程は '-' 表示"]
-  D -->|No| F["元工程に残数量を表示"]
-  E --> G["移動履歴を注番管理で表示"]
-  F --> G
-```
+![図8-3 実績登録後に生産数量のみを次工程へ移動する処理フロー。](assets/flow_process_transfer_20260819.png)
+
+図8-3 実績登録後に生産数量のみを次工程へ移動する処理フロー。
 
 ### 8.4 超過生産と在庫・引当・出荷
 
-```mermaid
-flowchart TD
-  A["受注数量1000"] --> B["製造1200を登録"]
-  B --> C["超過200を含めて在庫化"]
-  C --> D["在庫1200"]
-  D --> E["受注への引当は最大1000"]
-  E --> F["出荷も最大1000"]
-  D --> G["超過200は別受注へ引当可能な在庫として残る"]
-```
+![図8-4 超過生産分を在庫化し、引当と出荷を受注数量上限で制御する処理フロー。](assets/flow_overproduction_stock_20260819.png)
+
+図8-4 超過生産分を在庫化し、引当と出荷を受注数量上限で制御する処理フロー。
 
 ### 8.5 部署別生産予定
 
-```mermaid
-flowchart TD
-  A["生産予定画面"] --> B["部署選択"]
-  B --> C["部署のみで絞り込み"]
-  C --> D["注番、取引先名、製品名、ロット、数量、完了数、完了日、納期を表示"]
-  D --> E["実績登録画面の予定選択にも連動"]
-```
+![図8-5 部署別生産予定を部署のみで絞り込み、実績登録へ連動する処理フロー。](assets/flow_department_schedule_20260819.png)
+
+図8-5 部署別生産予定を部署のみで絞り込み、実績登録へ連動する処理フロー。
 
 ## 9. 進捗管理設計
 
@@ -446,13 +300,3 @@ flowchart TD
 - 進捗管理、実績登録、注番管理の順で実装
 - 単体テスト
 - 結合テスト
-
-## 20. 次のAIへの引き継ぎ事項
-
-- 要件定義は確定済み。未確定事項はなし。
-- 進捗管理は工程ごとの累計ではなく、ロット別の現在数量を表示する。
-- 製造・洗浄はDB上では別工程、画面上だけ統合表示する。
-- 製造工程でロットを確定し、実績登録完了時に生産数量だけを次工程へ自動移動する。
-- 超過生産分は在庫として扱い、引当可能。ただし受注に対する引当と出荷は受注数量を上限とする。
-- 部署別生産予定は部署のみで絞り込む。
-- 直接編集履歴は既存履歴テーブルを利用し、不足時は最小項目を追加する。
