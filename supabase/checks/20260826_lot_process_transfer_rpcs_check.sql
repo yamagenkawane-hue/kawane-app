@@ -8,7 +8,7 @@ with checks as (
   join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public'
     and p.proname = 'register_manufacturing_lot_result'
-    and pg_get_function_arguments(p.oid) =
+    and pg_get_function_identity_arguments(p.oid) =
       'p_order_process_id uuid, p_schedule_id uuid, p_date date, p_amount integer, p_lot_no text, p_material_lot_no text, p_idempotency_key text'
   union all
   select
@@ -20,7 +20,7 @@ with checks as (
   join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public'
     and p.proname = 'transfer_lot_to_next_process'
-    and pg_get_function_arguments(p.oid) =
+    and pg_get_function_identity_arguments(p.oid) =
       'p_lot_id uuid, p_from_order_process_id uuid, p_amount integer, p_reason text, p_idempotency_key text'
   union all
   select
