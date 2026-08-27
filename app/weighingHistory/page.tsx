@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import supabase from "@/lib/supabase";
 import styles from "../masterCommon.module.css";
 
@@ -158,10 +157,6 @@ export default function WeighingHistoryPage() {
     <div className={styles.container}>
       <div className={styles.headerArea}>
         <h1 className={styles.title}>計量履歴</h1>
-
-        <Link href="/weighingReport" className={styles.backButton}>
-          計量表出力へ
-        </Link>
       </div>
 
       <div className={styles.formCard}>

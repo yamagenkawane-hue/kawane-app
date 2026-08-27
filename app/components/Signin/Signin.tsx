@@ -8,11 +8,9 @@ import {
   CalendarCheck,
   ClipboardList,
   ClipboardPen,
-  Factory,
   Handshake,
   PackageSearch,
   LogOut,
-  Scale,
   Truck,
 } from "lucide-react";
 import SigninManager from "../SigninManager/SigninManager";
@@ -43,11 +41,6 @@ const menus = [
     icon: <ClipboardPen size={30} />,
   },
   {
-    title: "計量登録",
-    href: "/manufacturing",
-    icon: <Factory size={30} />,
-  },
-  {
     title: "外注管理",
     href: "/outsourcing",
     icon: <Handshake size={30} />,
@@ -56,11 +49,6 @@ const menus = [
     title: "出荷管理",
     href: "/shipping",
     icon: <Truck size={30} />,
-  },
-  {
-    title: "計量表出力",
-    href: "/weighingReport",
-    icon: <Scale size={30} />,
   },
 ];
 

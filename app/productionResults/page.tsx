@@ -258,14 +258,6 @@ export default function ProductionResultsPage() {
     [selectedScheduleOrderProcesses],
   );
 
-  const hasMeasurementProcess = useMemo(
-    () =>
-      selectedScheduleOrderProcesses.some((process) =>
-        isMeasurementProcess(process.processName),
-      ),
-    [selectedScheduleOrderProcesses],
-  );
-
   const findPostIdForSchedule = (
     schedule: ProductionSchedule,
     postList = posts,
@@ -664,15 +656,6 @@ export default function ProductionResultsPage() {
               </option>
             ))}
           </select>
-        )}
-
-        {selectedPostId && hasMeasurementProcess && (
-          <div className={styles.notice}>
-            計量工程は専用画面で登録してください。
-            <Link href="/manufacturing" className={styles.inlineLink}>
-              計量登録へ
-            </Link>
-          </div>
         )}
 
         {selectedSchedule && selectedScheduleOrderProcesses.length === 0 && (
