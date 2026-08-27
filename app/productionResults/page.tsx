@@ -27,47 +27,66 @@ const ORDER_PROCESS_SELECT_COLUMNS =
 const RESULT_SELECT_COLUMNS =
   "id,post_id,schedule_id,order_process_id,process_name,date,amount,created_at";
 
+const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
+  "id,post_id,order_no,lot_id,lot_no,material_lot_no,order_process_id,process_name,process_order,quantity,customer_name,product_name,delivery_date";
+
+const DEPARTMENTS = ["製造G", "品質管理G", "梱包出荷G"] as const;
+type Department = (typeof DEPARTMENTS)[number];
+
 const isPostScheduleId = (id: string) => id.startsWith("post:");
 
 const getPostIdFromScheduleId = (id: string) =>
   isPostScheduleId(id) ? id.replace("post:", "") : "";
 
-const isMeasurementProcess = (processName: string) =>
-  processName.includes("\u8a08\u91cf");
-
-const isPackagingProcess = (processName: string) =>
-  processName.includes("\u68b1\u5305") ||
-  processName.includes("\u5305\u88c5");
-
-type LotFlowRow = {
+type LotProcessBalanceRow = {
   id: string;
   postId: string;
   orderNo: string;
+  lotId: string;
   lotNo: string;
   materialLotNo: string;
-  measuredAmount: number;
-  packagedAmount: number;
-  remainingAmount: number;
-  flowStatus: string;
+  orderProcessId: string;
+  processName: string;
+  processOrder: number;
+  quantity: number;
+  customerName: string;
+  productName: string;
+  deliveryDate: string;
 };
 
-const LOT_SELECT_COLUMNS =
-  "id,post_id,order_no,lot_no,material_lot_no,measured_amount,packaged_amount,remaining_amount,flow_status";
-
-const mapLotFlowRow = (row: Record<string, unknown>): LotFlowRow => ({
+const mapLotProcessBalanceRow = (
+  row: Record<string, unknown>,
+): LotProcessBalanceRow => ({
   id: String(row.id || ""),
   postId: String(row.post_id || ""),
   orderNo: String(row.order_no || ""),
+  lotId: String(row.lot_id || ""),
   lotNo: String(row.lot_no || ""),
   materialLotNo: String(row.material_lot_no || ""),
-  measuredAmount: Number(row.measured_amount || 0),
-  packagedAmount: Number(row.packaged_amount || 0),
-  remainingAmount: Number(row.remaining_amount || 0),
-  flowStatus: String(row.flow_status || ""),
+  orderProcessId: String(row.order_process_id || ""),
+  processName: String(row.process_name || ""),
+  processOrder: Number(row.process_order || 0),
+  quantity: Number(row.quantity || 0),
+  customerName: String(row.customer_name || ""),
+  productName: String(row.product_name || ""),
+  deliveryDate: String(row.delivery_date || ""),
 });
 
-const getLotPackagingRemaining = (lot: LotFlowRow) =>
-  Math.max(0, Number(lot.measuredAmount || 0) - Number(lot.packagedAmount || 0));
+const getDepartmentForProcess = (processName: string): Department => {
+  if (processName.includes("検査") || processName.includes("品質")) {
+    return "品質管理G";
+  }
+
+  if (
+    processName.includes("梱包") ||
+    processName.includes("包装") ||
+    processName.includes("出荷")
+  ) {
+    return "梱包出荷G";
+  }
+
+  return "製造G";
+};
 
 const mapScheduleRow = (row: Record<string, unknown>): ProductionSchedule => ({
   id: String(row.id || ""),
@@ -174,15 +193,20 @@ export default function ProductionResultsPage() {
   const [orderProcesses, setOrderProcesses] = useState<OrderProcess[]>([]);
   const [posts, setPosts] = useState<PostData[]>([]);
   const [results, setResults] = useState<ProcessResult[]>([]);
-  const [lots, setLots] = useState<LotFlowRow[]>([]);
+  const [lotProcessBalances, setLotProcessBalances] = useState<
+    LotProcessBalanceRow[]
+  >([]);
   const [scheduleId, setScheduleId] = useState("");
   const [orderProcessId, setOrderProcessId] = useState("");
   const [lotId, setLotId] = useState("");
+  const [selectedDepartment, setSelectedDepartment] =
+    useState<Department>("製造G");
+  const [lotNo, setLotNo] = useState("");
+  const [materialLotNo, setMaterialLotNo] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [amount, setAmount] = useState<number | "">("");
   const [loading, setLoading] = useState(false);
   const [numpadOpen, setNumpadOpen] = useState(false);
-  const [allowOverProduction, setAllowOverProduction] = useState(false);
 
   const selectedSchedule = useMemo(
     () => schedules.find((item) => item.id === scheduleId),
@@ -221,42 +245,68 @@ export default function ProductionResultsPage() {
     [orderProcessId, orderProcesses],
   );
 
-  const isSelectedPackagingProcess = useMemo(
-    () => Boolean(selectedOrderProcess && isPackagingProcess(selectedOrderProcess.processName)),
-    [selectedOrderProcess],
-  );
+  const isFirstProcess = selectedOrderProcess?.processOrder === 1;
 
-  const canAllowOverProduction = useMemo(
-    () =>
-      Boolean(
-        selectedOrderProcess &&
-          selectedOrderProcess.processOrder === 1 &&
-          !isPackagingProcess(selectedOrderProcess.processName),
-      ),
-    [selectedOrderProcess],
-  );
+  const departmentSchedules = useMemo(() => {
+    if (selectedDepartment === "製造G") return schedules;
+
+    const postIdsWithDepartmentWork = new Set(
+      lotProcessBalances
+        .filter((lot) => Number(lot.quantity || 0) > 0)
+        .filter(
+          (lot) => getDepartmentForProcess(lot.processName) === selectedDepartment,
+        )
+        .map((lot) => lot.postId),
+    );
+
+    return schedules.filter((schedule) => {
+      const postId =
+        schedule.postId ||
+        getPostIdFromScheduleId(schedule.id) ||
+        posts.find((post) => post.orderNo === schedule.orderNo)?.id ||
+        "";
+
+      return postIdsWithDepartmentWork.has(postId);
+    });
+  }, [lotProcessBalances, posts, schedules, selectedDepartment]);
 
   const selectableLots = useMemo(
     () =>
-      lots
+      lotProcessBalances
         .filter((lot) => lot.postId === selectedPostId)
-        .filter((lot) => getLotPackagingRemaining(lot) > 0)
+        .filter((lot) => lot.orderProcessId === orderProcessId)
+        .filter((lot) => Number(lot.quantity || 0) > 0)
         .sort((a, b) => a.lotNo.localeCompare(b.lotNo, "ja")),
-    [lots, selectedPostId],
+    [lotProcessBalances, orderProcessId, selectedPostId],
   );
 
   const selectedLot = useMemo(
-    () => selectableLots.find((lot) => lot.id === lotId) || null,
+    () => selectableLots.find((lot) => lot.lotId === lotId) || null,
     [lotId, selectableLots],
   );
 
   const selectableOrderProcesses = useMemo(
     () =>
       selectedScheduleOrderProcesses.filter(
-        (process) => !isMeasurementProcess(process.processName),
+        (process) =>
+          getDepartmentForProcess(process.processName) === selectedDepartment,
       ),
-    [selectedScheduleOrderProcesses],
+    [selectedDepartment, selectedScheduleOrderProcesses],
   );
+
+  const getProcessAvailableAmount = (target: OrderProcess) => {
+    if (target.processOrder === 1) {
+      return Math.max(
+        0,
+        Number(target.plannedAmount || 0) -
+          Number(target.completedAmount || 0),
+      );
+    }
+
+    return lotProcessBalances
+      .filter((lot) => lot.orderProcessId === target.id)
+      .reduce((total, lot) => total + Number(lot.quantity || 0), 0);
+  };
 
   const findPostIdForSchedule = (
     schedule: ProductionSchedule,
@@ -321,7 +371,7 @@ export default function ProductionResultsPage() {
         orderProcessResult,
         postResult,
         resultResult,
-        lotResult,
+        lotBalanceResult,
       ] =
         await Promise.all([
           supabase
@@ -340,10 +390,9 @@ export default function ProductionResultsPage() {
             .order("created_at", { ascending: false })
             .limit(30),
           supabase
-            .from("v_lot_flow_status")
-            .select(LOT_SELECT_COLUMNS)
-            .eq("deleted", false)
-            .order("created_at", { ascending: false }),
+            .from("v_lot_process_balance_with_master")
+            .select(LOT_PROCESS_BALANCE_SELECT_COLUMNS)
+            .order("process_order", { ascending: true }),
         ]);
 
       if (scheduleResult.error) throw scheduleResult.error;
@@ -353,7 +402,7 @@ export default function ProductionResultsPage() {
       if (orderProcessResult.error) throw orderProcessResult.error;
       if (postResult.error) throw postResult.error;
       if (resultResult.error) throw resultResult.error;
-      if (lotResult.error) throw lotResult.error;
+      if (lotBalanceResult.error) throw lotBalanceResult.error;
 
       const dailyRows: Record<string, unknown>[] = await dailyScheduleResult.json();
       const activePosts: PostData[] = (dailyRows || [])
@@ -376,9 +425,9 @@ export default function ProductionResultsPage() {
       );
       setPosts(activePosts);
       setResults((resultResult.data || []).map(mapResultRow));
-      setLots(
-        ((lotResult.data || []) as unknown as Record<string, unknown>[])
-          .map(mapLotFlowRow)
+      setLotProcessBalances(
+        ((lotBalanceResult.data || []) as unknown as Record<string, unknown>[])
+          .map(mapLotProcessBalanceRow)
           .filter((lot) => activePostIds.has(lot.postId)),
       );
     } catch (error) {
@@ -401,10 +450,12 @@ export default function ProductionResultsPage() {
     setScheduleId(value);
     setOrderProcessId("");
     setLotId("");
-    setAllowOverProduction(false);
+    setLotNo("");
+    setMaterialLotNo("");
 
     const schedule = schedules.find((item) => item.id === value);
     if (!schedule) return;
+    setLotNo(schedule.lotNo || "");
 
     try {
       setLoading(true);
@@ -417,40 +468,14 @@ export default function ProductionResultsPage() {
     }
   };
 
-  const getProcessAllowance = (target: OrderProcess) => {
-    if (target.processOrder === 1) return target.plannedAmount;
-
-    const previous = selectedScheduleOrderProcesses
-      .filter((item) => item.processOrder < target.processOrder)
-      .sort((a, b) => b.processOrder - a.processOrder)[0];
-
-    const previousCompleted = previous?.completedAmount || 0;
-    const isOutsourced =
-      Boolean(target.subcontractorId) ||
-      Boolean(target.outsourceSentDate) ||
-      Boolean(target.outsourceReturnedDate) ||
-      target.outsourceStatus === "sent" ||
-      target.outsourceStatus === "returned";
-
-    if (isOutsourced) {
-      return Math.max(
-        previousCompleted,
-        Number(target.completedAmount || 0),
-        Number(target.plannedAmount || 0),
-      );
-    }
-
-    return previousCompleted;
+  const handleDepartmentChange = (value: Department) => {
+    setSelectedDepartment(value);
+    setScheduleId("");
+    setOrderProcessId("");
+    setLotId("");
+    setLotNo("");
+    setMaterialLotNo("");
   };
-
-  const findPreviousMeasurementProcess = (target: OrderProcess) =>
-    selectedScheduleOrderProcesses
-      .filter(
-        (process) =>
-          process.processOrder < target.processOrder &&
-          isMeasurementProcess(process.processName),
-      )
-      .sort((a, b) => b.processOrder - a.processOrder)[0];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -465,98 +490,58 @@ export default function ProductionResultsPage() {
 
       const resultAmount = Number(amount);
       const now = new Date().toISOString();
-      const allowance = getProcessAllowance(selectedOrderProcess);
-      const overProductionAllowed =
-        canAllowOverProduction && allowOverProduction;
-      const remainingAllowance = overProductionAllowed
-        ? Number.POSITIVE_INFINITY
-        : allowance - Number(selectedOrderProcess.completedAmount || 0);
-      const shouldRedirectToMeasurement =
-        isMeasurementProcess(selectedOrderProcess.processName);
-      const previousMeasurementProcess =
-        isPackagingProcess(selectedOrderProcess.processName)
-          ? findPreviousMeasurementProcess(selectedOrderProcess)
-          : undefined;
-      const measurementRemaining = previousMeasurementProcess
-        ? Number(previousMeasurementProcess.completedAmount || 0) -
-          Number(selectedOrderProcess.completedAmount || 0)
-        : 0;
-      const lotPackagingRemaining = selectedLot
-        ? getLotPackagingRemaining(selectedLot)
-        : 0;
-      const packagingRemaining = isPackagingProcess(selectedOrderProcess.processName)
-        ? Math.min(measurementRemaining, lotPackagingRemaining)
-        : measurementRemaining;
-      const packagingRequiresLot =
-        isPackagingProcess(selectedOrderProcess.processName) && !selectedLot;
+      const idempotencyKey =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`;
 
       if (!Number.isFinite(resultAmount) || resultAmount <= 0) {
         alert("数量は1以上で入力してください");
         return;
       }
 
-      if (packagingRequiresLot) {
-        alert("梱包/包装するロットを選択してください。");
-        return;
+      if (selectedOrderProcess.processOrder === 1) {
+        if (!lotNo.trim()) {
+          alert("製造工程ではロットNoを入力してください");
+          return;
+        }
+
+        const { error } = await supabase.rpc("register_manufacturing_lot_result", {
+          p_order_process_id: selectedOrderProcess.id,
+          p_schedule_id: isPostScheduleId(selectedSchedule.id)
+            ? null
+            : selectedSchedule.id,
+          p_date: date,
+          p_amount: resultAmount,
+          p_lot_no: lotNo.trim(),
+          p_material_lot_no: materialLotNo.trim() || null,
+          p_idempotency_key: idempotencyKey,
+        });
+
+        if (error) throw error;
+      } else {
+        if (!selectedLot) {
+          alert("移動するロットを選択してください");
+          return;
+        }
+
+        if (resultAmount > Number(selectedLot.quantity || 0)) {
+          alert(
+            `選択ロットの工程残数を超えて登録できません。登録可能数量は${selectedLot.quantity}です。`,
+          );
+          return;
+        }
+
+        const { error } = await supabase.rpc("transfer_lot_to_next_process", {
+          p_lot_id: selectedLot.lotId,
+          p_from_order_process_id: selectedOrderProcess.id,
+          p_amount: resultAmount,
+          p_reason: `Production result registered on ${date}`,
+          p_idempotency_key: idempotencyKey,
+        });
+
+        if (error) throw error;
       }
-
-      if (shouldRedirectToMeasurement) {
-        alert("計量工程は計量登録画面から登録してください。");
-        router.push("/manufacturing");
-        return;
-      }
-
-      if (
-        isPackagingProcess(selectedOrderProcess.processName) &&
-        !previousMeasurementProcess
-      ) {
-        alert(
-          "梱包/包装の前には計量工程が必要です。製品工程マスタで計量工程を追加し、計量登録を行ってください。",
-        );
-        router.push("/manufacturing");
-        return;
-      }
-
-      if (
-        isPackagingProcess(selectedOrderProcess.processName) &&
-        measurementRemaining <= 0
-      ) {
-        alert("梱包/包装の前に計量登録を完了してください。");
-        router.push("/manufacturing");
-        return;
-      }
-
-      if (
-        isPackagingProcess(selectedOrderProcess.processName) &&
-        resultAmount > packagingRemaining
-      ) {
-        alert(
-          `計量済み数量または選択ロットの残数を超えて梱包/包装できません。登録可能数量は${packagingRemaining}です。`,
-        );
-        return;
-      }
-
-      if (resultAmount > remainingAllowance) {
-        alert(
-          `前工程の完了数量を超えて登録できません。登録可能数量は${remainingAllowance}です。`,
-        );
-        return;
-      }
-
-      const { error } = await supabase.rpc("register_order_process_result", {
-        p_order_process_id: selectedOrderProcess.id,
-        p_schedule_id: isPostScheduleId(selectedSchedule.id)
-          ? null
-          : selectedSchedule.id,
-        p_date: date,
-        p_amount: resultAmount,
-        p_lot_id: isPackagingProcess(selectedOrderProcess.processName)
-          ? selectedLot?.id || null
-          : null,
-        p_allow_overproduction: overProductionAllowed,
-      });
-
-      if (error) throw error;
 
       if (
         selectedOrderProcess.processOrder === 1 &&
@@ -576,9 +561,14 @@ export default function ProductionResultsPage() {
       }
 
       setAmount("");
+      setLotId("");
+      if (selectedOrderProcess.processOrder === 1) {
+        setLotNo("");
+        setMaterialLotNo("");
+      }
       await fetchData();
       alert("現場実績を登録しました");
-      router.push("/");
+      router.push(`/progress/${selectedPostId}`);
     } catch (error) {
       console.error(error);
       const message =
@@ -603,16 +593,31 @@ export default function ProductionResultsPage() {
       </div>
 
       <form className={styles.formCard} onSubmit={handleSubmit}>
+        <label className={styles.fieldGroup}>
+          <span>部署</span>
+          <select
+            className={styles.select}
+            value={selectedDepartment}
+            onChange={(e) => handleDepartmentChange(e.target.value as Department)}
+          >
+            {DEPARTMENTS.map((department) => (
+              <option key={department} value={department}>
+                {department}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <select
           className={styles.select}
           value={scheduleId}
           onChange={(e) => void handleScheduleChange(e.target.value)}
         >
           <option value="">デイリー予定の製品を選択</option>
-          {schedules.map((schedule) => (
+          {departmentSchedules.map((schedule) => (
             <option key={schedule.id} value={schedule.id}>
-              {schedule.productName} / {schedule.pressNumber} /{" "}
-              {schedule.lotNo || "ロット未設定"}
+              {schedule.orderNo || "-"} / {schedule.productName} / 数量{" "}
+              {schedule.planAmount}
             </option>
           ))}
         </select>
@@ -623,36 +628,50 @@ export default function ProductionResultsPage() {
           onChange={(e) => {
             setOrderProcessId(e.target.value);
             setLotId("");
-            setAllowOverProduction(false);
           }}
           disabled={!selectedPostId || selectedScheduleOrderProcesses.length === 0}
         >
           <option value="">工程を選択</option>
           {selectableOrderProcesses.map((process) => {
-            const allowance = getProcessAllowance(process);
-            const remainingAllowance =
-              allowance - Number(process.completedAmount || 0);
+            const availableAmount = getProcessAvailableAmount(process);
 
             return (
               <option key={process.id} value={process.id}>
                 {process.processOrder}. {process.processName} / 登録可能{" "}
-                {Math.max(0, remainingAllowance)}
+                {Math.max(0, availableAmount)}
               </option>
             );
           })}
         </select>
 
-        {isSelectedPackagingProcess && (
+        {selectedOrderProcess && isFirstProcess && (
+          <>
+            <input
+              className={styles.input}
+              placeholder="ロットNo"
+              value={lotNo}
+              onChange={(e) => setLotNo(e.target.value)}
+            />
+            <input
+              className={styles.input}
+              placeholder="材料ロットNo"
+              value={materialLotNo}
+              onChange={(e) => setMaterialLotNo(e.target.value)}
+            />
+          </>
+        )}
+
+        {selectedOrderProcess && !isFirstProcess && (
           <select
             className={styles.select}
             value={lotId}
             onChange={(e) => setLotId(e.target.value)}
           >
-            <option value="">梱包/包装するロットを選択</option>
+            <option value="">移動するロットを選択</option>
             {selectableLots.map((lot) => (
-              <option key={lot.id} value={lot.id}>
-                {lot.lotNo} / 材料 {lot.materialLotNo || "-"} / 登録可能{" "}
-                {getLotPackagingRemaining(lot)}
+              <option key={lot.id} value={lot.lotId}>
+                {lot.lotNo} / 材料 {lot.materialLotNo || "-"} / 工程残{" "}
+                {lot.quantity}
               </option>
             ))}
           </select>
@@ -664,28 +683,30 @@ export default function ProductionResultsPage() {
           </div>
         )}
 
+        {selectedSchedule &&
+          selectedScheduleOrderProcesses.length > 0 &&
+          selectableOrderProcesses.length === 0 && (
+            <div className={styles.notice}>
+              選択部署で登録できる工程がありません。
+            </div>
+          )}
+
+        {selectedOrderProcess &&
+          !isFirstProcess &&
+          selectableLots.length === 0 && (
+            <div className={styles.notice}>
+              この工程に移動済みのロットがありません。
+            </div>
+          )}
+
         {selectedOrderProcess && (
           <div className={styles.notice}>
             完了済み {selectedOrderProcess.completedAmount} / 登録可能{" "}
             {Math.max(
               0,
-              getProcessAllowance(selectedOrderProcess) -
-                Number(selectedOrderProcess.completedAmount || 0),
+              getProcessAvailableAmount(selectedOrderProcess),
             )}
           </div>
-        )}
-
-        {canAllowOverProduction && (
-          <label className={styles.checkboxNotice}>
-            <input
-              type="checkbox"
-              checked={allowOverProduction}
-              onChange={(e) => setAllowOverProduction(e.target.checked)}
-            />
-            <span>
-              超過生産を許可する（この工程の実績数を正として、次工程の登録上限にします）
-            </span>
-          </label>
         )}
 
         <input
@@ -718,15 +739,15 @@ export default function ProductionResultsPage() {
             <strong>{selectedSchedule.customerName}</strong>
           </div>
           <div>
-            <span>計画数</span>
+            <span>予定数</span>
             <strong>{selectedSchedule.planAmount}</strong>
           </div>
           <div>
-            <span>プレス完了数</span>
+            <span>登録済み数</span>
             <strong>{selectedSchedule.pressCompletedAmount}</strong>
           </div>
           <div>
-            <span>プレス完了日</span>
+            <span>登録日</span>
             <strong>{selectedSchedule.pressCompletedDate || "-"}</strong>
           </div>
         </div>

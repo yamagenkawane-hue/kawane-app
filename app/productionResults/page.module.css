@@ -74,6 +74,17 @@
   background: #fff;
 }
 
+.fieldGroup {
+  display: grid;
+  gap: 6px;
+}
+
+.fieldGroup span {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .submitButton {
   border: none;
   border-radius: 12px;
