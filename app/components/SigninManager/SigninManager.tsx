@@ -13,7 +13,7 @@ const menus = [
     icon: <PackagePlus size={28} />,
   },
   {
-    title: "ロット管理",
+    title: "注番管理",
     href: "/lots",
     icon: <Tags size={28} />,
   },

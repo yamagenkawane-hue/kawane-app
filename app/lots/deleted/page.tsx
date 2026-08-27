@@ -104,7 +104,11 @@ export default function DeletedLotsPage() {
   };
 
   useEffect(() => {
-    void fetchDeletedLots();
+    const timerId = window.setTimeout(() => {
+      void fetchDeletedLots();
+    }, 0);
+
+    return () => window.clearTimeout(timerId);
   }, []);
 
   const filteredLots = useMemo(() => {
@@ -127,27 +131,20 @@ export default function DeletedLotsPage() {
   }, [lots, search]);
 
   const totalPages = Math.max(1, Math.ceil(filteredLots.length / PAGE_SIZE));
+  const normalizedCurrentPage = Math.min(currentPage, totalPages);
+
   const paginatedLots = useMemo(() => {
-    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    const startIndex = (normalizedCurrentPage - 1) * PAGE_SIZE;
     return filteredLots.slice(startIndex, startIndex + PAGE_SIZE);
-  }, [currentPage, filteredLots]);
+  }, [filteredLots, normalizedCurrentPage]);
+
   const pageStart =
-    filteredLots.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, filteredLots.length);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search]);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
+    filteredLots.length === 0 ? 0 : (normalizedCurrentPage - 1) * PAGE_SIZE + 1;
+  const pageEnd = Math.min(normalizedCurrentPage * PAGE_SIZE, filteredLots.length);
 
   const restoreLot = async (lot: DeletedLotRow) => {
     const confirmed = confirm(
-      `${lot.lotNo || "選択ロット"} を通常のロット管理へ戻します。よろしいですか？`,
+      `${lot.lotNo || "選択ロット"} を通常の注番管理へ戻します。よろしいですか？`,
     );
     if (!confirmed) return;
 
@@ -219,7 +216,7 @@ export default function DeletedLotsPage() {
     <div className={styles.container}>
       <div className={styles.headerArea}>
         <Link href="/lots" className={styles.backButton}>
-          ← ロット管理へ戻る
+          ← 注番管理へ戻る
         </Link>
         <h1 className={styles.title}>削除済みロット一覧</h1>
       </div>
@@ -227,9 +224,12 @@ export default function DeletedLotsPage() {
       <div className={styles.filterCard}>
         <input
           className={styles.input}
-          placeholder="注番・ロットNo・材料ロットNo・製品・得意先で検索"
+          placeholder="注番・得意先・製品・ロットNo・材料ロットNoで検索"
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setCurrentPage(1);
+          }}
         />
         <button className={styles.reloadButton} onClick={fetchDeletedLots}>
           再読み込み
@@ -250,13 +250,13 @@ export default function DeletedLotsPage() {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>ロットNo</th>
-              <th>材料ロットNo</th>
               <th>注番</th>
+              <th>得意先</th>
               <th>製品コード</th>
               <th>製品名</th>
-              <th>得意先</th>
-              <th>計量数</th>
+              <th>ロットNo</th>
+              <th>材料ロットNo</th>
+              <th>製造数</th>
               <th>梱包数</th>
               <th>在庫数</th>
               <th>引当数</th>
@@ -269,12 +269,12 @@ export default function DeletedLotsPage() {
           <tbody>
             {paginatedLots.map((lot) => (
               <tr key={lot.id}>
-                <td>{lot.lotNo || "-"}</td>
-                <td>{lot.materialLotNo || "-"}</td>
                 <td>{lot.orderNo || "-"}</td>
+                <td className={styles.nameCell}>{lot.customerName || "-"}</td>
                 <td>{lot.productCode || "-"}</td>
                 <td className={styles.nameCell}>{lot.productName || "-"}</td>
-                <td className={styles.nameCell}>{lot.customerName || "-"}</td>
+                <td>{lot.lotNo || "-"}</td>
+                <td>{lot.materialLotNo || "-"}</td>
                 <td className={styles.numberCell}>
                   {formatNumber(lot.measuredAmount)}
                 </td>
@@ -334,18 +334,18 @@ export default function DeletedLotsPage() {
           <button
             className={styles.pageButton}
             type="button"
-            disabled={currentPage <= 1}
+            disabled={normalizedCurrentPage <= 1}
             onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
           >
             前へ
           </button>
           <span className={styles.pageNumber}>
-            {currentPage} / {totalPages}
+            {normalizedCurrentPage} / {totalPages}
           </span>
           <button
             className={styles.pageButton}
             type="button"
-            disabled={currentPage >= totalPages}
+            disabled={normalizedCurrentPage >= totalPages}
             onClick={() =>
               setCurrentPage((page) => Math.min(totalPages, page + 1))
             }

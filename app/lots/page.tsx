@@ -39,15 +39,6 @@ type LotFlowRow = {
   updatedAt: string;
 };
 
-type LotHistoryRow = {
-  id: string;
-  date: string;
-  sortOrder: number;
-  category: string;
-  amount: number;
-  detail: string;
-};
-
 const PAGE_SIZE = 7;
 
 const LOT_SELECT_COLUMNS = [
@@ -107,25 +98,10 @@ const formatDate = (value: string) => {
   return value.slice(0, 10);
 };
 
-const buildDateLabel = (label: string, value: unknown) => {
-  const date = formatDate(String(value || ""));
-  return date === "-" ? "" : `${label}: ${date}`;
-};
-
-const sortHistoryRows = (rows: LotHistoryRow[]) =>
-  [...rows].sort((a, b) => {
-    const dateCompare = a.date.localeCompare(b.date);
-    if (dateCompare !== 0) return dateCompare;
-    return a.sortOrder - b.sortOrder;
-  });
-
 export default function LotsPage() {
   const [lots, setLots] = useState<LotFlowRow[]>([]);
-  const [historyRows, setHistoryRows] = useState<LotHistoryRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [selectedLotId, setSelectedLotId] = useState("");
   const [message, setMessage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -155,7 +131,11 @@ export default function LotsPage() {
   };
 
   useEffect(() => {
-    void fetchLots();
+    const timerId = window.setTimeout(() => {
+      void fetchLots();
+    }, 0);
+
+    return () => window.clearTimeout(timerId);
   }, []);
 
   const filteredLots = useMemo(() => {
@@ -180,30 +160,16 @@ export default function LotsPage() {
   }, [lots, search]);
 
   const totalPages = Math.max(1, Math.ceil(filteredLots.length / PAGE_SIZE));
+  const normalizedCurrentPage = Math.min(currentPage, totalPages);
 
   const paginatedLots = useMemo(() => {
-    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    const startIndex = (normalizedCurrentPage - 1) * PAGE_SIZE;
     return filteredLots.slice(startIndex, startIndex + PAGE_SIZE);
-  }, [currentPage, filteredLots]);
+  }, [filteredLots, normalizedCurrentPage]);
 
   const pageStart =
-    filteredLots.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, filteredLots.length);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search]);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
-
-  const selectedLot = useMemo(
-    () => lots.find((lot) => lot.id === selectedLotId) || null,
-    [lots, selectedLotId],
-  );
+    filteredLots.length === 0 ? 0 : (normalizedCurrentPage - 1) * PAGE_SIZE + 1;
+  const pageEnd = Math.min(normalizedCurrentPage * PAGE_SIZE, filteredLots.length);
 
   const totals = useMemo(
     () =>
@@ -228,187 +194,6 @@ export default function LotsPage() {
     [filteredLots],
   );
 
-  const fetchLotHistory = async (lot: LotFlowRow) => {
-    try {
-      setHistoryLoading(true);
-      const baseRows: LotHistoryRow[] = [
-        lot.measuredAmount > 0
-          ? {
-              id: `lot-measured-${lot.id}`,
-              date: lot.measuredAt || lot.createdAt,
-              sortOrder: 5,
-              category: "計量",
-              amount: lot.measuredAmount,
-              detail: `材料ロットNo: ${lot.materialLotNo || "-"}`,
-            }
-          : null,
-        lot.packagedAmount > 0
-          ? {
-              id: `lot-packaged-${lot.id}`,
-              date: lot.packagedAt || lot.updatedAt,
-              sortOrder: 20,
-              category: "梱包",
-              amount: lot.packagedAmount,
-              detail: "梱包実績から在庫登録",
-            }
-          : null,
-        lot.inventoryAmount > 0
-          ? {
-              id: `lot-inventory-${lot.id}`,
-              date: lot.packagedAt || lot.updatedAt,
-              sortOrder: 30,
-              category: "在庫登録",
-              amount: lot.inventoryAmount,
-              detail: `現在庫 ${formatNumber(lot.inventoryAmount)}`,
-            }
-          : null,
-        lot.allocatedAmount > 0
-          ? {
-              id: `lot-allocated-${lot.id}`,
-              date: lot.updatedAt,
-              sortOrder: 40,
-              category: "在庫引当",
-              amount: lot.allocatedAmount,
-              detail: `未出荷引当 ${formatNumber(lot.allocatedAmount)}`,
-            }
-          : null,
-        lot.shippedAmount > 0
-          ? {
-              id: `lot-shipped-${lot.id}`,
-              date: lot.lastShippedAt || lot.updatedAt,
-              sortOrder: 50,
-              category: "出荷",
-              amount: lot.shippedAmount,
-              detail: "ロット出荷数合計",
-            }
-          : null,
-      ].filter((row): row is LotHistoryRow => row !== null);
-
-      const [
-        productionResult,
-        inventoryResult,
-        allocationResult,
-        shipmentResult,
-      ] = await Promise.all([
-        supabase
-          .from("production_results")
-          .select("id,process_name,date,amount,created_at")
-          .eq("lot_id", lot.id)
-          .order("date", { ascending: true }),
-        supabase
-          .from("inventory_items")
-          .select("id,current_stock,allocated_stock,created_at,updated_at")
-          .eq("lot_id", lot.id)
-          .order("created_at", { ascending: true }),
-        supabase
-          .from("inventory_allocations")
-          .select("id,allocated_amount,shipped_amount,confirmed_at")
-          .eq("lot_id", lot.id)
-          .order("confirmed_at", { ascending: true }),
-        supabase
-          .from("shipments")
-          .select("id,quantity,scheduled_date,delivery_date,customer_name,created_at")
-          .or(`lot_id.eq.${lot.id},lot_no.eq.${lot.lotNo}`)
-          .order("scheduled_date", { ascending: true }),
-      ]);
-
-      if (productionResult.error) {
-        console.warn("ロット実績履歴の取得に失敗", productionResult.error);
-      }
-      if (inventoryResult.error) {
-        console.warn("ロット在庫履歴の取得に失敗", inventoryResult.error);
-      }
-      if (allocationResult.error) {
-        console.warn("ロット引当履歴の取得に失敗", allocationResult.error);
-      }
-      if (shipmentResult.error) {
-        console.warn("ロット出荷履歴の取得に失敗", shipmentResult.error);
-      }
-
-      const productionRows = (
-        (productionResult.error ? [] : productionResult.data || []) as Record<string, unknown>[]
-      ).map((row) => ({
-        id: `result-${String(row.id || "")}`,
-        date: String(row.date || row.created_at || ""),
-        sortOrder: 10,
-        category: String(row.process_name || "実績"),
-        amount: toNumber(row.amount),
-        detail: `${String(row.process_name || "工程")} 実績登録`,
-      }));
-      const inventoryRows = (
-        (inventoryResult.error ? [] : inventoryResult.data || []) as Record<string, unknown>[]
-      ).map((row) => ({
-        id: `inventory-${String(row.id || "")}`,
-        date: String(row.updated_at || row.created_at || ""),
-        sortOrder: 30,
-        category: "在庫登録",
-        amount: toNumber(row.current_stock),
-        detail: `現在庫 ${formatNumber(toNumber(row.current_stock))} / 引当済 ${formatNumber(
-          toNumber(row.allocated_stock),
-        )}`,
-      }));
-      const allocationRows = (
-        (allocationResult.error ? [] : allocationResult.data || []) as Record<string, unknown>[]
-      ).map((row) => ({
-        id: `allocation-${String(row.id || "")}`,
-        date: String(row.confirmed_at || ""),
-        sortOrder: 40,
-        category: "在庫引当",
-        amount: toNumber(row.allocated_amount),
-        detail: `引当 ${formatNumber(
-          toNumber(row.allocated_amount),
-        )} / 出荷済 ${formatNumber(toNumber(row.shipped_amount))}`,
-      }));
-      const shipmentRows = (
-        (shipmentResult.error ? [] : shipmentResult.data || []) as Record<string, unknown>[]
-      ).map((row) => {
-        const detailParts = [
-          `得意先: ${String(row.customer_name || lot.customerName || "-")}`,
-          buildDateLabel("出荷予定", row.scheduled_date),
-          buildDateLabel("納品日", row.delivery_date),
-        ].filter(Boolean);
-
-        return {
-          id: `shipment-${String(row.id || "")}`,
-          date: String(row.delivery_date || row.scheduled_date || row.created_at || ""),
-          sortOrder: 50,
-          category: "出荷",
-          amount: toNumber(row.quantity),
-          detail: detailParts.join(" / "),
-        };
-      });
-
-      const detailRows = [
-        ...productionRows,
-        ...inventoryRows,
-        ...allocationRows,
-        ...shipmentRows,
-      ];
-      const detailCategories = new Set(detailRows.map((row) => row.category));
-      const fallbackRows = baseRows.filter(
-        (row) => !detailCategories.has(row.category),
-      );
-
-      setHistoryRows(sortHistoryRows([...detailRows, ...fallbackRows]));
-    } catch (error) {
-      console.error(error);
-      alert("ロット履歴の取得に失敗しました");
-      setHistoryRows([]);
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
-
-  const toggleDetail = async (lot: LotFlowRow) => {
-    const nextLotId = selectedLotId === lot.id ? "" : lot.id;
-    setSelectedLotId(nextLotId);
-    setHistoryRows([]);
-
-    if (nextLotId) {
-      await fetchLotHistory(lot);
-    }
-  };
-
   const softDeleteLot = async (lot: LotFlowRow) => {
     const confirmed = confirm(
       `${lot.lotNo || "選択ロット"} を削除済みロット一覧へ移動します。よろしいですか？`,
@@ -426,10 +211,6 @@ export default function LotsPage() {
 
       if (error) throw error;
 
-      if (selectedLotId === lot.id) {
-        setSelectedLotId("");
-        setHistoryRows([]);
-      }
       setLots((currentLots) => currentLots.filter((item) => item.id !== lot.id));
       setMessage("ロットを削除済みロット一覧へ移動しました");
       await fetchLots();
@@ -471,15 +252,18 @@ export default function LotsPage() {
         <Link href="/lots/deleted" className={styles.secondaryButton}>
           削除済みロット一覧
         </Link>
-        <h1 className={styles.title}>ロット管理</h1>
+        <h1 className={styles.title}>注番管理</h1>
       </div>
 
       <div className={styles.filterCard}>
         <input
           className={styles.input}
-          placeholder="注番・ロットNo・材料ロットNo・製品・得意先で検索"
+          placeholder="注番・得意先・製品・ロットNo・材料ロットNoで検索"
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setCurrentPage(1);
+          }}
         />
         <button className={styles.reloadButton} onClick={fetchLots}>
           再読み込み
@@ -492,7 +276,7 @@ export default function LotsPage() {
           <strong>{filteredLots.length}</strong>
         </div>
         <div className={styles.summaryItem}>
-          <span>計量数</span>
+          <span>製造数</span>
           <strong>{formatNumber(totals.measured)}</strong>
         </div>
         <div className={styles.summaryItem}>
@@ -531,34 +315,31 @@ export default function LotsPage() {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>ロットNo</th>
-              <th>材料ロットNo</th>
               <th>注番</th>
+              <th>得意先</th>
               <th>製品コード</th>
               <th>製品名</th>
-              <th>得意先</th>
-              <th>計量数</th>
+              <th>ロットNo</th>
+              <th>材料ロットNo</th>
+              <th>製造数</th>
               <th>梱包数</th>
               <th>在庫数</th>
               <th>引当数</th>
               <th>出荷数</th>
               <th>残数</th>
-              <th>計量日</th>
+              <th>製造日</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody>
             {paginatedLots.map((lot) => (
-              <tr
-                key={lot.id}
-                className={selectedLotId === lot.id ? styles.selectedRow : ""}
-              >
-                <td>{lot.lotNo || "-"}</td>
-                <td>{lot.materialLotNo || "-"}</td>
+              <tr key={lot.id}>
                 <td>{lot.orderNo || "-"}</td>
+                <td className={styles.nameCell}>{lot.customerName || "-"}</td>
                 <td>{lot.productCode || "-"}</td>
                 <td className={styles.nameCell}>{lot.productName || "-"}</td>
-                <td className={styles.nameCell}>{lot.customerName || "-"}</td>
+                <td>{lot.lotNo || "-"}</td>
+                <td>{lot.materialLotNo || "-"}</td>
                 <td className={styles.numberCell}>
                   {formatNumber(lot.measuredAmount)}
                 </td>
@@ -600,7 +381,7 @@ export default function LotsPage() {
             {filteredLots.length === 0 && (
               <tr>
                 <td className={styles.emptyCell} colSpan={14}>
-                  表示できるロットがありません
+                  表示できる注番・ロットがありません
                 </td>
               </tr>
             )}
@@ -617,18 +398,18 @@ export default function LotsPage() {
           <button
             className={styles.pageButton}
             type="button"
-            disabled={currentPage <= 1}
+            disabled={normalizedCurrentPage <= 1}
             onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
           >
             前へ
           </button>
           <span className={styles.pageNumber}>
-            {currentPage} / {totalPages}
+            {normalizedCurrentPage} / {totalPages}
           </span>
           <button
             className={styles.pageButton}
             type="button"
-            disabled={currentPage >= totalPages}
+            disabled={normalizedCurrentPage >= totalPages}
             onClick={() =>
               setCurrentPage((page) => Math.min(totalPages, page + 1))
             }
@@ -638,99 +419,6 @@ export default function LotsPage() {
         </div>
       </div>
 
-      {selectedLot && (
-        <div className={styles.detailCard}>
-          <div className={styles.detailHeader}>
-            <div>
-              <span>履歴確認</span>
-              <strong>{selectedLot.lotNo}</strong>
-            </div>
-          </div>
-
-          <div className={styles.detailGrid}>
-            <div>
-              <span>注番</span>
-              <strong>{selectedLot.orderNo || "-"}</strong>
-            </div>
-            <div>
-              <span>製品</span>
-              <strong>{selectedLot.productName || "-"}</strong>
-            </div>
-            <div>
-              <span>得意先</span>
-              <strong>{selectedLot.customerName || "-"}</strong>
-            </div>
-            <div>
-              <span>材料ロットNo</span>
-              <strong>{selectedLot.materialLotNo || "-"}</strong>
-            </div>
-          </div>
-
-          <div className={styles.flowSteps}>
-            <div className={styles.flowStep}>
-              <span>計量</span>
-              <strong>{formatNumber(selectedLot.measuredAmount)}</strong>
-            </div>
-            <div className={styles.flowStep}>
-              <span>梱包</span>
-              <strong>{formatNumber(selectedLot.packagedAmount)}</strong>
-            </div>
-            <div className={styles.flowStep}>
-              <span>在庫</span>
-              <strong>{formatNumber(selectedLot.inventoryAmount)}</strong>
-            </div>
-            <div className={styles.flowStep}>
-              <span>引当</span>
-              <strong>{formatNumber(selectedLot.allocatedAmount)}</strong>
-            </div>
-            <div className={styles.flowStep}>
-              <span>出荷</span>
-              <strong>{formatNumber(selectedLot.shippedAmount)}</strong>
-            </div>
-            <div className={styles.flowStep}>
-              <span>残</span>
-              <strong>{formatNumber(selectedLot.remainingAmount)}</strong>
-            </div>
-          </div>
-
-          <div className={styles.historyArea}>
-            <h2>ロットの動き</h2>
-            {historyLoading ? (
-              <div className={styles.loading}>履歴を読み込み中...</div>
-            ) : (
-              <table className={styles.historyTable}>
-                <thead>
-                  <tr>
-                    <th>日付</th>
-                    <th>区分</th>
-                    <th>数量</th>
-                    <th>内容</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {historyRows.map((history) => (
-                    <tr key={history.id}>
-                      <td>{formatDate(history.date)}</td>
-                      <td>{history.category}</td>
-                      <td className={styles.numberCell}>
-                        {formatNumber(history.amount)}
-                      </td>
-                      <td>{history.detail}</td>
-                    </tr>
-                  ))}
-                  {historyRows.length === 0 && (
-                    <tr>
-                      <td className={styles.emptyCell} colSpan={4}>
-                        表示できる履歴がありません
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

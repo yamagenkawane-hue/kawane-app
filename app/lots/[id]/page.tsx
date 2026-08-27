@@ -227,6 +227,7 @@ export default function LotDetailPage() {
       orderResult,
       lotResult,
       orderProcessResult,
+      transferResult,
       inventoryResult,
       allocationResult,
       shipmentResult,
@@ -249,6 +250,13 @@ export default function LotDetailPage() {
         .eq("post_id", targetLot.postId)
         .order("process_order", { ascending: true }),
       supabase
+        .from("v_process_transfer_history_with_master")
+        .select(
+          "id,created_at,from_process_name,to_process_name,from_process_order,to_process_order,quantity,movement_type,reason",
+        )
+        .eq("lot_id", targetLot.id)
+        .order("created_at", { ascending: true }),
+      supabase
         .from("inventory_items")
         .select("id,current_stock,allocated_stock,created_at,updated_at")
         .eq("lot_id", targetLot.id)
@@ -268,6 +276,7 @@ export default function LotDetailPage() {
     if (orderResult.error) console.warn("注番工程実績の取得に失敗", orderResult.error);
     if (lotResult.error) console.warn("ロット実績の取得に失敗", lotResult.error);
     if (orderProcessResult.error) console.warn("外注工程履歴の取得に失敗", orderProcessResult.error);
+    if (transferResult.error) console.warn("工程移動履歴の取得に失敗", transferResult.error);
     if (inventoryResult.error) console.warn("ロット在庫履歴の取得に失敗", inventoryResult.error);
     if (allocationResult.error) console.warn("ロット引当履歴の取得に失敗", allocationResult.error);
     if (shipmentResult.error) console.warn("ロット出荷履歴の取得に失敗", shipmentResult.error);
@@ -352,6 +361,25 @@ export default function LotDetailPage() {
       return rows;
     });
 
+    const transferRows = (
+      (transferResult.error ? [] : transferResult.data || []) as Record<string, unknown>[]
+    ).map((row) => {
+      const fromProcess = String(row.from_process_name || "開始");
+      const toProcess = String(row.to_process_name || "完了");
+      const reason = String(row.reason || "");
+
+      return {
+        id: `transfer-${String(row.id || "")}`,
+        date: String(row.created_at || ""),
+        sortOrder: 45,
+        section: "ロット履歴" as const,
+        action: "工程移動",
+        amount: toNumber(row.quantity),
+        target: targetLot.lotNo || "-",
+        detail: `${fromProcess} → ${toProcess}${reason ? ` / ${reason}` : ""}`,
+      };
+    });
+
     const inventoryRows = (
       (inventoryResult.error ? [] : inventoryResult.data || []) as Record<string, unknown>[]
     ).map((row) => ({
@@ -406,6 +434,7 @@ export default function LotDetailPage() {
     const detailRows = [
       ...orderRows,
       ...outsourceRows,
+      ...transferRows,
       ...lotResultRows,
       ...inventoryRows,
       ...allocationRows,
@@ -420,14 +449,18 @@ export default function LotDetailPage() {
   };
 
   useEffect(() => {
-    void loadLotDetail();
+    const timerId = window.setTimeout(() => {
+      void loadLotDetail();
+    }, 0);
+
+    return () => window.clearTimeout(timerId);
   }, [lotId]);
 
   const totals = useMemo(
     () =>
       lot
         ? [
-            ["計量数", lot.measuredAmount],
+            ["製造数", lot.measuredAmount],
             ["梱包数", lot.packagedAmount],
             ["在庫数", lot.inventoryAmount],
             ["引当数", lot.allocatedAmount],
@@ -442,9 +475,9 @@ export default function LotDetailPage() {
     <div className={styles.container}>
       <div className={styles.headerArea}>
         <Link href="/lots" className={styles.backButton}>
-          ← ロット管理へ戻る
+          ← 注番管理へ戻る
         </Link>
-        <h1 className={styles.title}>ロット履歴</h1>
+        <h1 className={styles.title}>注番・ロット履歴</h1>
       </div>
 
       {loading && <div className={styles.loading}>読み込み中...</div>}
@@ -482,7 +515,7 @@ export default function LotDetailPage() {
                 <strong>{lot.customerName || "-"}</strong>
               </div>
               <div>
-                <span>計量日</span>
+                <span>製造日</span>
                 <strong>{formatDate(lot.measuredAt)}</strong>
               </div>
               <div>
