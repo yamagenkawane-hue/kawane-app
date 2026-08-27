@@ -18,6 +18,24 @@ const emptyForm = {
   pressCompletedDate: "",
 };
 
+const DEPARTMENTS = ["製造G", "品質管理G", "梱包出荷G"] as const;
+type Department = (typeof DEPARTMENTS)[number];
+
+type LotProcessBalanceRow = {
+  id: string;
+  postId: string;
+  orderNo: string;
+  lotNo: string;
+  processName: string;
+  processOrder: number;
+  quantity: number;
+  completedAmount: number;
+  completedDate: string;
+  customerName: string;
+  productName: string;
+  deliveryDate: string;
+};
+
 type NumpadTarget =
   | { kind: "form"; field: "planAmount" | "pressCompletedAmount" }
   | { kind: "schedule"; id: string; field: "planAmount" | "pressCompletedAmount" };
@@ -29,6 +47,9 @@ type EditingRow =
 
 const SCHEDULE_SELECT_COLUMNS =
   "id,post_id,order_no,customer_name,product_name,press_number,lot_no,plan_amount,press_completed_amount,press_completed_date,shipping_scheduled_start,shipping_scheduled_end,created_at,updated_at";
+
+const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
+  "id,post_id,order_no,lot_no,process_name,process_order,quantity,completed_amount,completed_date,customer_name,product_name,delivery_date";
 
 const mapSchedule = (row: Record<string, unknown>): ProductionSchedule => ({
   id: String(row.id || ""),
@@ -62,6 +83,39 @@ const mapPost = (row: Record<string, unknown>): PostData => ({
   ),
   remark: String(row.remark || ""),
 });
+
+const mapLotProcessBalance = (
+  row: Record<string, unknown>,
+): LotProcessBalanceRow => ({
+  id: String(row.id || ""),
+  postId: String(row.post_id || ""),
+  orderNo: String(row.order_no || ""),
+  lotNo: String(row.lot_no || ""),
+  processName: String(row.process_name || ""),
+  processOrder: Number(row.process_order || 0),
+  quantity: Number(row.quantity || 0),
+  completedAmount: Number(row.completed_amount || 0),
+  completedDate: String(row.completed_date || ""),
+  customerName: String(row.customer_name || ""),
+  productName: String(row.product_name || ""),
+  deliveryDate: String(row.delivery_date || ""),
+});
+
+const getDepartmentForProcess = (processName: string): Department => {
+  if (processName.includes("検査") || processName.includes("品質")) {
+    return "品質管理G";
+  }
+
+  if (
+    processName.includes("梱包") ||
+    processName.includes("包装") ||
+    processName.includes("出荷")
+  ) {
+    return "梱包出荷G";
+  }
+
+  return "製造G";
+};
 
 const formatDateKey = (date: Date) => {
   const year = date.getFullYear();
@@ -107,6 +161,11 @@ const filterSchedulesByBackorders = (
 export default function ProductionSchedulesPage() {
   const [schedules, setSchedules] = useState<ProductionSchedule[]>([]);
   const [orderSchedules, setOrderSchedules] = useState<PostData[]>([]);
+  const [lotProcessBalances, setLotProcessBalances] = useState<
+    LotProcessBalanceRow[]
+  >([]);
+  const [selectedDepartment, setSelectedDepartment] =
+    useState<Department>("製造G");
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
   const [numpadTarget, setNumpadTarget] = useState<NumpadTarget | null>(null);
@@ -161,23 +220,30 @@ export default function ProductionSchedulesPage() {
     try {
       setLoading(true);
 
-      const [scheduleResult, dailyResult] = await Promise.all([
+      const [scheduleResult, balanceResult, dailyResult] = await Promise.all([
         supabase
           .from("v_production_schedules_with_master")
           .select(SCHEDULE_SELECT_COLUMNS)
           .order("created_at", { ascending: false }),
+        supabase
+          .from("v_lot_process_balance_with_master")
+          .select(LOT_PROCESS_BALANCE_SELECT_COLUMNS)
+          .order("process_order", { ascending: true }),
         fetch("/api/daily-production"),
       ]);
 
       if (scheduleResult.error) throw scheduleResult.error;
+      if (balanceResult.error) throw balanceResult.error;
       if (!dailyResult.ok) throw new Error("注残データの取得に失敗しました");
 
       const dailyRows = await dailyResult.json();
       const mappedPosts = (dailyRows || []).map(mapPost);
       const mappedSchedules = (scheduleResult.data || []).map(mapSchedule);
+      const mappedBalances = (balanceResult.data || []).map(mapLotProcessBalance);
 
       setSchedules(filterSchedulesByBackorders(mappedSchedules, mappedPosts));
       setOrderSchedules(mappedPosts);
+      setLotProcessBalances(mappedBalances);
     } catch (error) {
       console.error(error);
       alert("生産予定の取得に失敗しました");
@@ -429,6 +495,12 @@ export default function ProductionSchedulesPage() {
     await fetchSchedules();
   };
 
+  const departmentBalanceRows = lotProcessBalances.filter(
+    (row) => getDepartmentForProcess(row.processName) === selectedDepartment,
+  );
+
+  const showManualInput = selectedDepartment === "製造G";
+
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
@@ -439,6 +511,25 @@ export default function ProductionSchedulesPage() {
       </div>
 
       <div className={styles.formCard}>
+        <div className={styles.departmentRow}>
+          <label className={styles.fieldLabel} htmlFor="department-select">
+            表示部署
+          </label>
+          <select
+            id="department-select"
+            className={styles.departmentSelect}
+            value={selectedDepartment}
+            onChange={(e) => setSelectedDepartment(e.target.value as Department)}
+          >
+            {DEPARTMENTS.map((department) => (
+              <option key={department} value={department}>
+                {department}
+              </option>
+            ))}
+          </select>
+        </div>
+        {showManualInput && (
+          <>
         <div className={styles.formGrid}>
           <input
             className={styles.input}
@@ -502,6 +593,8 @@ export default function ProductionSchedulesPage() {
         <button className={styles.addButton} onClick={handleAdd}>
           追加
         </button>
+          </>
+        )}
       </div>
 
       {loading && <div className={styles.loading}>読み込み中...</div>}
@@ -519,12 +612,10 @@ export default function ProductionSchedulesPage() {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>種別</th>
               <th>注番</th>
-              <th>得意先</th>
+              <th>取引先名</th>
               <th>製品名</th>
-              <th>プレス機No</th>
-              <th>ロットNo</th>
+              <th>ロット</th>
               <th>数量</th>
               <th>完了数</th>
               <th>完了日</th>
@@ -533,7 +624,8 @@ export default function ProductionSchedulesPage() {
             </tr>
           </thead>
           <tbody>
-            {orderSchedules.map((post) => {
+            {selectedDepartment === "製造G" &&
+              orderSchedules.map((post) => {
               const editing = isEditing("post", post.id);
               const rowClassName = isOverdue(post.deliveryDate)
                 ? styles.dangerRow
@@ -541,9 +633,6 @@ export default function ProductionSchedulesPage() {
 
               return (
                 <tr key={`post-${post.id}`} className={rowClassName}>
-                  <td>
-                    <span className={styles.sourceBadge}>注残</span>
-                  </td>
                   <td>
                     {editing ? (
                       <input
@@ -583,7 +672,6 @@ export default function ProductionSchedulesPage() {
                       renderCellText(post.productName)
                     )}
                   </td>
-                  <td>-</td>
                   <td>
                     {editing ? (
                       <input
@@ -673,14 +761,12 @@ export default function ProductionSchedulesPage() {
               );
             })}
 
-            {schedules.map((schedule) => {
+            {selectedDepartment === "製造G" &&
+              schedules.map((schedule) => {
               const editing = isEditing("schedule", schedule.id);
 
               return (
               <tr key={schedule.id}>
-                <td>
-                  <span className={styles.manualBadge}>手入力</span>
-                </td>
                 <td>
                   {editing ? (
                     <input
@@ -718,19 +804,6 @@ export default function ProductionSchedulesPage() {
                     />
                   ) : (
                     renderCellText(schedule.productName)
-                  )}
-                </td>
-                <td>
-                  {editing ? (
-                    <input
-                      className={`${styles.tableInput} ${styles.pressInput}`}
-                      value={schedule.pressNumber}
-                      onChange={(e) =>
-                        handleChange(schedule.id, "pressNumber", e.target.value)
-                      }
-                    />
-                  ) : (
-                    renderCellText(schedule.pressNumber)
                   )}
                 </td>
                 <td>
@@ -835,6 +908,36 @@ export default function ProductionSchedulesPage() {
               </tr>
               );
             })}
+            {selectedDepartment !== "製造G" &&
+              departmentBalanceRows.map((row) => (
+                <tr
+                  key={`balance-${row.id}`}
+                  className={isOverdue(row.deliveryDate) ? styles.dangerRow : ""}
+                >
+                  <td>{renderCellText(row.orderNo)}</td>
+                  <td>{renderCellText(row.customerName)}</td>
+                  <td>{renderCellText(row.productName)}</td>
+                  <td>{renderCellText(row.lotNo)}</td>
+                  <td>{renderCellText(row.quantity)}</td>
+                  <td>{renderCellText(row.completedAmount)}</td>
+                  <td>{renderCellText(row.completedDate)}</td>
+                  <td>{renderCellText(row.deliveryDate)}</td>
+                  <td className={styles.actionArea}>
+                    <span className={styles.readOnlyText}>{row.processName}</span>
+                  </td>
+                </tr>
+              ))}
+            {((selectedDepartment === "製造G" &&
+              orderSchedules.length === 0 &&
+              schedules.length === 0) ||
+              (selectedDepartment !== "製造G" &&
+                departmentBalanceRows.length === 0)) && (
+              <tr>
+                <td colSpan={9} className={styles.emptyCell}>
+                  表示できる生産予定はありません
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
