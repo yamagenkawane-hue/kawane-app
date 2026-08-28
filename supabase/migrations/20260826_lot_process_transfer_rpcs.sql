@@ -203,8 +203,8 @@ begin
     select coalesce(quantity, 0)
     into before_to_quantity
     from lot_process_balance
-    where lot_id = target_lot.id
-      and order_process_id = next_process.id
+    where lot_process_balance.lot_id = target_lot.id
+      and lot_process_balance.order_process_id = next_process.id
     for update;
 
     before_to_quantity := coalesce(before_to_quantity, 0);
@@ -241,10 +241,10 @@ begin
     select *
     into target_inventory
     from inventory_items
-    where lot_id = target_lot.id
+    where inventory_items.lot_id = target_lot.id
       and (
-        (target_process.product_id is not null and product_id = target_process.product_id)
-        or product_code = target_process.product_code
+        (target_process.product_id is not null and inventory_items.product_id = target_process.product_id)
+        or inventory_items.product_code = target_process.product_code
       )
     order by updated_at asc
     limit 1
@@ -415,8 +415,8 @@ begin
   select *
   into source_balance
   from lot_process_balance
-  where lot_id = p_lot_id
-    and order_process_id = p_from_order_process_id
+  where lot_process_balance.lot_id = p_lot_id
+    and lot_process_balance.order_process_id = p_from_order_process_id
   for update;
 
   if not found then
@@ -479,8 +479,8 @@ begin
     select *
     into target_balance
     from lot_process_balance
-    where lot_id = p_lot_id
-      and order_process_id = next_process.id
+    where lot_process_balance.lot_id = p_lot_id
+      and lot_process_balance.order_process_id = next_process.id
     for update;
 
     if found then
@@ -526,10 +526,10 @@ begin
     select *
     into target_inventory
     from inventory_items
-    where lot_id = p_lot_id
+    where inventory_items.lot_id = p_lot_id
       and (
-        (from_process.product_id is not null and product_id = from_process.product_id)
-        or product_code = from_process.product_code
+        (from_process.product_id is not null and inventory_items.product_id = from_process.product_id)
+        or inventory_items.product_code = from_process.product_code
       )
     order by updated_at asc
     limit 1
