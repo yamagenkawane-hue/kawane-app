@@ -210,33 +210,38 @@ begin
     before_to_quantity := coalesce(before_to_quantity, 0);
     after_to_quantity := before_to_quantity + p_amount;
 
-    insert into lot_process_balance (
-      post_id,
-      order_process_id,
-      lot_id,
-      process_name,
-      process_order,
-      quantity,
-      source_result_id,
-      created_at,
-      updated_at
-    ) values (
-      target_process.post_id,
-      next_process.id,
-      target_lot.id,
-      next_process.process_name,
-      next_process.process_order,
-      p_amount,
-      inserted_result_id,
-      now(),
-      now()
-    )
-    on conflict (lot_id, order_process_id) do update
-    set quantity = lot_process_balance.quantity + excluded.quantity,
-        source_result_id = excluded.source_result_id,
-        process_name = excluded.process_name,
-        process_order = excluded.process_order,
-        updated_at = now();
+    update lot_process_balance
+    set quantity = after_to_quantity,
+        source_result_id = inserted_result_id,
+        process_name = next_process.process_name,
+        process_order = next_process.process_order,
+        updated_at = now()
+    where lot_process_balance.lot_id = target_lot.id
+      and lot_process_balance.order_process_id = next_process.id;
+
+    if not found then
+      insert into lot_process_balance (
+        post_id,
+        order_process_id,
+        lot_id,
+        process_name,
+        process_order,
+        quantity,
+        source_result_id,
+        created_at,
+        updated_at
+      ) values (
+        target_process.post_id,
+        next_process.id,
+        target_lot.id,
+        next_process.process_name,
+        next_process.process_order,
+        p_amount,
+        inserted_result_id,
+        now(),
+        now()
+      );
+    end if;
   else
     select *
     into target_inventory
