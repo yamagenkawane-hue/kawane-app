@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import supabase from "../../lib/supabase";
-import { Post } from "../type";
+import { LotProcessBalance, Post } from "../type";
 import {
   buildOrderProcessProgressMap,
   buildOrderProcessStatusMap,
@@ -13,6 +13,24 @@ import {
 
 const POST_SELECT_COLUMNS =
   "id,order_no,lot_no,product_code,product_name,customer_name,order_amount,delivery_date,completion_scheduled_date,remark,delete,created_at,updated_at";
+
+const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
+  "id,post_id,order_no,lot_id,lot_no,material_lot_no,order_process_id,process_name,process_order,quantity";
+
+const mapLotProcessBalance = (
+  row: Record<string, unknown>,
+): LotProcessBalance => ({
+  id: String(row.id || ""),
+  postId: String(row.post_id || ""),
+  orderNo: String(row.order_no || ""),
+  lotId: String(row.lot_id || ""),
+  lotNo: String(row.lot_no || ""),
+  materialLotNo: String(row.material_lot_no || ""),
+  orderProcessId: String(row.order_process_id || ""),
+  processName: String(row.process_name || ""),
+  processOrder: Number(row.process_order || 0),
+  quantity: Number(row.quantity || 0),
+});
 
 export const useFetchPosts = () => {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -28,6 +46,9 @@ export const useFetchPosts = () => {
           shipmentResult,
           orderProcessResult,
           productionResult,
+          lotBalanceResult,
+          inventoryResult,
+          allocationResult,
         ] = await Promise.all([
           supabase
             .from("posts")
@@ -42,6 +63,16 @@ export const useFetchPosts = () => {
           supabase
             .from("v_production_results_with_master")
             .select("post_id,process_name,date,amount"),
+          supabase
+            .from("v_lot_process_balance_with_master")
+            .select(LOT_PROCESS_BALANCE_SELECT_COLUMNS)
+            .order("process_order", { ascending: true }),
+          supabase
+            .from("v_inventory_items_with_master")
+            .select("product_code,product_name,current_stock,allocated_stock"),
+          supabase
+            .from("v_inventory_allocations_with_master")
+            .select("post_id,allocated_amount,shipped_amount"),
         ]);
 
         const { data, error } = postResult;
@@ -50,6 +81,9 @@ export const useFetchPosts = () => {
         if (shipmentResult.error) throw shipmentResult.error;
         if (orderProcessResult.error) throw orderProcessResult.error;
         if (productionResult.error) throw productionResult.error;
+        if (lotBalanceResult.error) throw lotBalanceResult.error;
+        if (inventoryResult.error) throw inventoryResult.error;
+        if (allocationResult.error) throw allocationResult.error;
 
         const shippedMap = new Map<string, number>();
         for (const row of shipmentResult.data || []) {
@@ -58,6 +92,54 @@ export const useFetchPosts = () => {
             postId,
             (shippedMap.get(postId) || 0) + Number(row.quantity || 0),
           );
+        }
+
+        const lotBalancesByPost = new Map<string, LotProcessBalance[]>();
+        for (const row of lotBalanceResult.data || []) {
+          const balance = mapLotProcessBalance(row as Record<string, unknown>);
+          if (!balance.postId) continue;
+          lotBalancesByPost.set(balance.postId, [
+            ...(lotBalancesByPost.get(balance.postId) || []),
+            balance,
+          ]);
+        }
+
+        const inventoryByProduct = new Map<
+          string,
+          { currentStock: number; allocatedStock: number }
+        >();
+        for (const row of inventoryResult.data || []) {
+          const key = String(row.product_code || row.product_name || "");
+          if (!key) continue;
+          const current = inventoryByProduct.get(key) || {
+            currentStock: 0,
+            allocatedStock: 0,
+          };
+          inventoryByProduct.set(key, {
+            currentStock:
+              current.currentStock + Number(row.current_stock || 0),
+            allocatedStock:
+              current.allocatedStock + Number(row.allocated_stock || 0),
+          });
+        }
+
+        const allocationByPost = new Map<
+          string,
+          { allocatedAmount: number; shippedAmount: number }
+        >();
+        for (const row of allocationResult.data || []) {
+          const postId = String(row.post_id || "");
+          if (!postId) continue;
+          const current = allocationByPost.get(postId) || {
+            allocatedAmount: 0,
+            shippedAmount: 0,
+          };
+          allocationByPost.set(postId, {
+            allocatedAmount:
+              current.allocatedAmount + Number(row.allocated_amount || 0),
+            shippedAmount:
+              current.shippedAmount + Number(row.shipped_amount || 0),
+          });
         }
 
         const processProgressMap = buildOrderProcessProgressMap(
@@ -123,7 +205,17 @@ export const useFetchPosts = () => {
           // 注残
           // =========================
           const remainingAmount = orderAmount - packagingAmount;
-          const shippedAmount = shippedMap.get(row.id) || 0;
+          const allocationSummary = allocationByPost.get(row.id);
+          const shippedAmount =
+            shippedMap.get(row.id) || allocationSummary?.shippedAmount || 0;
+          const productInventory =
+            inventoryByProduct.get(row.product_code || "") ||
+            inventoryByProduct.get(row.product_name || "") ||
+            { currentStock: 0, allocatedStock: 0 };
+          const allocatedAmount =
+            allocationSummary?.allocatedAmount || productInventory.allocatedStock;
+          const stockDifferenceAmount =
+            productInventory.currentStock - Number(orderAmount || 0);
 
           // =========================
           // 状態
@@ -168,6 +260,10 @@ export const useFetchPosts = () => {
             packagingDate: "",
             packagingAmount,
             shippedAmount,
+            inventoryAmount: productInventory.currentStock,
+            allocatedAmount,
+            stockDifferenceAmount,
+            lotProcessBalances: lotBalancesByPost.get(row.id) || [],
             remainingAmount,
             deliveryDate: row.delivery_date || "",
             completionScheduledDate:

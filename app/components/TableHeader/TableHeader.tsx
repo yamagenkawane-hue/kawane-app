@@ -11,19 +11,19 @@ const TableHeader = () => {
         </th>
 
         <th rowSpan={2} className={styles.orderHeader}>
-          ロットNo
+          得意先
         </th>
 
         <th rowSpan={2} className={styles.productHeader}>
           製品名
         </th>
 
-        <th rowSpan={2} className={styles.customerHeader}>
-          得意先
-        </th>
-
         <th rowSpan={2} className={styles.orderAmountHeader}>
           受注数量
+        </th>
+
+        <th rowSpan={2} className={styles.deliveryHeader}>
+          納期
         </th>
 
         <th colSpan={3} className={styles.processHeader}>
@@ -46,9 +46,21 @@ const TableHeader = () => {
           梱包
         </th>
 
-        {/* <th rowSpan={2} className={styles.remainingHeader}>
-          注残
-        </th> */}
+        <th rowSpan={2} className={styles.totalHeader}>
+          合計
+        </th>
+
+        <th rowSpan={2} className={styles.stockHeader}>
+          在庫数
+        </th>
+
+        <th rowSpan={2} className={styles.stockHeader}>
+          引当数
+        </th>
+
+        <th rowSpan={2} className={styles.stockHeader}>
+          残数
+        </th>
 
         <th rowSpan={2} className={styles.progressHeader}>
           工程進捗
@@ -56,18 +68,6 @@ const TableHeader = () => {
 
         <th rowSpan={2} className={styles.progressHeader}>
           数量進捗
-        </th>
-
-        <th rowSpan={2} className={styles.statusHeader}>
-          状態
-        </th>
-
-        <th rowSpan={2} className={styles.delayHeader}>
-          遅延
-        </th>
-
-        <th rowSpan={2} className={styles.deliveryHeader}>
-          納期
         </th>
 
         <th rowSpan={2} className={styles.remarkHeader}>
@@ -82,23 +82,23 @@ const TableHeader = () => {
       <tr className={styles.headerBottom}>
         <th>ロット</th>
         <th>数量</th>
-        <th>累計</th>
+        <th>日付</th>
 
         <th>ロット</th>
         <th>数量</th>
-        <th>累計</th>
+        <th>日付</th>
 
         <th>ロット</th>
         <th>数量</th>
-        <th>累計</th>
+        <th>日付</th>
 
         <th>ロット</th>
         <th>数量</th>
-        <th>累計</th>
+        <th>日付</th>
 
         <th>ロット</th>
         <th>数量</th>
-        <th>累計</th>
+        <th>日付</th>
       </tr>
     </thead>
   );

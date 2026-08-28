@@ -24,6 +24,19 @@ export type ProductionLog = {
   amount: number;
 };
 
+export type LotProcessBalance = {
+  id: string;
+  postId: string;
+  orderNo: string;
+  lotId: string;
+  lotNo: string;
+  materialLotNo: string;
+  orderProcessId: string;
+  processName: string;
+  processOrder: number;
+  quantity: number;
+};
+
 export type Post = {
   id: string;
   orderNo: string;
@@ -43,6 +56,10 @@ export type Post = {
   packagingDate: string;
   packagingAmount: number;
   shippedAmount?: number;
+  inventoryAmount?: number;
+  allocatedAmount?: number;
+  stockDifferenceAmount?: number;
+  lotProcessBalances?: LotProcessBalance[];
   remainingAmount: number;
   deliveryDate: string;
   completionScheduledDate?: string;

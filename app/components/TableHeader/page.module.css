@@ -67,24 +67,17 @@
   min-width: 160px;
 }
 
-/* 注残 */
-.remainingHeader {
-  min-width: 80px;
-}
-
 /* 進捗率 */
 .progressHeader {
   min-width: 120px;
 }
 
-/* 状態 */
-.statusHeader {
+.totalHeader {
   min-width: 100px;
 }
 
-/* 遅延 */
-.delayHeader {
-  min-width: 80px;
+.stockHeader {
+  min-width: 100px;
 }
 
 /* 納期 */

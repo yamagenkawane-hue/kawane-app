@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Numpad from "@/app/components/Numpad/Numpad";
@@ -207,6 +207,7 @@ export default function ProductionResultsPage() {
   const [amount, setAmount] = useState<number | "">("");
   const [loading, setLoading] = useState(false);
   const [numpadOpen, setNumpadOpen] = useState(false);
+  const queryAppliedRef = useRef(false);
 
   const selectedSchedule = useMemo(
     () => schedules.find((item) => item.id === scheduleId),
@@ -476,6 +477,27 @@ export default function ProductionResultsPage() {
     setLotNo("");
     setMaterialLotNo("");
   };
+
+  useEffect(() => {
+    if (queryAppliedRef.current || schedules.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const orderNo = params.get("orderNo");
+    if (!orderNo) return;
+
+    const matchedSchedule = schedules.find(
+      (schedule) => schedule.orderNo === orderNo,
+    );
+    if (!matchedSchedule) return;
+
+    queryAppliedRef.current = true;
+    window.setTimeout(() => {
+      setScheduleId(matchedSchedule.id);
+      setOrderProcessId("");
+      setLotId("");
+      setLotNo(matchedSchedule.lotNo || "");
+      setMaterialLotNo("");
+    }, 0);
+  }, [schedules]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

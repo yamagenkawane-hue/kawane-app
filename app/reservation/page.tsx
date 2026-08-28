@@ -31,7 +31,6 @@ const getCustomerSortKey = (customerName: string) =>
 
 const Reservation = () => {
   const { posts, setShouldFetch } = useFetchPosts();
-  const [statusFilter, setStatusFilter] = useState("全件");
   const [search, setSearch] = useState("");
   const [isDraggingList, setIsDraggingList] = useState(false);
   const listScrollRef = useRef<HTMLDivElement>(null);
@@ -102,34 +101,14 @@ const Reservation = () => {
           .includes(keyword) ||
         String(post.deliveryDate || "")
           .toLowerCase()
-          .includes(keyword);
+          .includes(keyword) ||
+        (post.lotProcessBalances || []).some((balance) =>
+          String(balance.lotNo || "")
+            .toLowerCase()
+            .includes(keyword),
+        );
 
-      let isStatusMatch = true;
-
-      if (statusFilter !== "全件") {
-        if (statusFilter === "遅延") {
-          if (!post.manufacturingDate) {
-            isStatusMatch = false;
-          } else {
-            const start = new Date(post.manufacturingDate);
-            const end = new Date(post.deliveryDate);
-            const today = new Date();
-            const total = end.getTime() - start.getTime();
-            const passed = today.getTime() - start.getTime();
-            const timeProgress = (passed / total) * 100;
-            const workProgress =
-              post.manufacturingAmount > 0
-                ? (post.packagingAmount / post.manufacturingAmount) * 100
-                : 0;
-
-            isStatusMatch = workProgress < timeProgress;
-          }
-        } else {
-          isStatusMatch = post.status === statusFilter;
-        }
-      }
-
-      return isSearchMatch && isStatusMatch;
+      return isSearchMatch;
     })
 
     .sort((a, b) => {
@@ -146,13 +125,6 @@ const Reservation = () => {
         new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime()
       );
     });
-
-  console.table(
-    filteredPosts.map((p) => ({
-      customerName: JSON.stringify(p.customerName),
-      orderNo: p.orderNo,
-    })),
-  );
 
   const { paginatedPosts, currentPage, setCurrentPage } = usePagination(
     filteredPosts,
@@ -174,107 +146,6 @@ const Reservation = () => {
 
         <div className={styles.searchDelete}>
           <SearchForm search={search} setSearch={setSearch} />
-
-          <div className={styles.filterArea}>
-            <button
-              onClick={() => setStatusFilter("全件")}
-              className={
-                statusFilter === "全件"
-                  ? styles.activeFilter
-                  : styles.filterButton
-              }
-            >
-              全件
-            </button>
-
-            <button
-              onClick={() => setStatusFilter("未着手")}
-              className={
-                statusFilter === "未着手"
-                  ? styles.activeFilter
-                  : styles.filterButton
-              }
-            >
-              未着手
-            </button>
-
-            <button
-              onClick={() => setStatusFilter("製造中")}
-              className={
-                statusFilter === "製造中"
-                  ? styles.activeFilter
-                  : styles.filterButton
-              }
-            >
-              製造中
-            </button>
-
-            <button
-              onClick={() => setStatusFilter("洗浄中")}
-              className={
-                statusFilter === "洗浄中"
-                  ? styles.activeFilter
-                  : styles.filterButton
-              }
-            >
-              洗浄中
-            </button>
-
-            <button
-              onClick={() => setStatusFilter("検査中")}
-              className={
-                statusFilter === "検査中"
-                  ? styles.activeFilter
-                  : styles.filterButton
-              }
-            >
-              検査中
-            </button>
-
-            <button
-              onClick={() => setStatusFilter("測量中")}
-              className={
-                statusFilter === "測量中"
-                  ? styles.activeFilter
-                  : styles.filterButton
-              }
-            >
-              計量中
-            </button>
-
-            <button
-              onClick={() => setStatusFilter("梱包中")}
-              className={
-                statusFilter === "梱包中"
-                  ? styles.activeFilter
-                  : styles.filterButton
-              }
-            >
-              梱包中
-            </button>
-
-            <button
-              onClick={() => setStatusFilter("出荷完了")}
-              className={
-                statusFilter === "出荷完了"
-                  ? styles.activeFilter
-                  : styles.filterButton
-              }
-            >
-              出荷完了
-            </button>
-
-            <button
-              onClick={() => setStatusFilter("遅延")}
-              className={
-                statusFilter === "遅延"
-                  ? styles.activeFilter
-                  : styles.filterButton
-              }
-            >
-              遅延
-            </button>
-          </div>
 
           <Link className={styles.deleteIconLink} href="/childDelete">
             <DeleteIcon className={styles.deleteIcon} />
