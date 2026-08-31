@@ -312,19 +312,19 @@
   align-items: center;
   justify-content: center;
 
-  height: 48px;
+  min-height: 48px;
 
   border-bottom: 1px solid #d0d0d0;
 
   text-align: center;
 
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 
-  padding: 0;
+  padding: 6px 8px;
 
   margin: 0;
 
-  line-height: 1;
+  line-height: 1.25;
 
   box-sizing: border-box;
 }

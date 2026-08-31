@@ -7,15 +7,16 @@ import styles from "./page.module.css";
 
 type ProcessGroup = {
   label: "manufacturing" | "cleaning" | "inspection" | "measurement" | "packaging";
+  processOrder: number;
   names: string[];
 };
 
 const processGroups: ProcessGroup[] = [
-  { label: "manufacturing", names: ["製造", "プレス"] },
-  { label: "cleaning", names: ["洗浄"] },
-  { label: "inspection", names: ["検査", "品質"] },
-  { label: "measurement", names: ["計量"] },
-  { label: "packaging", names: ["梱包", "包装"] },
+  { label: "manufacturing", processOrder: 1, names: ["製造", "プレス"] },
+  { label: "cleaning", processOrder: 2, names: ["洗浄", "メッキ", "外注"] },
+  { label: "inspection", processOrder: 3, names: ["検査", "品質"] },
+  { label: "measurement", processOrder: 4, names: ["計量"] },
+  { label: "packaging", processOrder: 5, names: ["梱包", "包装"] },
 ];
 
 const cellClassMap: Record<ProcessGroup["label"], string> = {
@@ -49,7 +50,7 @@ const matchesProcessGroup = (
   balance: LotProcessBalance,
   group: ProcessGroup,
 ) => {
-  if (balance.processOrder === 1 && group.label === "manufacturing") {
+  if (balance.processOrder === group.processOrder) {
     return true;
   }
 
@@ -170,7 +171,11 @@ const ReservationList: React.FC<ReservationRowProps> = ({
           <React.Fragment key={group.label}>
             <td className={cellClassMap[group.label]}>
               {renderRows(
-                groupBalances.map((balance) => balance.lotNo),
+                groupBalances.map((balance) =>
+                  balance.processName
+                    ? `${balance.processName} / ${balance.lotNo}`
+                    : balance.lotNo,
+                ),
                 styles.logRow,
               )}
             </td>
