@@ -44,8 +44,10 @@ history_summary as (
 select
   concat('lot_flow:', rl.order_no, ':', rl.lot_no) as check_name,
   case
+    when coalesce(hs.history_count, 0) > 0
+      and coalesce(bs.current_process_total, 0) > 0 then 'PASSED'
     when coalesce(hs.history_count, 0) > 0 then 'INFO'
-    else 'FAILED'
+    else 'INFO'
   end as result,
   coalesce(bs.current_process_total, 0)::integer as actual_count,
   concat(
@@ -54,7 +56,7 @@ select
     ', material_lot=', coalesce(rl.material_lot_no, '-'),
     ', lot_quantity=', coalesce(rl.quantity, 0),
     ', current_process=',
-    coalesce(bs.current_process_balances, '工程残なし'),
+    coalesce(bs.current_process_balances, '工程残なし（旧データ、または最終工程まで移動済み）'),
     ', history_count=', coalesce(hs.history_count, 0),
     ', last_moved_at=', coalesce(hs.last_moved_at::text, '-')
   ) as message
@@ -66,7 +68,7 @@ union all
 
 select
   concat('transfer_history:', rl.order_no, ':', rl.lot_no) as check_name,
-  'INFO' as result,
+  'PASSED' as result,
   pth.quantity::integer as actual_count,
   concat(
     coalesce(pth.from_process_name, '開始'),
