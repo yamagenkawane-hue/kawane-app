@@ -27,23 +27,23 @@ const TableHeader = () => {
         </th>
 
         <th colSpan={3} className={styles.processHeader}>
-          第1工程
+          製造
         </th>
 
         <th colSpan={3} className={styles.processHeader}>
-          第2工程
+          洗浄
         </th>
 
         <th colSpan={3} className={styles.processHeader}>
-          第3工程
+          検査
         </th>
 
         <th colSpan={3} className={styles.processHeader}>
-          第4工程
+          計量
         </th>
 
         <th colSpan={3} className={styles.processHeader}>
-          第5工程
+          梱包
         </th>
 
         <th rowSpan={2} className={styles.totalHeader}>
@@ -80,23 +80,23 @@ const TableHeader = () => {
       </tr>
 
       <tr className={styles.headerBottom}>
-        <th>工程/ロット</th>
+        <th>ロット</th>
         <th>数量</th>
         <th>日付</th>
 
-        <th>工程/ロット</th>
+        <th>ロット</th>
         <th>数量</th>
         <th>日付</th>
 
-        <th>工程/ロット</th>
+        <th>ロット</th>
         <th>数量</th>
         <th>日付</th>
 
-        <th>工程/ロット</th>
+        <th>ロット</th>
         <th>数量</th>
         <th>日付</th>
 
-        <th>工程/ロット</th>
+        <th>ロット</th>
         <th>数量</th>
         <th>日付</th>
       </tr>

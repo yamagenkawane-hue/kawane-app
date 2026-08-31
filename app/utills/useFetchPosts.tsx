@@ -15,7 +15,7 @@ const POST_SELECT_COLUMNS =
   "id,order_no,lot_no,product_code,product_name,customer_name,order_amount,delivery_date,completion_scheduled_date,remark,delete,created_at,updated_at";
 
 const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
-  "id,post_id,order_no,lot_id,lot_no,material_lot_no,order_process_id,process_name,process_order,quantity";
+  "id,post_id,order_no,lot_id,lot_no,material_lot_no,order_process_id,process_name,process_order,quantity,subcontractor_name";
 
 const mapLotProcessBalance = (
   row: Record<string, unknown>,
@@ -30,6 +30,7 @@ const mapLotProcessBalance = (
   processName: String(row.process_name || ""),
   processOrder: Number(row.process_order || 0),
   quantity: Number(row.quantity || 0),
+  subcontractorName: String(row.subcontractor_name || ""),
 });
 
 export const useFetchPosts = () => {

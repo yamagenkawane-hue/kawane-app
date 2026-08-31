@@ -329,6 +329,27 @@
   box-sizing: border-box;
 }
 
+.lotLabel {
+  align-items: center;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.outsourceBadge {
+  background: #ede9fe;
+  border: 1px solid #c4b5fd;
+  border-radius: 999px;
+  color: #5b21b6;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.2;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
 /* =========================
    工程共通レイアウト
 ========================= */

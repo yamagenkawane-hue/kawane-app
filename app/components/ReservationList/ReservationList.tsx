@@ -66,7 +66,7 @@ const getGroupBalances = (
     .sort((a, b) => a.processOrder - b.processOrder || a.lotNo.localeCompare(b.lotNo, "ja"));
 
 const renderRows = (
-  values: Array<string | number>,
+  values: React.ReactNode[],
   className: string,
   emptyValue = "-",
 ) => {
@@ -75,11 +75,27 @@ const renderRows = (
   }
 
   return values.map((value, index) => (
-    <div key={`${value}-${index}`} className={className}>
+    <div key={index} className={className}>
       {value || emptyValue}
     </div>
   ));
 };
+
+const isOutsourceBalance = (balance: LotProcessBalance) =>
+  Boolean(balance.subcontractorName) ||
+  balance.processName.includes("外注") ||
+  balance.processName.includes("メッキ");
+
+const renderProcessLot = (balance: LotProcessBalance) => (
+  <span className={styles.lotLabel}>
+    <span>{balance.lotNo || "-"}</span>
+    {isOutsourceBalance(balance) && (
+      <span className={styles.outsourceBadge}>
+        外注: {balance.processName || balance.subcontractorName || "-"}
+      </span>
+    )}
+  </span>
+);
 
 const getLatestLogDate = (logs?: { date: string; amount: number }[]) =>
   [...(logs || [])]
@@ -171,11 +187,7 @@ const ReservationList: React.FC<ReservationRowProps> = ({
           <React.Fragment key={group.label}>
             <td className={cellClassMap[group.label]}>
               {renderRows(
-                groupBalances.map((balance) =>
-                  balance.processName
-                    ? `${balance.processName} / ${balance.lotNo}`
-                    : balance.lotNo,
-                ),
+                groupBalances.map((balance) => renderProcessLot(balance)),
                 styles.logRow,
               )}
             </td>
