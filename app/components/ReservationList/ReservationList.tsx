@@ -120,7 +120,7 @@ const renderProcessLot = (
         次工程へ移動
       </button>
     )}
-    {handleEditLotBalance && balance.quantity > 0 && (
+    {handleEditLotBalance && balance.processOrder > 1 && balance.quantity > 0 && (
       <button
         type="button"
         className={styles.editQuantityButton}
