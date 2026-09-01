@@ -46,7 +46,7 @@ type EditingRow =
   | null;
 
 const SCHEDULE_SELECT_COLUMNS =
-  "id,post_id,order_no,customer_name,product_name,press_number,lot_no,plan_amount,press_completed_amount,press_completed_date,shipping_scheduled_start,shipping_scheduled_end,created_at,updated_at";
+  "id,post_id,order_no,customer_name,product_name,press_number,lot_no,plan_amount,press_completed_amount,press_completed_date,shipping_scheduled_start,shipping_scheduled_end,created_at,updated_at,department";
 
 const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
   "id,post_id,order_no,lot_no,process_name,process_order,quantity,completed_amount,completed_date,customer_name,product_name,delivery_date";
@@ -55,6 +55,7 @@ const mapSchedule = (row: Record<string, unknown>): ProductionSchedule => ({
   id: String(row.id || ""),
   postId: row.post_id ? String(row.post_id) : "",
   orderNo: String(row.order_no || ""),
+  department: String(row.department || "製造G"),
   customerName: String(row.customer_name || ""),
   productName: String(row.product_name || ""),
   pressNumber: String(row.press_number || ""),
@@ -309,6 +310,7 @@ export default function ProductionSchedulesPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          department: selectedDepartment,
           customer_name: form.customerName,
           product_name: form.productName,
           order_no: orderNo,
@@ -383,6 +385,7 @@ export default function ProductionSchedulesPage() {
           plan_amount: planAmount,
           press_completed_amount: pressCompletedAmount,
           press_completed_date: schedule.pressCompletedDate || null,
+          department: schedule.department || "製造G",
           updated_at: new Date().toISOString(),
         })
         .eq("id", schedule.id);
@@ -497,6 +500,9 @@ export default function ProductionSchedulesPage() {
 
   const departmentBalanceRows = lotProcessBalances.filter(
     (row) => getDepartmentForProcess(row.processName) === selectedDepartment,
+  );
+  const departmentSchedules = schedules.filter(
+    (schedule) => (schedule.department || "製造G") === selectedDepartment,
   );
 
   const showManualInput = selectedDepartment === "製造G";
@@ -762,7 +768,7 @@ export default function ProductionSchedulesPage() {
             })}
 
             {selectedDepartment === "製造G" &&
-              schedules.map((schedule) => {
+              departmentSchedules.map((schedule) => {
               const editing = isEditing("schedule", schedule.id);
 
               return (
@@ -929,7 +935,7 @@ export default function ProductionSchedulesPage() {
               ))}
             {((selectedDepartment === "製造G" &&
               orderSchedules.length === 0 &&
-              schedules.length === 0) ||
+              departmentSchedules.length === 0) ||
               (selectedDepartment !== "製造G" &&
                 departmentBalanceRows.length === 0)) && (
               <tr>

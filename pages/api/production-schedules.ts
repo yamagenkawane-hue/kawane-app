@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import supabase from "@/lib/supabase";
 
 const SCHEDULE_SELECT_COLUMNS =
-  "id,post_id,order_no,customer_name,product_name,press_number,lot_no,plan_amount,press_completed_amount,press_completed_date,shipping_scheduled_start,shipping_scheduled_end,created_at,updated_at";
+  "id,post_id,order_no,customer_name,product_name,press_number,lot_no,plan_amount,press_completed_amount,press_completed_date,shipping_scheduled_start,shipping_scheduled_end,created_at,updated_at,department";
 
 const POST_SELECT_COLUMNS = "id,delete,order_no,order_amount";
 

@@ -308,6 +308,7 @@ export type ProductionSchedule = {
   id: string;
   postId?: string;
   orderNo?: string;
+  department?: string;
   customerName: string;
   productName: string;
   pressNumber: string;

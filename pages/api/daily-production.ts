@@ -98,9 +98,14 @@ export default async function handler(
     if (req.method === "POST") {
       const { customer_name, product_name, press_number, plan_amount } =
         req.body || {};
+      const department = String(req.body?.department || "製造G");
 
       if (!customer_name || !product_name || !press_number) {
         return res.status(400).json({ error: "必須項目が不足しています" });
+      }
+
+      if (!["製造G", "品質管理G", "梱包出荷G"].includes(department)) {
+        return res.status(400).json({ error: "部署の指定が正しくありません" });
       }
 
       if (Number(plan_amount) < 0) {
@@ -110,7 +115,7 @@ export default async function handler(
       const now = new Date().toISOString();
       const { data, error } = await supabase
         .from("production_schedules")
-        .insert({ ...req.body, created_at: now, updated_at: now })
+        .insert({ ...req.body, department, created_at: now, updated_at: now })
         .select()
         .single();
 
