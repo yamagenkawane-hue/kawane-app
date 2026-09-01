@@ -6,6 +6,13 @@ const SCHEDULE_SELECT_COLUMNS =
 
 const POST_SELECT_COLUMNS = "id,delete,order_no,order_amount";
 
+const DEPARTMENTS = ["製造G", "品質管理G", "梱包出荷G"] as const;
+
+const isDepartment = (value: string) =>
+  DEPARTMENTS.some((department) => department === value);
+
+const normalizeDepartment = (value: unknown) => String(value || "製造G");
+
 const buildShippedMap = (rows: { post_id?: string | null; quantity?: number | null }[]) => {
   const shippedMap = new Map<string, number>();
   for (const row of rows || []) {
@@ -54,12 +61,23 @@ export default async function handler(
 ) {
   try {
     if (req.method === "GET") {
+      const departmentQuery =
+        typeof req.query.department === "string" ? req.query.department : "";
+
+      if (departmentQuery && !isDepartment(departmentQuery)) {
+        return res.status(400).json({ error: "部署の指定が正しくありません" });
+      }
+
+      const scheduleQuery = supabase
+        .from("v_production_schedules_with_master")
+        .select(SCHEDULE_SELECT_COLUMNS)
+        .order("created_at", { ascending: false });
+
       const [scheduleResult, postResult, shipmentResult, processResult] =
         await Promise.all([
-          supabase
-            .from("v_production_schedules_with_master")
-            .select(SCHEDULE_SELECT_COLUMNS)
-            .order("created_at", { ascending: false }),
+          departmentQuery
+            ? scheduleQuery.eq("department", departmentQuery)
+            : scheduleQuery,
           supabase
             .from("v_posts_with_master")
             .select(POST_SELECT_COLUMNS)
@@ -97,9 +115,16 @@ export default async function handler(
     }
 
     if (req.method === "POST") {
+      const payload = req.body || {};
+      const department = normalizeDepartment(payload.department);
+
+      if (!isDepartment(department)) {
+        return res.status(400).json({ error: "部署の指定が正しくありません" });
+      }
+
       const { data, error } = await supabase
         .from("production_schedules")
-        .insert(req.body)
+        .insert({ ...payload, department })
         .select()
         .single();
       if (error) throw error;
@@ -107,10 +132,26 @@ export default async function handler(
     }
 
     if (req.method === "PUT") {
-      const { id, ...payload } = req.body;
+      const { id, ...payload } = req.body || {};
+
+      if (!id) {
+        return res.status(400).json({ error: "IDが不足しています" });
+      }
+
+      const updatePayload = { ...payload };
+      if (Object.prototype.hasOwnProperty.call(updatePayload, "department")) {
+        const department = normalizeDepartment(updatePayload.department);
+
+        if (!isDepartment(department)) {
+          return res.status(400).json({ error: "部署の指定が正しくありません" });
+        }
+
+        updatePayload.department = department;
+      }
+
       const { data, error } = await supabase
         .from("production_schedules")
-        .update(payload)
+        .update(updatePayload)
         .eq("id", id)
         .select()
         .single();
