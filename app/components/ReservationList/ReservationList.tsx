@@ -184,6 +184,8 @@ const ReservationList: React.FC<ReservationRowProps> = ({
     (total, balance) => total + Number(balance.quantity || 0),
     0,
   );
+  const remainingInProcessAmount =
+    Number(post.orderAmount || 0) - totalInProcessAmount;
   const completedProcessCount = processGroups.filter(
     (group) => getGroupBalances(balances, group).length > 0,
   ).length;
@@ -252,7 +254,7 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       <td className={styles.stockCell}>{formatAmount(post.inventoryAmount)}</td>
       <td className={styles.stockCell}>{formatAmount(post.allocatedAmount)}</td>
       <td className={styles.stockCell}>
-        {formatAmount(post.stockDifferenceAmount)}
+        {formatAmount(remainingInProcessAmount)}
       </td>
 
       <td>
