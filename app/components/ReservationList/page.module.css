@@ -847,6 +847,12 @@
   font-weight: bold;
 }
 
+.logRow:last-child,
+.amountRow:last-child,
+.averageRow:last-child {
+  border-bottom: none;
+}
+
 .外注 {
   background-color: #7c3aed;
 }
