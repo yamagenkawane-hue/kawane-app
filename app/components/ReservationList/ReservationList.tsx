@@ -46,6 +46,9 @@ const dateClassMap: Record<ProcessGroup["label"], string> = {
 const formatAmount = (value?: number) =>
   Number(value || 0).toLocaleString("ja-JP");
 
+const formatAdjustmentAmount = (value?: number) =>
+  `-${formatAmount(value)}個`;
+
 const matchesProcessGroup = (
   balance: LotProcessBalance,
   group: ProcessGroup,
@@ -184,8 +187,13 @@ const ReservationList: React.FC<ReservationRowProps> = ({
     (total, balance) => total + Number(balance.quantity || 0),
     0,
   );
+  const allocatedAmount = Number(post.allocatedAmount || 0);
+  const quantityAdjustmentAmount = Number(post.quantityAdjustmentAmount || 0);
   const remainingInProcessAmount =
-    Number(post.orderAmount || 0) - totalInProcessAmount;
+    Number(post.orderAmount || 0) -
+    totalInProcessAmount -
+    allocatedAmount -
+    quantityAdjustmentAmount;
   const completedProcessCount = processGroups.filter(
     (group) => getGroupBalances(balances, group).length > 0,
   ).length;
@@ -252,9 +260,16 @@ const ReservationList: React.FC<ReservationRowProps> = ({
 
       <td className={styles.totalCell}>{formatAmount(totalInProcessAmount)}</td>
       <td className={styles.stockCell}>{formatAmount(post.inventoryAmount)}</td>
-      <td className={styles.stockCell}>{formatAmount(post.allocatedAmount)}</td>
+      <td className={styles.stockCell}>{formatAmount(allocatedAmount)}</td>
       <td className={styles.stockCell}>
-        {formatAmount(remainingInProcessAmount)}
+        <span className={styles.remainingAmountValue}>
+          {formatAmount(remainingInProcessAmount)}
+        </span>
+        {quantityAdjustmentAmount > 0 && (
+          <span className={styles.adjustmentAmountValue}>
+            {formatAdjustmentAmount(quantityAdjustmentAmount)}
+          </span>
+        )}
       </td>
 
       <td>

@@ -50,6 +50,7 @@ export const useFetchPosts = () => {
           lotBalanceResult,
           inventoryResult,
           allocationResult,
+          transferHistoryResult,
         ] = await Promise.all([
           supabase
             .from("posts")
@@ -74,6 +75,11 @@ export const useFetchPosts = () => {
           supabase
             .from("v_inventory_allocations_with_master")
             .select("post_id,allocated_amount,shipped_amount"),
+          supabase
+            .from("v_process_transfer_history_with_master")
+            .select(
+              "post_id,movement_type,before_from_quantity,after_from_quantity,correction_quantity",
+            ),
         ]);
 
         const { data, error } = postResult;
@@ -85,6 +91,7 @@ export const useFetchPosts = () => {
         if (lotBalanceResult.error) throw lotBalanceResult.error;
         if (inventoryResult.error) throw inventoryResult.error;
         if (allocationResult.error) throw allocationResult.error;
+        if (transferHistoryResult.error) throw transferHistoryResult.error;
 
         const shippedMap = new Map<string, number>();
         for (const row of shipmentResult.data || []) {
@@ -141,6 +148,33 @@ export const useFetchPosts = () => {
             shippedAmount:
               current.shippedAmount + Number(row.shipped_amount || 0),
           });
+        }
+
+        const quantityAdjustmentByPost = new Map<string, number>();
+        for (const row of transferHistoryResult.data || []) {
+          const postId = String(row.post_id || "");
+          if (!postId) continue;
+
+          const movementType = String(row.movement_type || "");
+          const beforeQuantity = Number(row.before_from_quantity || 0);
+          const afterQuantity = Number(row.after_from_quantity || 0);
+          const correctionQuantity = Number(row.correction_quantity || 0);
+          const manualDecrease =
+            movementType === "manual_edit"
+              ? Math.max(0, beforeQuantity - afterQuantity)
+              : 0;
+          const transferCorrection =
+            movementType === "quantity_correction"
+              ? Math.max(0, correctionQuantity)
+              : 0;
+          const adjustmentAmount = manualDecrease + transferCorrection;
+
+          if (adjustmentAmount <= 0) continue;
+
+          quantityAdjustmentByPost.set(
+            postId,
+            (quantityAdjustmentByPost.get(postId) || 0) + adjustmentAmount,
+          );
         }
 
         const processProgressMap = buildOrderProcessProgressMap(
@@ -215,6 +249,8 @@ export const useFetchPosts = () => {
             { currentStock: 0, allocatedStock: 0 };
           const allocatedAmount =
             allocationSummary?.allocatedAmount || productInventory.allocatedStock;
+          const quantityAdjustmentAmount =
+            quantityAdjustmentByPost.get(row.id) || 0;
           const stockDifferenceAmount =
             productInventory.currentStock - Number(orderAmount || 0);
 
@@ -264,6 +300,7 @@ export const useFetchPosts = () => {
             inventoryAmount: productInventory.currentStock,
             allocatedAmount,
             stockDifferenceAmount,
+            quantityAdjustmentAmount,
             lotProcessBalances: lotBalancesByPost.get(row.id) || [],
             remainingAmount,
             deliveryDate: row.delivery_date || "",

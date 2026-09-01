@@ -60,6 +60,7 @@ export type Post = {
   inventoryAmount?: number;
   allocatedAmount?: number;
   stockDifferenceAmount?: number;
+  quantityAdjustmentAmount?: number;
   lotProcessBalances?: LotProcessBalance[];
   remainingAmount: number;
   deliveryDate: string;
