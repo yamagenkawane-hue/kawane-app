@@ -194,6 +194,21 @@ export default function ProductionResultsPage() {
     [selectedScheduleOrderProcesses],
   );
 
+  useEffect(() => {
+    const firstProcess = selectableOrderProcesses[0];
+
+    if (!firstProcess) {
+      if (orderProcessId) {
+        setOrderProcessId("");
+      }
+      return;
+    }
+
+    if (orderProcessId !== firstProcess.id) {
+      setOrderProcessId(firstProcess.id);
+    }
+  }, [orderProcessId, selectableOrderProcesses]);
+
   const getProcessAvailableAmount = (target: OrderProcess) => {
     return Math.max(
       0,
@@ -372,8 +387,13 @@ export default function ProductionResultsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedSchedule || !selectedOrderProcess || !date || amount === "") {
-      alert("予定、工程、日付、数量を入力してください");
+    if (!selectedSchedule || !date || amount === "") {
+      alert("予定、日付、数量を入力してください");
+      return;
+    }
+
+    if (!selectedOrderProcess) {
+      alert("製造工程予定がありません。製品工程マスタを確認してください。");
       return;
     }
 
@@ -472,27 +492,6 @@ export default function ProductionResultsPage() {
               {schedule.planAmount}
             </option>
           ))}
-        </select>
-
-        <select
-          className={styles.select}
-          value={orderProcessId}
-          onChange={(e) => {
-            setOrderProcessId(e.target.value);
-          }}
-          disabled={!selectedPostId || selectedScheduleOrderProcesses.length === 0}
-        >
-          <option value="">工程を選択</option>
-          {selectableOrderProcesses.map((process) => {
-            const availableAmount = getProcessAvailableAmount(process);
-
-            return (
-              <option key={process.id} value={process.id}>
-                {process.processOrder}. {process.processName} / 登録可能{" "}
-                {Math.max(0, availableAmount)}
-              </option>
-            );
-          })}
         </select>
 
         {selectedOrderProcess && (
