@@ -455,7 +455,7 @@ export default function ProductionResultsPage() {
       setMaterialLotNo("");
       await fetchData();
       alert("製造実績を登録しました");
-      router.push(`/progress/${selectedPostId}`);
+      router.push("/reservation");
     } catch (error) {
       console.error(error);
       const message =
