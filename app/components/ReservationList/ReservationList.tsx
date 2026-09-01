@@ -63,7 +63,15 @@ const getGroupBalances = (
 ) =>
   balances
     .filter((balance) => matchesProcessGroup(balance, group))
-    .sort((a, b) => a.processOrder - b.processOrder || a.lotNo.localeCompare(b.lotNo, "ja"));
+    .sort(
+      (a, b) =>
+        a.processOrder - b.processOrder ||
+        a.lotNo.localeCompare(b.lotNo, "ja", { numeric: true }) ||
+        a.materialLotNo.localeCompare(b.materialLotNo, "ja", {
+          numeric: true,
+        }) ||
+        a.lotId.localeCompare(b.lotId),
+    );
 
 const renderRows = (
   values: React.ReactNode[],
@@ -93,6 +101,11 @@ const renderProcessLot = (
 ) => (
   <span className={styles.lotLabel}>
     <span>{balance.lotNo || "-"}</span>
+    {balance.materialLotNo && (
+      <span className={styles.materialLotLabel}>
+        材料: {balance.materialLotNo}
+      </span>
+    )}
     {isOutsourceBalance(balance) && (
       <span className={styles.outsourceBadge}>
         外注: {balance.processName || balance.subcontractorName || "-"}

@@ -337,6 +337,14 @@
   max-width: 100%;
 }
 
+.materialLotLabel {
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
 .outsourceBadge {
   background: #ede9fe;
   border: 1px solid #c4b5fd;
