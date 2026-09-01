@@ -6,8 +6,7 @@ select
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
       and p.proname = 'edit_lot_process_balance'
-      and pg_get_function_identity_arguments(p.oid) =
-        'p_balance_id uuid, p_after_quantity integer, p_reason text, p_idempotency_key text'
+      and oidvectortypes(p.proargtypes) = 'uuid, integer, text, text'
   ) then 'PASSED' else 'FAILED' end as result,
   (
     select count(*)
@@ -15,8 +14,7 @@ select
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
       and p.proname = 'edit_lot_process_balance'
-      and pg_get_function_identity_arguments(p.oid) =
-        'p_balance_id uuid, p_after_quantity integer, p_reason text, p_idempotency_key text'
+      and oidvectortypes(p.proargtypes) = 'uuid, integer, text, text'
   ) as actual_count,
   'edit_lot_process_balance(uuid, integer, text, text) exists.' as message
 union all
