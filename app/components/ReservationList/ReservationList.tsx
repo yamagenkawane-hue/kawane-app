@@ -86,13 +86,25 @@ const isOutsourceBalance = (balance: LotProcessBalance) =>
   balance.processName.includes("外注") ||
   balance.processName.includes("メッキ");
 
-const renderProcessLot = (balance: LotProcessBalance) => (
+const renderProcessLot = (
+  balance: LotProcessBalance,
+  handleTransferLot?: (balance: LotProcessBalance) => Promise<void>,
+) => (
   <span className={styles.lotLabel}>
     <span>{balance.lotNo || "-"}</span>
     {isOutsourceBalance(balance) && (
       <span className={styles.outsourceBadge}>
         外注: {balance.processName || balance.subcontractorName || "-"}
       </span>
+    )}
+    {handleTransferLot && balance.processOrder > 1 && balance.quantity > 0 && (
+      <button
+        type="button"
+        className={styles.transferButton}
+        onClick={() => void handleTransferLot(balance)}
+      >
+        次工程へ移動
+      </button>
     )}
   </span>
 );
@@ -141,6 +153,7 @@ const getDeliveryClass = (deliveryDate: string) => {
 const ReservationList: React.FC<ReservationRowProps> = ({
   post,
   handleDelete,
+  handleTransferLot,
 }) => {
   const balances = post.lotProcessBalances || [];
   const totalInProcessAmount = balances.reduce(
@@ -187,7 +200,9 @@ const ReservationList: React.FC<ReservationRowProps> = ({
           <React.Fragment key={group.label}>
             <td className={cellClassMap[group.label]}>
               {renderRows(
-                groupBalances.map((balance) => renderProcessLot(balance)),
+                groupBalances.map((balance) =>
+                  renderProcessLot(balance, handleTransferLot),
+                ),
                 styles.logRow,
               )}
             </td>
@@ -243,7 +258,7 @@ const ReservationList: React.FC<ReservationRowProps> = ({
           className={styles.editButton}
           href={`/productionResults?orderNo=${encodeURIComponent(post.orderNo)}`}
         >
-          実績登録
+          製造実績
         </Link>
         <button className={styles.deleteButton} onClick={handleDelete}>
           削除

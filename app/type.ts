@@ -106,6 +106,7 @@ export type SearchProps = {
 export type ReservationRowProps = {
   post: Post;
   handleDelete: () => Promise<void>;
+  handleTransferLot?: (balance: LotProcessBalance) => Promise<void>;
 };
 
 export type PaginationProps = {

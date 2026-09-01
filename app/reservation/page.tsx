@@ -8,6 +8,8 @@ import ReservationList from "../components/ReservationList/ReservationList";
 import TableHeader from "../components/TableHeader/TableHeader";
 import Pagination from "../components/Pagination/Pagination";
 import DeleteIcon from "@mui/icons-material/Delete";
+import supabase from "@/lib/supabase";
+import { LotProcessBalance } from "../type";
 import { useFetchPosts } from "../utills/useFetchPosts";
 import { usePagination } from "../utills/usePagination";
 import { useReservationDelete } from "../utills/useReservationDelete";
@@ -133,6 +135,42 @@ const Reservation = () => {
 
   const handleDelete = useReservationDelete(setShouldFetch);
 
+  const handleTransferLot = async (balance: LotProcessBalance) => {
+    const currentQuantity = Number(balance.quantity || 0);
+    if (currentQuantity <= 0) {
+      alert("移動できる数量がありません。");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `${balance.lotNo} / ${currentQuantity.toLocaleString("ja-JP")} を次工程へ移動します。よろしいですか？`,
+    );
+
+    if (!confirmed) return;
+
+    const idempotencyKey =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`;
+
+    const { error } = await supabase.rpc("transfer_lot_to_next_process", {
+      p_lot_id: balance.lotId,
+      p_from_order_process_id: balance.orderProcessId,
+      p_amount: currentQuantity,
+      p_reason: "Progress screen transfer",
+      p_idempotency_key: idempotencyKey,
+    });
+
+    if (error) {
+      console.error(error);
+      alert(error.message || "次工程への移動に失敗しました。");
+      return;
+    }
+
+    alert("次工程へ移動しました。");
+    setShouldFetch(true);
+  };
+
   return (
     <>
       <div className={styles.reservationImg}>
@@ -172,6 +210,7 @@ const Reservation = () => {
                 key={post.id}
                 post={post}
                 handleDelete={() => handleDelete(post.id)}
+                handleTransferLot={handleTransferLot}
               />
             ))}
           </tbody>
