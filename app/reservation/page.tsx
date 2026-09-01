@@ -142,8 +142,42 @@ const Reservation = () => {
       return;
     }
 
+    const amountText = window.prompt(
+      `${balance.lotNo} を次工程へ移動します。移動数量を入力してください。`,
+      String(currentQuantity),
+    );
+
+    if (amountText === null) return;
+
+    const transferAmount = Number(amountText.replaceAll(",", "").trim());
+
+    if (!Number.isInteger(transferAmount) || transferAmount <= 0) {
+      alert("移動数量は1以上の整数で入力してください。");
+      return;
+    }
+
+    if (transferAmount > currentQuantity) {
+      alert(`現在数量を超えて移動できません。移動可能数量は${currentQuantity}です。`);
+      return;
+    }
+
+    let reason = "Progress screen transfer";
+    if (transferAmount < currentQuantity) {
+      const reasonText = window.prompt(
+        "現在数量より少なく移動する理由を入力してください。",
+      );
+
+      if (reasonText === null) return;
+      if (!reasonText.trim()) {
+        alert("数量を減らして移動する場合は理由を入力してください。");
+        return;
+      }
+
+      reason = reasonText.trim();
+    }
+
     const confirmed = window.confirm(
-      `${balance.lotNo} / ${currentQuantity.toLocaleString("ja-JP")} を次工程へ移動します。よろしいですか？`,
+      `${balance.lotNo} / ${transferAmount.toLocaleString("ja-JP")} を次工程へ移動します。よろしいですか？`,
     );
 
     if (!confirmed) return;
@@ -156,8 +190,8 @@ const Reservation = () => {
     const { error } = await supabase.rpc("transfer_lot_to_next_process", {
       p_lot_id: balance.lotId,
       p_from_order_process_id: balance.orderProcessId,
-      p_amount: currentQuantity,
-      p_reason: "Progress screen transfer",
+      p_amount: transferAmount,
+      p_reason: reason,
       p_idempotency_key: idempotencyKey,
     });
 

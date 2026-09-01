@@ -252,7 +252,7 @@ export default function LotDetailPage() {
       supabase
         .from("v_process_transfer_history_with_master")
         .select(
-          "id,created_at,from_process_name,to_process_name,from_process_order,to_process_order,quantity,movement_type,reason",
+          "id,created_at,from_process_name,to_process_name,from_process_order,to_process_order,quantity,movement_type,correction_quantity,reason",
         )
         .eq("lot_id", targetLot.id)
         .order("created_at", { ascending: true }),
@@ -367,16 +367,21 @@ export default function LotDetailPage() {
       const fromProcess = String(row.from_process_name || "開始");
       const toProcess = String(row.to_process_name || "完了");
       const reason = String(row.reason || "");
+      const correctionQuantity = toNumber(row.correction_quantity);
+      const correctionDetail =
+        correctionQuantity > 0
+          ? ` / 補正 ${formatNumber(correctionQuantity)}`
+          : "";
 
       return {
         id: `transfer-${String(row.id || "")}`,
         date: String(row.created_at || ""),
         sortOrder: 45,
         section: "ロット履歴" as const,
-        action: "工程移動",
+        action: correctionQuantity > 0 ? "補正移動" : "工程移動",
         amount: toNumber(row.quantity),
         target: targetLot.lotNo || "-",
-        detail: `${fromProcess} → ${toProcess}${reason ? ` / ${reason}` : ""}`,
+        detail: `${fromProcess} → ${toProcess}${correctionDetail}${reason ? ` / ${reason}` : ""}`,
       };
     });
 
