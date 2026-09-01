@@ -46,7 +46,7 @@ type EditingRow =
   | null;
 
 const SCHEDULE_SELECT_COLUMNS =
-  "id,post_id,order_no,customer_name,product_name,press_number,lot_no,plan_amount,press_completed_amount,press_completed_date,shipping_scheduled_start,shipping_scheduled_end,created_at,updated_at,department";
+  "id,post_id,order_no,customer_name,product_name,press_number,lot_no,plan_amount,press_completed_amount,press_completed_date,shipping_scheduled_start,shipping_scheduled_end,delivery_date,created_at,updated_at,department";
 
 const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
   "id,post_id,order_no,lot_no,process_name,process_order,quantity,completed_amount,completed_date,customer_name,product_name,delivery_date";
@@ -65,6 +65,7 @@ const mapSchedule = (row: Record<string, unknown>): ProductionSchedule => ({
   pressCompletedDate: String(row.press_completed_date || ""),
   shippingScheduledStart: String(row.shipping_scheduled_start || ""),
   shippingScheduledEnd: String(row.shipping_scheduled_end || ""),
+  deliveryDate: String(row.delivery_date || row.shipping_scheduled_end || ""),
   createdAt: String(row.created_at || ""),
   updatedAt: String(row.updated_at || ""),
 });
@@ -385,6 +386,8 @@ export default function ProductionSchedulesPage() {
           plan_amount: planAmount,
           press_completed_amount: pressCompletedAmount,
           press_completed_date: schedule.pressCompletedDate || null,
+          shipping_scheduled_end:
+            schedule.deliveryDate || schedule.shippingScheduledEnd || null,
           department: schedule.department || "製造G",
           updated_at: new Date().toISOString(),
         })
@@ -772,7 +775,10 @@ export default function ProductionSchedulesPage() {
               const editing = isEditing("schedule", schedule.id);
 
               return (
-              <tr key={schedule.id}>
+              <tr
+                key={schedule.id}
+                className={isOverdue(schedule.deliveryDate) ? styles.dangerRow : ""}
+              >
                 <td>
                   {editing ? (
                     <input
@@ -878,7 +884,17 @@ export default function ProductionSchedulesPage() {
                     }
                   />
                 </td>
-                <td>-</td>
+                <td>
+                  <input
+                    className={`${styles.tableInput} ${styles.dateInput}`}
+                    disabled={!editing}
+                    type="date"
+                    value={schedule.deliveryDate || ""}
+                    onChange={(e) =>
+                      handleChange(schedule.id, "deliveryDate", e.target.value)
+                    }
+                  />
+                </td>
                 <td className={styles.actionArea}>
                   {editing ? (
                     <>

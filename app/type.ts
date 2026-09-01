@@ -318,6 +318,7 @@ export type ProductionSchedule = {
   pressCompletedDate: string;
   shippingScheduledStart?: string;
   shippingScheduledEnd?: string;
+  deliveryDate?: string;
   createdAt: string;
   updatedAt: string;
 };
