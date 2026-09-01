@@ -388,7 +388,7 @@ export default function ProductionResultsPage() {
     e.preventDefault();
 
     if (!selectedSchedule || !date || amount === "") {
-      alert("予定、日付、数量を入力してください");
+      alert("製造予定、日付、数量を入力してください");
       return;
     }
 
@@ -485,7 +485,7 @@ export default function ProductionResultsPage() {
           value={scheduleId}
           onChange={(e) => void handleScheduleChange(e.target.value)}
         >
-          <option value="">製造Gのデイリー予定を選択</option>
+          <option value="">製造予定を選択</option>
           {schedules.map((schedule) => (
             <option key={schedule.id} value={schedule.id}>
               {schedule.orderNo || "-"} / {schedule.productName} / 数量{" "}
@@ -554,7 +554,7 @@ export default function ProductionResultsPage() {
         />
 
         <button className={styles.submitButton} type="submit">
-          実績登録
+          製造実績登録
         </button>
       </form>
 
