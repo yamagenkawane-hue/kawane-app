@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import supabase from "@/lib/supabase";
@@ -187,42 +187,7 @@ export default function LotDetailPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
-  const loadLotDetail = async () => {
-    if (!lotId) return;
-
-    try {
-      setLoading(true);
-      setMessage("");
-
-      const { data, error } = await supabase
-        .from("v_lot_flow_status")
-        .select(LOT_SELECT_COLUMNS)
-        .eq("id", lotId)
-        .eq("deleted", false)
-        .maybeSingle();
-
-      if (error) throw error;
-      if (!data) {
-        setLot(null);
-        setHistoryRows([]);
-        setMessage("対象ロットが見つかりません");
-        return;
-      }
-
-      const nextLot = mapLotRow(data as unknown as Record<string, unknown>);
-      setLot(nextLot);
-      await loadHistory(nextLot);
-    } catch (error) {
-      console.error(error);
-      setMessage("ロット詳細の取得に失敗しました");
-      setLot(null);
-      setHistoryRows([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadHistory = async (targetLot: LotFlowRow) => {
+  const loadHistory = useCallback(async (targetLot: LotFlowRow) => {
     const [
       orderResult,
       lotResult,
@@ -457,7 +422,42 @@ export default function LotDetailPage() {
     );
 
     setHistoryRows(sortHistoryRows([...detailRows, ...fallbackRows]));
-  };
+  }, []);
+
+  const loadLotDetail = useCallback(async () => {
+    if (!lotId) return;
+
+    try {
+      setLoading(true);
+      setMessage("");
+
+      const { data, error } = await supabase
+        .from("v_lot_flow_status")
+        .select(LOT_SELECT_COLUMNS)
+        .eq("id", lotId)
+        .eq("deleted", false)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        setLot(null);
+        setHistoryRows([]);
+        setMessage("対象ロットが見つかりません");
+        return;
+      }
+
+      const nextLot = mapLotRow(data as unknown as Record<string, unknown>);
+      setLot(nextLot);
+      await loadHistory(nextLot);
+    } catch (error) {
+      console.error(error);
+      setMessage("ロット詳細の取得に失敗しました");
+      setLot(null);
+      setHistoryRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [loadHistory, lotId]);
 
   useEffect(() => {
     const timerId = window.setTimeout(() => {
@@ -465,7 +465,7 @@ export default function LotDetailPage() {
     }, 0);
 
     return () => window.clearTimeout(timerId);
-  }, [lotId]);
+  }, [loadLotDetail]);
 
   const totals = useMemo(
     () =>

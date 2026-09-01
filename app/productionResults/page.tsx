@@ -196,17 +196,24 @@ export default function ProductionResultsPage() {
 
   useEffect(() => {
     const firstProcess = selectableOrderProcesses[0];
+    let timer: number | undefined;
 
     if (!firstProcess) {
       if (orderProcessId) {
-        setOrderProcessId("");
+        timer = window.setTimeout(() => setOrderProcessId(""), 0);
       }
-      return;
+      return () => {
+        if (timer) window.clearTimeout(timer);
+      };
     }
 
     if (orderProcessId !== firstProcess.id) {
-      setOrderProcessId(firstProcess.id);
+      timer = window.setTimeout(() => setOrderProcessId(firstProcess.id), 0);
     }
+
+    return () => {
+      if (timer) window.clearTimeout(timer);
+    };
   }, [orderProcessId, selectableOrderProcesses]);
 
   const getProcessAvailableAmount = (target: OrderProcess) => {

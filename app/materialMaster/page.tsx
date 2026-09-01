@@ -10,6 +10,15 @@ import styles from "../masterCommon.module.css";
 const MATERIAL_SELECT_COLUMNS =
   "id,material_code,material_number,material_name,size,remaining_amount";
 
+type MaterialMasterRow = {
+  id?: string | null;
+  material_code?: string | null;
+  material_number?: string | null;
+  material_name?: string | null;
+  size?: string | null;
+  remaining_amount?: number | null;
+};
+
 const emptyForm = {
   materialCode: "",
   materialNumber: "",
@@ -18,8 +27,8 @@ const emptyForm = {
   remainingAmount: "",
 };
 
-const mapMaterial = (row: any): MaterialMaster => ({
-  id: row.id,
+const mapMaterial = (row: MaterialMasterRow): MaterialMaster => ({
+  id: row.id || "",
   materialCode: row.material_code || "",
   materialNumber: row.material_number || "",
   materialName: row.material_name || "",
@@ -59,7 +68,11 @@ export default function MaterialMasterPage() {
   };
 
   useEffect(() => {
-    void fetchItems();
+    const timer = window.setTimeout(() => {
+      void fetchItems();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, []);
 
   const handleAdd = async () => {
