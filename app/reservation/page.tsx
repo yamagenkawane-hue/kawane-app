@@ -205,6 +205,67 @@ const Reservation = () => {
     setShouldFetch(true);
   };
 
+  const handleEditLotBalance = async (balance: LotProcessBalance) => {
+    const currentQuantity = Number(balance.quantity || 0);
+    const amountText = window.prompt(
+      `${balance.lotNo} / ${balance.processName} の現在数量を編集します。編集後の数量を入力してください。`,
+      String(currentQuantity),
+    );
+
+    if (amountText === null) return;
+
+    const editedAmount = Number(amountText.replaceAll(",", "").trim());
+
+    if (!Number.isInteger(editedAmount) || editedAmount < 0) {
+      alert("編集後の数量は0以上の整数で入力してください。");
+      return;
+    }
+
+    if (editedAmount === currentQuantity) {
+      alert("数量が変更されていません。");
+      return;
+    }
+
+    const reasonText = window.prompt(
+      "数量を直接編集する理由を入力してください。",
+    );
+
+    if (reasonText === null) return;
+    if (!reasonText.trim()) {
+      alert("数量を直接編集する場合は理由を入力してください。");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `${balance.lotNo} / ${balance.processName} の数量を ${currentQuantity.toLocaleString(
+        "ja-JP",
+      )} から ${editedAmount.toLocaleString("ja-JP")} に変更します。よろしいですか？`,
+    );
+
+    if (!confirmed) return;
+
+    const idempotencyKey =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`;
+
+    const { error } = await supabase.rpc("edit_lot_process_balance", {
+      p_balance_id: balance.id,
+      p_after_quantity: editedAmount,
+      p_reason: reasonText.trim(),
+      p_idempotency_key: idempotencyKey,
+    });
+
+    if (error) {
+      console.error(error);
+      alert(error.message || "数量編集に失敗しました。");
+      return;
+    }
+
+    alert("数量を編集しました。");
+    setShouldFetch(true);
+  };
+
   return (
     <>
       <div className={styles.reservationImg}>
@@ -245,6 +306,7 @@ const Reservation = () => {
                 post={post}
                 handleDelete={() => handleDelete(post.id)}
                 handleTransferLot={handleTransferLot}
+                handleEditLotBalance={handleEditLotBalance}
               />
             ))}
           </tbody>

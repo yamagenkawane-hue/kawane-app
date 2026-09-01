@@ -252,7 +252,7 @@ export default function LotDetailPage() {
       supabase
         .from("v_process_transfer_history_with_master")
         .select(
-          "id,created_at,from_process_name,to_process_name,from_process_order,to_process_order,quantity,movement_type,correction_quantity,reason",
+          "id,created_at,from_process_name,to_process_name,from_process_order,to_process_order,quantity,movement_type,before_from_quantity,after_from_quantity,correction_quantity,reason",
         )
         .eq("lot_id", targetLot.id)
         .order("created_at", { ascending: true }),
@@ -366,8 +366,12 @@ export default function LotDetailPage() {
     ).map((row) => {
       const fromProcess = String(row.from_process_name || "開始");
       const toProcess = String(row.to_process_name || "完了");
+      const movementType = String(row.movement_type || "");
       const reason = String(row.reason || "");
+      const beforeFromQuantity = toNumber(row.before_from_quantity);
+      const afterFromQuantity = toNumber(row.after_from_quantity);
       const correctionQuantity = toNumber(row.correction_quantity);
+      const isManualEdit = movementType === "manual_edit";
       const correctionDetail =
         correctionQuantity > 0
           ? ` / 補正 ${formatNumber(correctionQuantity)}`
@@ -378,10 +382,12 @@ export default function LotDetailPage() {
         date: String(row.created_at || ""),
         sortOrder: 45,
         section: "ロット履歴" as const,
-        action: correctionQuantity > 0 ? "補正移動" : "工程移動",
+        action: isManualEdit ? "数量編集" : correctionQuantity > 0 ? "補正移動" : "工程移動",
         amount: toNumber(row.quantity),
         target: targetLot.lotNo || "-",
-        detail: `${fromProcess} → ${toProcess}${correctionDetail}${reason ? ` / ${reason}` : ""}`,
+        detail: isManualEdit
+          ? `${fromProcess} / ${formatNumber(beforeFromQuantity)} → ${formatNumber(afterFromQuantity)}${reason ? ` / ${reason}` : ""}`
+          : `${fromProcess} → ${toProcess}${correctionDetail}${reason ? ` / ${reason}` : ""}`,
       };
     });
 

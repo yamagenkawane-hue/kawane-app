@@ -89,6 +89,7 @@ const isOutsourceBalance = (balance: LotProcessBalance) =>
 const renderProcessLot = (
   balance: LotProcessBalance,
   handleTransferLot?: (balance: LotProcessBalance) => Promise<void>,
+  handleEditLotBalance?: (balance: LotProcessBalance) => Promise<void>,
 ) => (
   <span className={styles.lotLabel}>
     <span>{balance.lotNo || "-"}</span>
@@ -104,6 +105,15 @@ const renderProcessLot = (
         onClick={() => void handleTransferLot(balance)}
       >
         次工程へ移動
+      </button>
+    )}
+    {handleEditLotBalance && balance.quantity > 0 && (
+      <button
+        type="button"
+        className={styles.editQuantityButton}
+        onClick={() => void handleEditLotBalance(balance)}
+      >
+        数量編集
       </button>
     )}
   </span>
@@ -154,6 +164,7 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   post,
   handleDelete,
   handleTransferLot,
+  handleEditLotBalance,
 }) => {
   const balances = post.lotProcessBalances || [];
   const totalInProcessAmount = balances.reduce(
@@ -201,7 +212,11 @@ const ReservationList: React.FC<ReservationRowProps> = ({
             <td className={cellClassMap[group.label]}>
               {renderRows(
                 groupBalances.map((balance) =>
-                  renderProcessLot(balance, handleTransferLot),
+                  renderProcessLot(
+                    balance,
+                    handleTransferLot,
+                    handleEditLotBalance,
+                  ),
                 ),
                 styles.logRow,
               )}
