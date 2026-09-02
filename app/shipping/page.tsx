@@ -256,8 +256,8 @@ export default function ShippingPage() {
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
-        <Link href="/" className={styles.backButton}>
-          ← トップへ戻る
+        <Link href="/productionSchedules" className={styles.backButton}>
+          ← 生産予定に戻る
         </Link>
         <h1 className={styles.title}>出荷管理</h1>
       </div>
