@@ -10,7 +10,6 @@ import {
   Handshake,
   PackageSearch,
   LogOut,
-  Truck,
 } from "lucide-react";
 import SigninManager from "../SigninManager/SigninManager";
 import LoginForm from "../LoginForm/LoginForm";
@@ -38,11 +37,6 @@ const menus = [
     title: "外注管理",
     href: "/outsourcing",
     icon: <Handshake size={30} />,
-  },
-  {
-    title: "出荷管理",
-    href: "/shipping",
-    icon: <Truck size={30} />,
   },
 ];
 

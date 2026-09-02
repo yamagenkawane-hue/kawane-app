@@ -536,6 +536,11 @@ export default function ProductionSchedulesPage() {
               </option>
             ))}
           </select>
+          {selectedDepartment === "梱包出荷G" && (
+            <Link href="/shipping" className={styles.shippingButton}>
+              出荷管理
+            </Link>
+          )}
         </div>
         {showManualInput && (
           <>

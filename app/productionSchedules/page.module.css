@@ -81,6 +81,27 @@
   padding: 10px 12px;
 }
 
+.shippingButton {
+  align-items: center;
+  background: #0f766e;
+  border: 1px solid #0f766e;
+  border-radius: 10px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 15px;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.shippingButton:hover {
+  background: #115e59;
+  border-color: #115e59;
+}
+
 .formGrid {
   display: grid;
   grid-template-columns: 1.1fr 1.2fr 1.5fr 0.75fr 1fr 0.7fr 0.7fr 1fr;
