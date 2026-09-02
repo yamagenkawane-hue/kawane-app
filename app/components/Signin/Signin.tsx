@@ -7,7 +7,6 @@ import Link from "next/link";
 import {
   CalendarCheck,
   ClipboardList,
-  ClipboardPen,
   Handshake,
   PackageSearch,
   LogOut,
@@ -34,11 +33,6 @@ const menus = [
     title: "生産予定",
     href: "/productionSchedules",
     icon: <CalendarCheck size={30} />,
-  },
-  {
-    title: "実績登録",
-    href: "/productionResults",
-    icon: <ClipboardPen size={30} />,
   },
   {
     title: "外注管理",

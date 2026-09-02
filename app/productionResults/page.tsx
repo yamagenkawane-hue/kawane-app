@@ -477,8 +477,8 @@ export default function ProductionResultsPage() {
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
-        <Link href="/" className={styles.backButton}>
-          ← トップへ戻る
+        <Link href="/reservation" className={styles.backButton}>
+          ← 進捗管理へ戻る
         </Link>
         <Link href="/orderProcesses" className={styles.backButton}>
           受注別工程管理
