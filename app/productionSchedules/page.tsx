@@ -34,6 +34,16 @@ type LotProcessBalanceRow = {
   customerName: string;
   productName: string;
   deliveryDate: string;
+  isCompleted?: boolean;
+};
+
+type CompletedPostSummary = {
+  id: string;
+  orderNo: string;
+  customerName: string;
+  productName: string;
+  orderAmount: number;
+  deliveryDate: string;
 };
 
 type NumpadTarget =
@@ -50,6 +60,9 @@ const SCHEDULE_SELECT_COLUMNS =
 
 const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
   "id,post_id,order_no,lot_no,process_name,process_order,quantity,completed_amount,completed_date,customer_name,product_name,delivery_date";
+
+const STOCK_IN_HISTORY_SELECT_COLUMNS =
+  "id,post_id,order_no,lot_no,from_process_name,from_process_order,quantity,created_at,customer_name,product_name";
 
 const mapSchedule = (row: Record<string, unknown>): ProductionSchedule => ({
   id: String(row.id || ""),
@@ -102,6 +115,32 @@ const mapLotProcessBalance = (
   productName: String(row.product_name || ""),
   deliveryDate: String(row.delivery_date || ""),
 });
+
+const mapCompletedLotProcess = (
+  row: Record<string, unknown>,
+  postMap: Map<string, CompletedPostSummary>,
+): LotProcessBalanceRow => {
+  const postId = String(row.post_id || "");
+  const post = postMap.get(postId);
+  const completedDate = String(row.created_at || "").slice(0, 10);
+  const quantity = Number(row.quantity || 0);
+
+  return {
+    id: `completed-${String(row.id || "")}`,
+    postId,
+    orderNo: String(row.order_no || post?.orderNo || ""),
+    lotNo: `${String(row.lot_no || "")} / 完了`,
+    processName: String(row.from_process_name || "梱包"),
+    processOrder: Number(row.from_process_order || 0),
+    quantity,
+    completedAmount: quantity,
+    completedDate,
+    customerName: String(row.customer_name || post?.customerName || ""),
+    productName: String(row.product_name || post?.productName || ""),
+    deliveryDate: String(post?.deliveryDate || ""),
+    isCompleted: true,
+  };
+};
 
 const getDepartmentForProcess = (processName: string): Department => {
   if (processName.includes("検査") || processName.includes("品質")) {
@@ -222,7 +261,14 @@ export default function ProductionSchedulesPage() {
     try {
       setLoading(true);
 
-      const [scheduleResult, balanceResult, dailyResult] = await Promise.all([
+      const [
+        scheduleResult,
+        balanceResult,
+        completedResult,
+        postResult,
+        shipmentResult,
+        dailyResult,
+      ] = await Promise.all([
         supabase
           .from("v_production_schedules_with_master")
           .select(SCHEDULE_SELECT_COLUMNS)
@@ -231,17 +277,62 @@ export default function ProductionSchedulesPage() {
           .from("v_lot_process_balance_with_master")
           .select(LOT_PROCESS_BALANCE_SELECT_COLUMNS)
           .order("process_order", { ascending: true }),
+        supabase
+          .from("v_process_transfer_history_with_master")
+          .select(STOCK_IN_HISTORY_SELECT_COLUMNS)
+          .eq("movement_type", "stock_in")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("v_posts_with_master")
+          .select("id,order_no,customer_name,product_name,order_amount,delivery_date")
+          .or("delete.is.null,delete.eq.false"),
+        supabase.from("shipments").select("post_id,quantity"),
         fetch("/api/daily-production"),
       ]);
 
       if (scheduleResult.error) throw scheduleResult.error;
       if (balanceResult.error) throw balanceResult.error;
+      if (completedResult.error) throw completedResult.error;
+      if (postResult.error) throw postResult.error;
+      if (shipmentResult.error) throw shipmentResult.error;
       if (!dailyResult.ok) throw new Error("注残データの取得に失敗しました");
 
       const dailyRows = await dailyResult.json();
       const mappedPosts = (dailyRows || []).map(mapPost);
+      const postMap = new Map(
+        (postResult.data || []).map((row) => [
+          String(row.id || ""),
+          {
+            id: String(row.id || ""),
+            orderNo: String(row.order_no || ""),
+            customerName: String(row.customer_name || ""),
+            productName: String(row.product_name || ""),
+            orderAmount: Number(row.order_amount || 0),
+            deliveryDate: String(row.delivery_date || ""),
+          },
+        ]),
+      );
+      const shippedMap = (shipmentResult.data || []).reduce(
+        (acc: Map<string, number>, row) => {
+          const postId = String(row.post_id || "");
+          if (!postId) return acc;
+          acc.set(postId, (acc.get(postId) || 0) + Number(row.quantity || 0));
+          return acc;
+        },
+        new Map<string, number>(),
+      );
       const mappedSchedules = (scheduleResult.data || []).map(mapSchedule);
-      const mappedBalances = (balanceResult.data || []).map(mapLotProcessBalance);
+      const mappedBalances = [
+        ...(balanceResult.data || []).map(mapLotProcessBalance),
+        ...(completedResult.data || [])
+          .filter((row) => {
+            const postId = String(row.post_id || "");
+            const post = postMap.get(postId);
+            if (!post) return false;
+            return (shippedMap.get(postId) || 0) < post.orderAmount;
+          })
+          .map((row) => mapCompletedLotProcess(row, postMap)),
+      ];
 
       setSchedules(filterSchedulesByBackorders(mappedSchedules, mappedPosts));
       setOrderSchedules(mappedPosts);

@@ -97,6 +97,19 @@
   margin-top: 2px;
 }
 
+.completedBadge {
+  background: #dcfce7;
+  border: 1px solid #16a34a;
+  border-radius: 999px;
+  color: #166534;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  justify-content: center;
+  line-height: 1;
+  padding: 5px 9px;
+}
+
 .productName {
   min-width: 180px;
   padding: 8px !important;

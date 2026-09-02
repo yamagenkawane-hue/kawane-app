@@ -31,6 +31,11 @@ const getCustomerSortKey = (customerName: string) =>
     .replaceAll("合資会社", "ごうしがいしゃ")
     .replaceAll("合名会社", "ごうめいがいしゃ");
 
+const isPackagingProcess = (balance: LotProcessBalance) =>
+  balance.processName.includes("梱包") ||
+  balance.processName.includes("包装") ||
+  balance.processOrder >= 5;
+
 const Reservation = () => {
   const { posts, setShouldFetch } = useFetchPosts();
   const [search, setSearch] = useState("");
@@ -137,13 +142,16 @@ const Reservation = () => {
 
   const handleTransferLot = async (balance: LotProcessBalance) => {
     const currentQuantity = Number(balance.quantity || 0);
+    const isPackaging = isPackagingProcess(balance);
     if (currentQuantity <= 0) {
       alert("移動できる数量がありません。");
       return;
     }
 
     const amountText = window.prompt(
-      `${balance.lotNo} を次工程へ移動します。移動数量を入力してください。`,
+      `${balance.lotNo} を${isPackaging ? "完了" : "次工程へ移動"}します。${
+        isPackaging ? "完了数量" : "移動数量"
+      }を入力してください。`,
       String(currentQuantity),
     );
 
@@ -152,24 +160,26 @@ const Reservation = () => {
     const transferAmount = Number(amountText.replaceAll(",", "").trim());
 
     if (!Number.isInteger(transferAmount) || transferAmount <= 0) {
-      alert("移動数量は1以上の整数で入力してください。");
+      alert(`${isPackaging ? "完了数量" : "移動数量"}は1以上の整数で入力してください。`);
       return;
     }
 
     if (transferAmount > currentQuantity) {
-      alert(`現在数量を超えて移動できません。移動可能数量は${currentQuantity}です。`);
+      alert(`現在数量を超えて処理できません。処理可能数量は${currentQuantity}です。`);
       return;
     }
 
-    let reason = "Progress screen transfer";
+    let reason = isPackaging
+      ? "Progress screen packaging complete"
+      : "Progress screen transfer";
     if (transferAmount < currentQuantity) {
       const reasonText = window.prompt(
-        "現在数量より少なく移動する理由を入力してください。",
+        `現在数量より少なく${isPackaging ? "完了" : "移動"}する理由を入力してください。`,
       );
 
       if (reasonText === null) return;
       if (!reasonText.trim()) {
-        alert("数量を減らして移動する場合は理由を入力してください。");
+        alert(`数量を減らして${isPackaging ? "完了" : "移動"}する場合は理由を入力してください。`);
         return;
       }
 
@@ -177,7 +187,9 @@ const Reservation = () => {
     }
 
     const confirmed = window.confirm(
-      `${balance.lotNo} / ${transferAmount.toLocaleString("ja-JP")} を次工程へ移動します。よろしいですか？`,
+      `${balance.lotNo} / ${transferAmount.toLocaleString("ja-JP")} を${
+        isPackaging ? "完了" : "次工程へ移動"
+      }します。よろしいですか？`,
     );
 
     if (!confirmed) return;
@@ -201,7 +213,7 @@ const Reservation = () => {
       return;
     }
 
-    alert("次工程へ移動しました。");
+    alert(isPackaging ? "完了しました。" : "次工程へ移動しました。");
     setShouldFetch(true);
   };
 

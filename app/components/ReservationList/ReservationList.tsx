@@ -77,6 +77,10 @@ const getGroupBalances = (
     );
 
 const getReachedProcessProgress = (balances: LotProcessBalance[]) => {
+  if (balances.some((balance) => balance.isCompleted)) {
+    return 100;
+  }
+
   const reachedIndex = processGroups.reduce((maxIndex, group, index) => {
     if (getGroupBalances(balances, group).length === 0) {
       return maxIndex;
@@ -87,6 +91,10 @@ const getReachedProcessProgress = (balances: LotProcessBalance[]) => {
 
   if (reachedIndex < 0) {
     return 0;
+  }
+
+  if (processGroups[reachedIndex]?.label === "packaging") {
+    return 80;
   }
 
   return Math.round(((reachedIndex + 1) / processGroups.length) * 100);
@@ -113,6 +121,11 @@ const isOutsourceBalance = (balance: LotProcessBalance) =>
   balance.processName.includes("外注") ||
   balance.processName.includes("メッキ");
 
+const isPackagingBalance = (balance: LotProcessBalance) =>
+  balance.processName.includes("梱包") ||
+  balance.processName.includes("包装") ||
+  balance.processOrder >= 5;
+
 const renderProcessLot = (
   balance: LotProcessBalance,
   handleTransferLot?: (balance: LotProcessBalance) => Promise<void>,
@@ -130,16 +143,25 @@ const renderProcessLot = (
         外注: {balance.processName || balance.subcontractorName || "-"}
       </span>
     )}
-    {handleTransferLot && balance.processOrder > 1 && balance.quantity > 0 && (
+    {balance.isCompleted && (
+      <span className={styles.completedBadge}>完了</span>
+    )}
+    {handleTransferLot &&
+      !balance.isCompleted &&
+      balance.processOrder > 1 &&
+      balance.quantity > 0 && (
       <button
         type="button"
         className={styles.transferButton}
         onClick={() => void handleTransferLot(balance)}
       >
-        次工程へ移動
+        {isPackagingBalance(balance) ? "完了" : "次工程へ移動"}
       </button>
     )}
-    {handleEditLotBalance && balance.processOrder > 1 && balance.quantity > 0 && (
+    {handleEditLotBalance &&
+      !balance.isCompleted &&
+      balance.processOrder > 1 &&
+      balance.quantity > 0 && (
       <button
         type="button"
         className={styles.editQuantityButton}

@@ -17,6 +17,9 @@ const POST_SELECT_COLUMNS =
 const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
   "id,post_id,order_no,lot_id,lot_no,material_lot_no,order_process_id,process_name,process_order,quantity,subcontractor_name";
 
+const STOCK_IN_HISTORY_SELECT_COLUMNS =
+  "id,post_id,order_no,lot_id,lot_no,material_lot_no,from_order_process_id,from_process_name,from_process_order,quantity,created_at";
+
 const mapLotProcessBalance = (
   row: Record<string, unknown>,
 ): LotProcessBalance => ({
@@ -78,7 +81,7 @@ export const useFetchPosts = () => {
           supabase
             .from("v_process_transfer_history_with_master")
             .select(
-              "post_id,movement_type,before_from_quantity,after_from_quantity,correction_quantity",
+              `${STOCK_IN_HISTORY_SELECT_COLUMNS},movement_type,before_from_quantity,after_from_quantity,correction_quantity`,
             ),
         ]);
 
@@ -151,11 +154,35 @@ export const useFetchPosts = () => {
         }
 
         const quantityAdjustmentByPost = new Map<string, number>();
+        const completedBalancesByPost = new Map<string, LotProcessBalance[]>();
         for (const row of transferHistoryResult.data || []) {
           const postId = String(row.post_id || "");
           if (!postId) continue;
 
           const movementType = String(row.movement_type || "");
+          if (movementType === "stock_in") {
+            const completedBalance: LotProcessBalance = {
+              id: String(row.id || ""),
+              postId,
+              orderNo: String(row.order_no || ""),
+              lotId: String(row.lot_id || ""),
+              lotNo: String(row.lot_no || ""),
+              materialLotNo: String(row.material_lot_no || ""),
+              orderProcessId: String(row.from_order_process_id || ""),
+              processName: String(row.from_process_name || "梱包"),
+              processOrder: Number(row.from_process_order || 0),
+              quantity: Number(row.quantity || 0),
+              subcontractorName: "",
+              isCompleted: true,
+              completedDate: String(row.created_at || "").slice(0, 10),
+            };
+
+            completedBalancesByPost.set(postId, [
+              ...(completedBalancesByPost.get(postId) || []),
+              completedBalance,
+            ]);
+          }
+
           const beforeQuantity = Number(row.before_from_quantity || 0);
           const afterQuantity = Number(row.after_from_quantity || 0);
           const correctionQuantity = Number(row.correction_quantity || 0);
@@ -301,7 +328,10 @@ export const useFetchPosts = () => {
             allocatedAmount,
             stockDifferenceAmount,
             quantityAdjustmentAmount,
-            lotProcessBalances: lotBalancesByPost.get(row.id) || [],
+            lotProcessBalances: [
+              ...(lotBalancesByPost.get(row.id) || []),
+              ...(completedBalancesByPost.get(row.id) || []),
+            ],
             remainingAmount,
             deliveryDate: row.delivery_date || "",
             completionScheduledDate:

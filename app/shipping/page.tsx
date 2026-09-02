@@ -28,29 +28,13 @@ type ShippingPost = {
   scheduledDate: string;
 };
 
-const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
-  "id,post_id,order_no,lot_no,process_name,process_order,quantity,product_code,product_name,customer_name,order_amount,delivery_date,completion_scheduled_date";
+const STOCK_IN_HISTORY_SELECT_COLUMNS =
+  "id,post_id,order_no,lot_no,quantity,created_at,product_code,product_name,customer_name";
 
 const CUSTOMER_SELECT_COLUMNS =
   "id,customer_name,shipping_offset_days,note";
 
 const formatDate = (date: Date) => date.toISOString().slice(0, 10);
-
-const getDepartmentForProcess = (processName: string) => {
-  if (processName.includes("検査") || processName.includes("品質")) {
-    return "品質管理G";
-  }
-
-  if (
-    processName.includes("梱包") ||
-    processName.includes("包装") ||
-    processName.includes("出荷")
-  ) {
-    return "梱包出荷G";
-  }
-
-  return "製造G";
-};
 
 const mapShipment = (row: Record<string, unknown>): Shipment => ({
   id: String(row.id || ""),
@@ -80,19 +64,24 @@ export default function ShippingPage() {
     try {
       setLoading(true);
 
-      const [balanceResult, customerResult, shipmentResponse] = await Promise.all([
+      const [completedResult, customerResult, postResult, shipmentResponse] = await Promise.all([
         supabase
-          .from("v_lot_process_balance_with_master")
-          .select(LOT_PROCESS_BALANCE_SELECT_COLUMNS)
+          .from("v_process_transfer_history_with_master")
+          .select(STOCK_IN_HISTORY_SELECT_COLUMNS)
+          .eq("movement_type", "stock_in")
           .order("customer_name", { ascending: true })
-          .order("delivery_date", { ascending: true })
-          .order("process_order", { ascending: true }),
+          .order("created_at", { ascending: true }),
         supabase.from("customer_master").select(CUSTOMER_SELECT_COLUMNS),
+        supabase
+          .from("v_posts_with_master")
+          .select("id,order_amount,delivery_date,completion_scheduled_date")
+          .or("delete.is.null,delete.eq.false"),
         fetch("/api/shipments"),
       ]);
 
-      if (balanceResult.error) throw balanceResult.error;
+      if (completedResult.error) throw completedResult.error;
       if (customerResult.error) throw customerResult.error;
+      if (postResult.error) throw postResult.error;
       if (!shipmentResponse.ok) throw new Error("出荷データの取得に失敗しました");
 
       const customerList: CustomerMaster[] = (customerResult.data || []).map(
@@ -105,40 +94,62 @@ export default function ShippingPage() {
       );
 
       const shipmentRows: Shipment[] = (await shipmentResponse.json()).map(mapShipment);
-      const shippedMap = shipmentRows.reduce((acc: Record<string, number>, row) => {
+      const shippedByPost = shipmentRows.reduce((acc: Record<string, number>, row) => {
         acc[row.postId] = (acc[row.postId] || 0) + Number(row.quantity || 0);
         return acc;
       }, {});
+      const shippedByPostLot = shipmentRows.reduce((acc: Record<string, number>, row) => {
+        const key = `${row.postId}:${row.lotNo}`;
+        acc[key] = (acc[key] || 0) + Number(row.quantity || 0);
+        return acc;
+      }, {});
+      const postMap = new Map(
+        (postResult.data || []).map((row) => [
+          String(row.id || ""),
+          {
+            orderAmount: Number(row.order_amount || 0),
+            deliveryDate: String(row.delivery_date || ""),
+            completionScheduledDate: String(
+              row.completion_scheduled_date || row.delivery_date || "",
+            ),
+          },
+        ]),
+      );
 
-      const mappedPosts: ShippingPost[] = (balanceResult.data || [])
-        .filter((row) => getDepartmentForProcess(String(row.process_name || "")) === "梱包出荷G")
+      const mappedPosts: ShippingPost[] = (completedResult.data || [])
         .map((row) => {
           const customer = customerList.find(
             (item) => item.customerName === row.customer_name,
           );
-          const scheduledDate = formatDate(
-            subDays(new Date(row.delivery_date || new Date()), customer?.shippingOffsetDays || 0),
-          );
-          const orderAmount = Number(row.order_amount || 0);
           const postId = String(row.post_id || "");
-          const shippedAmount = Number(shippedMap[postId] || 0);
+          const post = postMap.get(postId);
+          const scheduledDate = formatDate(
+            subDays(new Date(post?.deliveryDate || new Date()), customer?.shippingOffsetDays || 0),
+          );
+          const orderAmount = Number(post?.orderAmount || 0);
+          const shippedAmount = Number(shippedByPost[postId] || 0);
           const orderRemainingAmount = Math.max(orderAmount - shippedAmount, 0);
-          const processQuantity = Number(row.quantity || 0);
+          const lotNo = String(row.lot_no || "");
+          const shippedLotAmount = Number(shippedByPostLot[`${postId}:${lotNo}`] || 0);
+          const completedQuantity = Number(row.quantity || 0);
 
           return {
             id: postId,
-            rowKey: String(row.id || postId),
+            rowKey: String(row.id || `${postId}-${lotNo}`),
             postId,
             orderNo: row.order_no || "",
-            lotNo: row.lot_no || "",
+            lotNo,
             productCode: row.product_code || "",
             productName: row.product_name || "",
             customerName: row.customer_name || "",
             orderAmount,
-            remainingAmount: Math.min(processQuantity, orderRemainingAmount),
+            remainingAmount: Math.min(
+              Math.max(completedQuantity - shippedLotAmount, 0),
+              orderRemainingAmount,
+            ),
             status: "",
-            deliveryDate: row.delivery_date || "",
-            completionScheduledDate: row.completion_scheduled_date || row.delivery_date || "",
+            deliveryDate: post?.deliveryDate || "",
+            completionScheduledDate: post?.completionScheduledDate || "",
             shippedAmount,
             scheduledDate,
           };
