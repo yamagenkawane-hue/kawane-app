@@ -7,26 +7,50 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
-import { CustomerMaster, InventoryAllocation, PostData, Shipment } from "@/app/type";
+import { CustomerMaster, Shipment } from "@/app/type";
 import styles from "../masterCommon.module.css";
 
-type ShippingPost = PostData & {
+type ShippingPost = {
   lotNo: string;
+  rowKey: string;
+  id: string;
+  postId: string;
+  orderNo: string;
   productCode: string;
+  productName: string;
+  customerName: string;
+  orderAmount: number;
+  remainingAmount: number;
+  status: string;
+  deliveryDate: string;
+  completionScheduledDate: string;
   shippedAmount: number;
   scheduledDate: string;
 };
 
-const POST_SELECT_COLUMNS =
-  "id,delete,order_no,lot_no,product_code,product_name,customer_name,order_amount,status,delivery_date,completion_scheduled_date";
+const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
+  "id,post_id,order_no,lot_no,process_name,process_order,quantity,product_code,product_name,customer_name,order_amount,delivery_date,completion_scheduled_date";
 
 const CUSTOMER_SELECT_COLUMNS =
   "id,customer_name,shipping_offset_days,note";
 
-const ALLOCATION_SELECT_COLUMNS =
-  "id,post_id,inventory_item_id,product_code,lot_no,allocated_amount,shipped_amount,confirmed_at";
-
 const formatDate = (date: Date) => date.toISOString().slice(0, 10);
+
+const getDepartmentForProcess = (processName: string) => {
+  if (processName.includes("検査") || processName.includes("品質")) {
+    return "品質管理G";
+  }
+
+  if (
+    processName.includes("梱包") ||
+    processName.includes("包装") ||
+    processName.includes("出荷")
+  ) {
+    return "梱包出荷G";
+  }
+
+  return "製造G";
+};
 
 const mapShipment = (row: Record<string, unknown>): Shipment => ({
   id: String(row.id || ""),
@@ -44,27 +68,6 @@ const mapShipment = (row: Record<string, unknown>): Shipment => ({
   updatedAt: String(row.updated_at || ""),
 });
 
-const mapAllocation = (row: Record<string, unknown>): InventoryAllocation => ({
-  id: String(row.id || ""),
-  postId: String(row.post_id || ""),
-  inventoryItemId: row.inventory_item_id ? String(row.inventory_item_id) : null,
-  productCode: String(row.product_code || ""),
-  lotNo: String(row.lot_no || ""),
-  allocatedAmount: Number(row.allocated_amount || 0),
-  shippedAmount: Number(row.shipped_amount || 0),
-  confirmedAt: String(row.confirmed_at || ""),
-});
-
-const formatAllocationLots = (allocations: InventoryAllocation[]) =>
-  allocations
-    .map((allocation) => ({
-      lotNo: allocation.lotNo,
-      amount: Math.max(allocation.allocatedAmount - allocation.shippedAmount, 0),
-    }))
-    .filter((allocation) => allocation.lotNo && allocation.amount > 0)
-    .map((allocation) => `${allocation.lotNo}(${allocation.amount})`)
-    .join(" / ");
-
 export default function ShippingPage() {
   const [posts, setPosts] = useState<ShippingPost[]>([]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -77,23 +80,19 @@ export default function ShippingPage() {
     try {
       setLoading(true);
 
-      const [postResult, customerResult, allocationResult, shipmentResponse] = await Promise.all([
+      const [balanceResult, customerResult, shipmentResponse] = await Promise.all([
         supabase
-          .from("v_posts_with_master")
-          .select(POST_SELECT_COLUMNS)
-          .order("customer_name", { ascending: true }),
+          .from("v_lot_process_balance_with_master")
+          .select(LOT_PROCESS_BALANCE_SELECT_COLUMNS)
+          .order("customer_name", { ascending: true })
+          .order("delivery_date", { ascending: true })
+          .order("process_order", { ascending: true }),
         supabase.from("customer_master").select(CUSTOMER_SELECT_COLUMNS),
-        supabase
-          .from("v_inventory_allocations_with_master")
-          .select(ALLOCATION_SELECT_COLUMNS)
-          .order("confirmed_at", { ascending: true })
-          .order("lot_no", { ascending: true }),
         fetch("/api/shipments"),
       ]);
 
-      if (postResult.error) throw postResult.error;
+      if (balanceResult.error) throw balanceResult.error;
       if (customerResult.error) throw customerResult.error;
-      if (allocationResult.error) throw allocationResult.error;
       if (!shipmentResponse.ok) throw new Error("出荷データの取得に失敗しました");
 
       const customerList: CustomerMaster[] = (customerResult.data || []).map(
@@ -106,21 +105,13 @@ export default function ShippingPage() {
       );
 
       const shipmentRows: Shipment[] = (await shipmentResponse.json()).map(mapShipment);
-      const allocationRows: InventoryAllocation[] = (allocationResult.data || []).map(mapAllocation);
-      const allocationMap = allocationRows.reduce(
-        (acc: Record<string, InventoryAllocation[]>, allocation) => {
-          acc[allocation.postId] = [...(acc[allocation.postId] || []), allocation];
-          return acc;
-        },
-        {},
-      );
       const shippedMap = shipmentRows.reduce((acc: Record<string, number>, row) => {
         acc[row.postId] = (acc[row.postId] || 0) + Number(row.quantity || 0);
         return acc;
       }, {});
 
-      const mappedPosts: ShippingPost[] = (postResult.data || [])
-        .filter((row) => row.delete !== true)
+      const mappedPosts: ShippingPost[] = (balanceResult.data || [])
+        .filter((row) => getDepartmentForProcess(String(row.process_name || "")) === "梱包出荷G")
         .map((row) => {
           const customer = customerList.find(
             (item) => item.customerName === row.customer_name,
@@ -129,19 +120,23 @@ export default function ShippingPage() {
             subDays(new Date(row.delivery_date || new Date()), customer?.shippingOffsetDays || 0),
           );
           const orderAmount = Number(row.order_amount || 0);
-          const shippedAmount = Number(shippedMap[row.id] || 0);
-          const allocationLotNo = formatAllocationLots(allocationMap[row.id] || []);
+          const postId = String(row.post_id || "");
+          const shippedAmount = Number(shippedMap[postId] || 0);
+          const orderRemainingAmount = Math.max(orderAmount - shippedAmount, 0);
+          const processQuantity = Number(row.quantity || 0);
 
           return {
-            id: row.id,
+            id: postId,
+            rowKey: String(row.id || postId),
+            postId,
             orderNo: row.order_no || "",
-            lotNo: allocationLotNo || row.lot_no || "",
+            lotNo: row.lot_no || "",
             productCode: row.product_code || "",
             productName: row.product_name || "",
             customerName: row.customer_name || "",
             orderAmount,
-            remainingAmount: orderAmount - shippedAmount,
-            status: row.status || "",
+            remainingAmount: Math.min(processQuantity, orderRemainingAmount),
+            status: "",
             deliveryDate: row.delivery_date || "",
             completionScheduledDate: row.completion_scheduled_date || row.delivery_date || "",
             shippedAmount,
@@ -208,7 +203,7 @@ export default function ShippingPage() {
   };
 
   const handleShip = async (post: ShippingPost) => {
-    const amount = Number(shipAmounts[post.id] || 0);
+    const amount = Number(shipAmounts[post.rowKey] || 0);
     if (amount <= 0) {
       alert("出荷数を入力してください");
       return;
@@ -228,7 +223,7 @@ export default function ShippingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          post_id: post.id,
+          post_id: post.postId,
           order_no: post.orderNo,
           customer_name: post.customerName,
           product_code: post.productCode,
@@ -246,7 +241,7 @@ export default function ShippingPage() {
         throw new Error(result?.error || "出荷登録に失敗しました");
       }
 
-      setShipAmounts((prev) => ({ ...prev, [post.id]: 0 }));
+      setShipAmounts((prev) => ({ ...prev, [post.rowKey]: 0 }));
       await fetchData();
     } catch (error) {
       console.error(error);
@@ -309,7 +304,7 @@ export default function ShippingPage() {
           </thead>
           <tbody>
             {visiblePosts.map((post) => (
-              <tr key={post.id}>
+              <tr key={post.rowKey}>
                 <td>{post.scheduledDate}</td>
                 <td>{post.customerName}</td>
                 <td>{post.orderNo}</td>
@@ -321,12 +316,12 @@ export default function ShippingPage() {
                   <input
                     className={styles.tableInput}
                     inputMode="numeric"
-                    value={shipAmounts[post.id] || ""}
-                    onFocus={() => setNumpadPostId(post.id)}
+                    value={shipAmounts[post.rowKey] || ""}
+                    onFocus={() => setNumpadPostId(post.rowKey)}
                     onChange={(e) =>
                       setShipAmounts({
                         ...shipAmounts,
-                        [post.id]: Number(e.target.value),
+                        [post.rowKey]: Number(e.target.value),
                       })
                     }
                   />
