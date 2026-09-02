@@ -200,13 +200,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   const processProgress = Math.round(
     (completedProcessCount / processGroups.length) * 100,
   );
-  const quantityProgress =
-    post.orderAmount > 0
-      ? Math.min(
-          100,
-          Math.round((totalInProcessAmount / Number(post.orderAmount || 1)) * 100),
-        )
-      : 0;
   const deliveryClass = getDeliveryClass(post.deliveryDate);
 
   return (
@@ -280,18 +273,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
               style={{ width: `${processProgress}%` }}
             />
             <span className={styles.progressText}>{processProgress}%</span>
-          </div>
-        </div>
-      </td>
-
-      <td>
-        <div className={styles.progressArea}>
-          <div className={styles.progressBar}>
-            <div
-              className={styles.progressFill}
-              style={{ width: `${quantityProgress}%` }}
-            />
-            <span className={styles.progressText}>{quantityProgress}%</span>
           </div>
         </div>
       </td>

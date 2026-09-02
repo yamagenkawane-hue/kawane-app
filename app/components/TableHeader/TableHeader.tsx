@@ -66,10 +66,6 @@ const TableHeader = () => {
           工程進捗
         </th>
 
-        <th rowSpan={2} className={styles.progressHeader}>
-          数量進捗
-        </th>
-
         <th rowSpan={2} className={styles.remarkHeader}>
           備考
         </th>
