@@ -76,6 +76,22 @@ const getGroupBalances = (
         a.lotId.localeCompare(b.lotId),
     );
 
+const getReachedProcessProgress = (balances: LotProcessBalance[]) => {
+  const reachedIndex = processGroups.reduce((maxIndex, group, index) => {
+    if (getGroupBalances(balances, group).length === 0) {
+      return maxIndex;
+    }
+
+    return Math.max(maxIndex, index);
+  }, -1);
+
+  if (reachedIndex < 0) {
+    return 0;
+  }
+
+  return Math.round(((reachedIndex + 1) / processGroups.length) * 100);
+};
+
 const renderRows = (
   values: React.ReactNode[],
   className: string,
@@ -194,12 +210,7 @@ const ReservationList: React.FC<ReservationRowProps> = ({
     allocatedAmount +
     quantityAdjustmentAmount -
     Number(post.orderAmount || 0);
-  const completedProcessCount = processGroups.filter(
-    (group) => getGroupBalances(balances, group).length > 0,
-  ).length;
-  const processProgress = Math.round(
-    (completedProcessCount / processGroups.length) * 100,
-  );
+  const processProgress = getReachedProcessProgress(balances);
   const deliveryClass = getDeliveryClass(post.deliveryDate);
 
   return (
