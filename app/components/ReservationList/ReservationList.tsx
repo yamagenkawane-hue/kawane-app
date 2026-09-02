@@ -173,30 +173,48 @@ const renderProcessLot = (
   </span>
 );
 
-const getLatestLogDate = (logs?: { date: string; amount: number }[]) =>
-  [...(logs || [])]
-    .filter((log) => log.date)
-    .sort((a, b) => b.date.localeCompare(a.date))[0]?.date || "";
+const uniqueSortedDates = (dates: string[]) =>
+  Array.from(new Set(dates.filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b),
+  );
 
-const getDateByGroup = (
+const getLogDates = (logs?: { date: string; amount: number }[]) =>
+  uniqueSortedDates((logs || []).map((log) => log.date));
+
+const getDatesByGroup = (
   post: ReservationRowProps["post"],
   group: ProcessGroup,
 ) => {
   if (group.label === "manufacturing") {
-    return getLatestLogDate(post.manufacturingLogs);
+    return getLogDates(post.manufacturingLogs);
   }
   if (group.label === "cleaning") {
-    return getLatestLogDate(post.cleaningLogs);
+    return getLogDates(post.cleaningLogs);
   }
   if (group.label === "inspection") {
-    return getLatestLogDate(post.inspectionLogs);
+    return getLogDates(post.inspectionLogs);
   }
   if (group.label === "measurement") {
-    return getLatestLogDate(post.measurementLogs);
+    return getLogDates(post.measurementLogs);
   }
 
-  return getLatestLogDate(post.packagingLogs);
+  return getLogDates(post.packagingLogs);
 };
+
+const getCompletedDatesByGroup = (
+  balances: LotProcessBalance[],
+  group: ProcessGroup,
+) =>
+  uniqueSortedDates(
+    balances
+      .filter(
+        (balance) =>
+          balance.isCompleted &&
+          balance.completedDate &&
+          matchesProcessGroup(balance, group),
+      )
+      .map((balance) => balance.completedDate || ""),
+  );
 
 const getDeliveryClass = (deliveryDate: string) => {
   if (!deliveryDate) return "";
@@ -254,7 +272,10 @@ const ReservationList: React.FC<ReservationRowProps> = ({
 
       {processGroups.map((group) => {
         const groupBalances = getGroupBalances(balances, group);
-        const groupDate = getDateByGroup(post, group);
+        const groupDates = uniqueSortedDates([
+          ...getDatesByGroup(post, group),
+          ...getCompletedDatesByGroup(groupBalances, group),
+        ]);
 
         return (
           <React.Fragment key={group.label}>
@@ -278,7 +299,7 @@ const ReservationList: React.FC<ReservationRowProps> = ({
               )}
             </td>
             <td className={dateClassMap[group.label]}>
-              {renderRows(groupDate ? [groupDate] : [], styles.averageRow)}
+              {renderRows(groupDates, styles.averageRow)}
             </td>
           </React.Fragment>
         );
