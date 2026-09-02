@@ -190,10 +190,10 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   const allocatedAmount = Number(post.allocatedAmount || 0);
   const quantityAdjustmentAmount = Number(post.quantityAdjustmentAmount || 0);
   const remainingInProcessAmount =
-    Number(post.orderAmount || 0) -
-    totalInProcessAmount -
-    allocatedAmount -
-    quantityAdjustmentAmount;
+    totalInProcessAmount +
+    allocatedAmount +
+    quantityAdjustmentAmount -
+    Number(post.orderAmount || 0);
   const completedProcessCount = processGroups.filter(
     (group) => getGroupBalances(balances, group).length > 0,
   ).length;
