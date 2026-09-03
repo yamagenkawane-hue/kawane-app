@@ -216,6 +216,23 @@ const getCompletedDatesByGroup = (
       .map((balance) => balance.completedDate || ""),
   );
 
+const getDisplayDatesByGroup = (
+  post: ReservationRowProps["post"],
+  group: ProcessGroup,
+  groupBalances: LotProcessBalance[],
+) => {
+  if (groupBalances.length > 0) {
+    return groupBalances.map(
+      (balance) => balance.processDate || balance.completedDate || "",
+    );
+  }
+
+  return uniqueSortedDates([
+    ...getDatesByGroup(post, group),
+    ...getCompletedDatesByGroup(groupBalances, group),
+  ]);
+};
+
 const getDeliveryClass = (deliveryDate: string) => {
   if (!deliveryDate) return "";
 
@@ -272,10 +289,7 @@ const ReservationList: React.FC<ReservationRowProps> = ({
 
       {processGroups.map((group) => {
         const groupBalances = getGroupBalances(balances, group);
-        const groupDates = uniqueSortedDates([
-          ...getDatesByGroup(post, group),
-          ...getCompletedDatesByGroup(groupBalances, group),
-        ]);
+        const groupDates = getDisplayDatesByGroup(post, group, groupBalances);
 
         return (
           <React.Fragment key={group.label}>
