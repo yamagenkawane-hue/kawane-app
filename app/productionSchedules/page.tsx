@@ -598,6 +598,17 @@ export default function ProductionSchedulesPage() {
   const departmentSchedules = schedules.filter(
     (schedule) => (schedule.department || "製造G") === selectedDepartment,
   );
+  const scheduledPostIds = new Set(
+    departmentSchedules.map((schedule) => schedule.postId).filter(Boolean),
+  );
+  const scheduledOrderNos = new Set(
+    departmentSchedules.map((schedule) => schedule.orderNo).filter(Boolean),
+  );
+  const unscheduledOrderSchedules = orderSchedules.filter((post) => {
+    if (post.id && scheduledPostIds.has(post.id)) return false;
+    if (post.orderNo && scheduledOrderNos.has(post.orderNo)) return false;
+    return true;
+  });
 
   const showManualInput = selectedDepartment === "製造G";
 
@@ -730,7 +741,7 @@ export default function ProductionSchedulesPage() {
           </thead>
           <tbody>
             {selectedDepartment === "製造G" &&
-              orderSchedules.map((post) => {
+              unscheduledOrderSchedules.map((post) => {
               const editing = isEditing("post", post.id);
               const rowClassName = isOverdue(post.deliveryDate)
                 ? styles.dangerRow
@@ -1046,7 +1057,7 @@ export default function ProductionSchedulesPage() {
                 </tr>
               ))}
             {((selectedDepartment === "製造G" &&
-              orderSchedules.length === 0 &&
+              unscheduledOrderSchedules.length === 0 &&
               departmentSchedules.length === 0) ||
               (selectedDepartment !== "製造G" &&
                 departmentBalanceRows.length === 0)) && (
