@@ -8,6 +8,8 @@ import {
   buildOutsourceStatusMap,
   buildProductionResultProgressMap,
   createEmptyProcessProgress,
+  getProcessLogKey,
+  ProcessLog,
   sumProcessLogs,
 } from "./processProgress";
 
@@ -18,7 +20,7 @@ const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
   "id,post_id,order_no,lot_id,lot_no,material_lot_no,order_process_id,process_name,process_order,quantity,subcontractor_name";
 
 const STOCK_IN_HISTORY_SELECT_COLUMNS =
-  "id,post_id,order_no,lot_id,lot_no,material_lot_no,from_order_process_id,from_process_name,from_process_order,quantity,created_at";
+  "id,post_id,order_no,lot_id,lot_no,material_lot_no,from_order_process_id,to_order_process_id,from_process_name,to_process_name,from_process_order,to_process_order,quantity,created_at";
 
 const mapLotProcessBalance = (
   row: Record<string, unknown>,
@@ -35,6 +37,24 @@ const mapLotProcessBalance = (
   quantity: Number(row.quantity || 0),
   subcontractorName: String(row.subcontractor_name || ""),
 });
+
+const mergeLogDates = (
+  baseLogs: ProcessLog[],
+  historyLogs: ProcessLog[] = [],
+) => {
+  const logsByDate = new Map<string, ProcessLog>();
+
+  for (const log of [...baseLogs, ...historyLogs]) {
+    if (!log.date) continue;
+    const current = logsByDate.get(log.date);
+    logsByDate.set(log.date, {
+      date: log.date,
+      amount: (current?.amount || 0) + Number(log.amount || 0),
+    });
+  }
+
+  return [...logsByDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+};
 
 export const useFetchPosts = () => {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -155,11 +175,43 @@ export const useFetchPosts = () => {
 
         const quantityAdjustmentByPost = new Map<string, number>();
         const completedBalancesByPost = new Map<string, LotProcessBalance[]>();
+        const transferDateProgressMap = new Map<
+          string,
+          ReturnType<typeof createEmptyProcessProgress>
+        >();
         for (const row of transferHistoryResult.data || []) {
           const postId = String(row.post_id || "");
           if (!postId) continue;
 
           const movementType = String(row.movement_type || "");
+          const transferDate = String(row.created_at || "").slice(0, 10);
+          const toLogKey = getProcessLogKey(
+            String(row.to_process_name || ""),
+            Number(row.to_process_order || 0),
+          );
+          const fromLogKey = getProcessLogKey(
+            String(row.from_process_name || ""),
+            Number(row.from_process_order || 0),
+          );
+
+          if (
+            transferDate &&
+            (movementType === "manufacturing_result" ||
+              movementType === "process_transfer" ||
+              movementType === "quantity_correction")
+          ) {
+            const progress =
+              transferDateProgressMap.get(postId) || createEmptyProcessProgress();
+            const logKey = toLogKey || fromLogKey;
+            if (logKey) {
+              progress[logKey].push({
+                date: transferDate,
+                amount: 0,
+              });
+              transferDateProgressMap.set(postId, progress);
+            }
+          }
+
           if (movementType === "stock_in") {
             const completedBalance: LotProcessBalance = {
               id: String(row.id || ""),
@@ -228,26 +280,48 @@ export const useFetchPosts = () => {
             processProgressMap.get(row.id) || createEmptyProcessProgress();
           const productionProgress =
             productionResultMap.get(row.id) || createEmptyProcessProgress();
-          const manufacturingLogs =
+          const transferDateProgress =
+            transferDateProgressMap.get(row.id) || createEmptyProcessProgress();
+          const baseManufacturingLogs =
             processProgress.manufacturingLogs.length > 0
               ? processProgress.manufacturingLogs
               : productionProgress.manufacturingLogs;
-          const cleaningLogs =
+          const baseCleaningLogs =
             processProgress.cleaningLogs.length > 0
               ? processProgress.cleaningLogs
               : productionProgress.cleaningLogs;
-          const inspectionLogs =
+          const baseInspectionLogs =
             processProgress.inspectionLogs.length > 0
               ? processProgress.inspectionLogs
               : productionProgress.inspectionLogs;
-          const measurementLogs =
+          const baseMeasurementLogs =
             processProgress.measurementLogs.length > 0
               ? processProgress.measurementLogs
               : productionProgress.measurementLogs;
-          const packagingLogs =
+          const basePackagingLogs =
             processProgress.packagingLogs.length > 0
               ? processProgress.packagingLogs
               : productionProgress.packagingLogs;
+          const manufacturingLogs = mergeLogDates(
+            baseManufacturingLogs,
+            transferDateProgress.manufacturingLogs,
+          );
+          const cleaningLogs = mergeLogDates(
+            baseCleaningLogs,
+            transferDateProgress.cleaningLogs,
+          );
+          const inspectionLogs = mergeLogDates(
+            baseInspectionLogs,
+            transferDateProgress.inspectionLogs,
+          );
+          const measurementLogs = mergeLogDates(
+            baseMeasurementLogs,
+            transferDateProgress.measurementLogs,
+          );
+          const packagingLogs = mergeLogDates(
+            basePackagingLogs,
+            transferDateProgress.packagingLogs,
+          );
 
           // =========================
           // 合計数量
