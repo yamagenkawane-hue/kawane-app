@@ -49,7 +49,14 @@ export const getProcessLogKey = (
   ) {
     return "manufacturingLogs";
   }
-  if (processName.includes("洗浄")) return "cleaningLogs";
+  if (
+    processName.includes("洗浄") ||
+    processName.includes("メッキ") ||
+    processName.includes("外注") ||
+    processOrder === 2
+  ) {
+    return "cleaningLogs";
+  }
   if (processName.includes("検査")) return "inspectionLogs";
   if (processName.includes("計量")) return "measurementLogs";
   if (processName.includes("梱包") || processName.includes("包装")) {

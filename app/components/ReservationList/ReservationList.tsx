@@ -148,6 +148,7 @@ const renderProcessLot = (
     )}
     {handleTransferLot &&
       !balance.isCompleted &&
+      !balance.isHistoryOnly &&
       balance.processOrder > 1 &&
       balance.quantity > 0 && (
       <button
@@ -160,6 +161,7 @@ const renderProcessLot = (
     )}
     {handleEditLotBalance &&
       !balance.isCompleted &&
+      !balance.isHistoryOnly &&
       balance.processOrder > 1 &&
       balance.quantity > 0 && (
       <button
@@ -280,7 +282,8 @@ const ReservationList: React.FC<ReservationRowProps> = ({
 }) => {
   const balances = post.lotProcessBalances || [];
   const totalInProcessAmount = balances.reduce(
-    (total, balance) => total + Number(balance.quantity || 0),
+    (total, balance) =>
+      balance.isHistoryOnly ? total : total + Number(balance.quantity || 0),
     0,
   );
   const allocatedAmount = Number(post.allocatedAmount || 0);

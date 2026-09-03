@@ -38,6 +38,7 @@ export type LotProcessBalance = {
   processDates?: string[];
   processDate?: string;
   subcontractorName?: string;
+  isHistoryOnly?: boolean;
   isCompleted?: boolean;
   completedDate?: string;
 };
