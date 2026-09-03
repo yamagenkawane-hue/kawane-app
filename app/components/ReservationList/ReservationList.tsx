@@ -216,14 +216,37 @@ const getCompletedDatesByGroup = (
       .map((balance) => balance.completedDate || ""),
   );
 
+const renderDateValue = (dates: string[]) => {
+  const displayDates = uniqueSortedDates(dates);
+  if (displayDates.length <= 1) {
+    return displayDates[0] || "";
+  }
+
+  return (
+    <span className={styles.dateStack}>
+      {displayDates.map((date) => (
+        <span key={date}>{date}</span>
+      ))}
+    </span>
+  );
+};
+
 const getDisplayDatesByGroup = (
   post: ReservationRowProps["post"],
   group: ProcessGroup,
   groupBalances: LotProcessBalance[],
 ) => {
+  if (group.label === "manufacturing") {
+    return getDatesByGroup(post, group);
+  }
+
   if (groupBalances.length > 0) {
-    return groupBalances.map(
-      (balance) => balance.processDate || balance.completedDate || "",
+    return groupBalances.map((balance) =>
+      renderDateValue(
+        balance.processDates?.length
+          ? balance.processDates
+          : [balance.processDate || balance.completedDate || ""],
+      ),
     );
   }
 

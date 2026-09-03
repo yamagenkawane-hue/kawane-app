@@ -22,8 +22,6 @@ const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
 const STOCK_IN_HISTORY_SELECT_COLUMNS =
   "id,post_id,order_no,lot_id,lot_no,material_lot_no,from_order_process_id,to_order_process_id,from_process_name,to_process_name,from_process_order,to_process_order,quantity,created_at";
 
-const LOT_DATE_SELECT_COLUMNS = "id,measured_at,packaged_at";
-
 const mapLotProcessBalance = (
   row: Record<string, unknown>,
 ): LotProcessBalance => ({
@@ -77,6 +75,11 @@ const getLatestDate = (dates?: string[]) =>
   [...(dates || [])].filter(Boolean).sort((a, b) => b.localeCompare(a))[0] ||
   "";
 
+const getSortedDates = (dates?: string[]) =>
+  Array.from(new Set((dates || []).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b),
+  );
+
 export const useFetchPosts = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [shouldFetch, setShouldFetch] = useState(true);
@@ -92,7 +95,6 @@ export const useFetchPosts = () => {
           orderProcessResult,
           productionResult,
           lotBalanceResult,
-          lotDateResult,
           inventoryResult,
           allocationResult,
           transferHistoryResult,
@@ -114,7 +116,6 @@ export const useFetchPosts = () => {
             .from("v_lot_process_balance_with_master")
             .select(LOT_PROCESS_BALANCE_SELECT_COLUMNS)
             .order("process_order", { ascending: true }),
-          supabase.from("lots").select(LOT_DATE_SELECT_COLUMNS),
           supabase
             .from("v_inventory_items_with_master")
             .select("product_code,product_name,current_stock,allocated_stock"),
@@ -135,7 +136,6 @@ export const useFetchPosts = () => {
         if (orderProcessResult.error) throw orderProcessResult.error;
         if (productionResult.error) throw productionResult.error;
         if (lotBalanceResult.error) throw lotBalanceResult.error;
-        if (lotDateResult.error) throw lotDateResult.error;
         if (inventoryResult.error) throw inventoryResult.error;
         if (allocationResult.error) throw allocationResult.error;
         if (transferHistoryResult.error) throw transferHistoryResult.error;
@@ -157,14 +157,6 @@ export const useFetchPosts = () => {
             ...(lotBalancesByPost.get(balance.postId) || []),
             balance,
           ]);
-        }
-
-        const lotDateById = new Map<string, string>();
-        for (const row of lotDateResult.data || []) {
-          const lotId = String(row.id || "");
-          const measuredAt = String(row.measured_at || "");
-          if (!lotId || !measuredAt) continue;
-          lotDateById.set(lotId, measuredAt);
         }
 
         const inventoryByProduct = new Map<
@@ -310,7 +302,7 @@ export const useFetchPosts = () => {
 
         for (const balances of lotBalancesByPost.values()) {
           for (const balance of balances) {
-            const historyDate = getLatestDate(
+            const historyDates = getSortedDates(
               processDateByBalanceKey.get(
                 createBalanceDateKey(
                   balance.postId,
@@ -319,7 +311,8 @@ export const useFetchPosts = () => {
                 ),
               ),
             );
-            balance.processDate = lotDateById.get(balance.lotId) || historyDate;
+            balance.processDates = historyDates;
+            balance.processDate = getLatestDate(historyDates);
           }
         }
 
@@ -350,9 +343,9 @@ export const useFetchPosts = () => {
           const transferDateProgress =
             transferDateProgressMap.get(row.id) || createEmptyProcessProgress();
           const baseManufacturingLogs =
-            processProgress.manufacturingLogs.length > 0
-              ? processProgress.manufacturingLogs
-              : productionProgress.manufacturingLogs;
+            productionProgress.manufacturingLogs.length > 0
+              ? productionProgress.manufacturingLogs
+              : processProgress.manufacturingLogs;
           const baseCleaningLogs =
             processProgress.cleaningLogs.length > 0
               ? processProgress.cleaningLogs

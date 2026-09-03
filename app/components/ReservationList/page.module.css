@@ -873,6 +873,13 @@
   font-weight: bold;
 }
 
+.dateStack {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+  line-height: 1.15;
+}
+
 .logRow:last-child,
 .amountRow:last-child,
 .averageRow:last-child {

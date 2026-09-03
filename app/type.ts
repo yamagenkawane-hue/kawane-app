@@ -35,6 +35,7 @@ export type LotProcessBalance = {
   processName: string;
   processOrder: number;
   quantity: number;
+  processDates?: string[];
   processDate?: string;
   subcontractorName?: string;
   isCompleted?: boolean;
