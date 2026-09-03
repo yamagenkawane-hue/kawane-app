@@ -1,16 +1,26 @@
 -- Test data reset for progress-management verification.
 -- This script deletes current operational data and inserts a fresh test set.
 -- Master data is not deleted. Required demo master rows are created only when missing.
+-- The seed helper tables are regular tables so the script also works in SQL editors
+-- that do not keep temporary tables available across statements.
 
 begin;
 
-create temp table tmp_seed_products (
+drop table if exists tmp_seed_transfers;
+drop table if exists tmp_seed_lots;
+drop table if exists tmp_order_processes;
+drop table if exists tmp_process_completed;
+drop table if exists tmp_seed_posts;
+drop table if exists tmp_process_templates;
+drop table if exists tmp_seed_products;
+
+create table tmp_seed_products (
   product_code text primary key,
   product_name text not null,
   customer_name text not null,
   material_code text not null,
   unit_weight numeric not null
-) on commit drop;
+);
 
 insert into tmp_seed_products (
   product_code,
@@ -25,12 +35,12 @@ insert into tmp_seed_products (
   ('TEST-P104', 'テスト製品04', 'テスト工業', 'MAT-TEST-B', 1.80),
   ('TEST-P105', 'テスト製品05', 'テスト工業', 'MAT-TEST-C', 2.00);
 
-create temp table tmp_process_templates (
+create table tmp_process_templates (
   process_order integer primary key,
   process_name text not null,
   is_outsource boolean not null default false,
   overlap_days integer not null default 0
-) on commit drop;
+);
 
 insert into tmp_process_templates (
   process_order,
@@ -174,7 +184,7 @@ where not exists (
     and pp.process_order = pt.process_order
 );
 
-create temp table tmp_seed_posts (
+create table tmp_seed_posts (
   post_id uuid primary key,
   order_no text not null,
   product_code text not null,
@@ -182,7 +192,7 @@ create temp table tmp_seed_posts (
   completion_scheduled_date date not null,
   delivery_date date not null,
   remark text not null
-) on commit drop;
+);
 
 insert into tmp_seed_posts (
   post_id,
@@ -240,12 +250,12 @@ join product_master pm
 join customer_master cm
   on cm.customer_name = 'テスト工業';
 
-create temp table tmp_process_completed (
+create table tmp_process_completed (
   order_no text not null,
   process_order integer not null,
   completed_amount integer not null,
   completed_date date
-) on commit drop;
+);
 
 insert into tmp_process_completed (
   order_no,
@@ -266,14 +276,14 @@ insert into tmp_process_completed (
   ('TEST-ORD-005', 4, 350, '2026-09-04'),
   ('TEST-ORD-005', 5, 350, '2026-09-05');
 
-create temp table tmp_order_processes (
+create table tmp_order_processes (
   order_process_id uuid primary key,
   post_id uuid not null,
   order_no text not null,
   product_code text not null,
   process_order integer not null,
   process_name text not null
-) on commit drop;
+);
 
 insert into tmp_order_processes (
   order_process_id,
@@ -359,7 +369,7 @@ left join lateral (
   limit 1
 ) pp on true;
 
-create temp table tmp_seed_lots (
+create table tmp_seed_lots (
   lot_id uuid primary key,
   order_no text not null,
   lot_no text not null,
@@ -370,7 +380,7 @@ create temp table tmp_seed_lots (
   current_quantity integer not null default 0,
   inventory_quantity integer not null default 0,
   lot_status text not null
-) on commit drop;
+);
 
 insert into tmp_seed_lots (
   lot_id,
@@ -541,7 +551,7 @@ join tmp_order_processes op_to
   on op_to.order_no = sl.order_no
  and op_to.process_order = 2;
 
-create temp table tmp_seed_transfers (
+create table tmp_seed_transfers (
   order_no text not null,
   lot_no text not null,
   from_process_order integer not null,
@@ -549,7 +559,7 @@ create temp table tmp_seed_transfers (
   quantity integer not null,
   movement_type text not null,
   moved_at date not null
-) on commit drop;
+);
 
 insert into tmp_seed_transfers (
   order_no,
@@ -769,6 +779,14 @@ left join lateral (
     end
   limit 1
 ) done on true;
+
+drop table if exists tmp_seed_transfers;
+drop table if exists tmp_seed_lots;
+drop table if exists tmp_order_processes;
+drop table if exists tmp_process_completed;
+drop table if exists tmp_seed_posts;
+drop table if exists tmp_process_templates;
+drop table if exists tmp_seed_products;
 
 commit;
 
