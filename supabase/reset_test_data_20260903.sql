@@ -710,7 +710,6 @@ insert into production_schedules (
   press_completed_date,
   shipping_scheduled_start,
   shipping_scheduled_end,
-  delivery_date,
   department,
   created_at,
   updated_at
@@ -741,7 +740,6 @@ select
     when dept.department = '品質管理G' then sp.completion_scheduled_date - 1
     else sp.delivery_date
   end,
-  sp.delivery_date,
   dept.department,
   now(),
   now()
