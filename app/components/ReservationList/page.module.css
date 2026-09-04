@@ -355,6 +355,10 @@
   box-sizing: border-box;
 }
 
+.actionLogRow {
+  min-height: 138px;
+}
+
 .lotLabel {
   align-items: center;
   display: inline-flex;
@@ -854,7 +858,7 @@
   align-items: center;
   justify-content: center;
 
-  height: 48px;
+  min-height: 48px;
 
   border-bottom: 1px solid #d0d0d0;
 
@@ -903,7 +907,7 @@
   align-items: center;
   justify-content: center;
 
-  height: 48px;
+  min-height: 48px;
 
   border-bottom: 1px solid #d0d0d0;
 

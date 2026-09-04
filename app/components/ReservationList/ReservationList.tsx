@@ -104,13 +104,14 @@ const renderRows = (
   values: React.ReactNode[],
   className: string,
   emptyValue = "-",
+  getRowClassName?: (index: number) => string,
 ) => {
   if (values.length === 0) {
     return <div className={className}>{emptyValue}</div>;
   }
 
   return values.map((value, index) => (
-    <div key={index} className={className}>
+    <div key={index} className={`${className} ${getRowClassName?.(index) || ""}`}>
       {value || emptyValue}
     </div>
   ));
@@ -125,6 +126,15 @@ const isPackagingBalance = (balance: LotProcessBalance) =>
   balance.processName.includes("梱包") ||
   balance.processName.includes("包装") ||
   balance.processOrder >= 5;
+
+const hasLotActionButtons = (balance: LotProcessBalance) =>
+  !balance.isCompleted &&
+  !balance.isHistoryOnly &&
+  balance.processOrder > 1 &&
+  balance.quantity > 0;
+
+const getBalanceRowClassName = (balance?: LotProcessBalance) =>
+  balance && hasLotActionButtons(balance) ? styles.actionLogRow : "";
 
 const renderProcessLot = (
   balance: LotProcessBalance,
@@ -147,10 +157,7 @@ const renderProcessLot = (
       <span className={styles.completedBadge}>完了</span>
     )}
     {handleTransferLot &&
-      !balance.isCompleted &&
-      !balance.isHistoryOnly &&
-      balance.processOrder > 1 &&
-      balance.quantity > 0 && (
+      hasLotActionButtons(balance) && (
       <button
         type="button"
         className={styles.transferButton}
@@ -160,10 +167,7 @@ const renderProcessLot = (
       </button>
     )}
     {handleEditLotBalance &&
-      !balance.isCompleted &&
-      !balance.isHistoryOnly &&
-      balance.processOrder > 1 &&
-      balance.quantity > 0 && (
+      hasLotActionButtons(balance) && (
       <button
         type="button"
         className={styles.editQuantityButton}
@@ -316,6 +320,8 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       {processGroups.map((group) => {
         const groupBalances = getGroupBalances(balances, group);
         const groupDates = getDisplayDatesByGroup(post, group, groupBalances);
+        const getGroupRowClassName = (index: number) =>
+          getBalanceRowClassName(groupBalances[index]);
 
         return (
           <React.Fragment key={group.label}>
@@ -329,6 +335,8 @@ const ReservationList: React.FC<ReservationRowProps> = ({
                   ),
                 ),
                 styles.logRow,
+                "-",
+                getGroupRowClassName,
               )}
             </td>
             <td className={amountClassMap[group.label]}>
@@ -336,10 +344,11 @@ const ReservationList: React.FC<ReservationRowProps> = ({
                 groupBalances.map((balance) => formatAmount(balance.quantity)),
                 styles.amountRow,
                 "0",
+                getGroupRowClassName,
               )}
             </td>
             <td className={dateClassMap[group.label]}>
-              {renderRows(groupDates, styles.averageRow)}
+              {renderRows(groupDates, styles.averageRow, "-", getGroupRowClassName)}
             </td>
           </React.Fragment>
         );
