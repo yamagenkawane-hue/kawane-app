@@ -111,7 +111,10 @@ const renderRows = (
   }
 
   return values.map((value, index) => (
-    <div key={index} className={`${className} ${getRowClassName?.(index) || ""}`}>
+    <div
+      key={index}
+      className={`${className} ${getRowClassName?.(index) || ""}`}
+    >
       {value || emptyValue}
     </div>
   ));
@@ -133,8 +136,26 @@ const hasLotActionButtons = (balance: LotProcessBalance) =>
   balance.processOrder > 1 &&
   balance.quantity > 0;
 
-const getBalanceRowClassName = (balance?: LotProcessBalance) =>
-  balance && hasLotActionButtons(balance) ? styles.actionLogRow : "";
+const hasLotDetailLines = (balance: LotProcessBalance) =>
+  Boolean(balance.materialLotNo) ||
+  isOutsourceBalance(balance) ||
+  Boolean(balance.isCompleted);
+
+const getBalanceRowClassName = (balance?: LotProcessBalance) => {
+  if (!balance) {
+    return "";
+  }
+
+  if (hasLotActionButtons(balance)) {
+    return styles.actionLogRow;
+  }
+
+  if (hasLotDetailLines(balance)) {
+    return styles.detailLogRow;
+  }
+
+  return "";
+};
 
 const renderProcessLot = (
   balance: LotProcessBalance,

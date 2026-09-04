@@ -355,10 +355,6 @@
   box-sizing: border-box;
 }
 
-.actionLogRow {
-  min-height: 138px;
-}
-
 .lotLabel {
   align-items: center;
   display: inline-flex;
@@ -924,4 +920,16 @@
   box-sizing: border-box;
 
   font-weight: bold;
+}
+
+.logRow.detailLogRow,
+.amountRow.detailLogRow,
+.averageRow.detailLogRow {
+  min-height: 112px;
+}
+
+.logRow.actionLogRow,
+.amountRow.actionLogRow,
+.averageRow.actionLogRow {
+  min-height: 170px;
 }
