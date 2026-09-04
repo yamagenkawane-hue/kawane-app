@@ -28,6 +28,11 @@ type ShippingPost = {
   scheduledDate: string;
 };
 
+type ShippingPostGroup = {
+  groupKey: string;
+  rows: ShippingPost[];
+};
+
 const STOCK_IN_HISTORY_SELECT_COLUMNS =
   "id,post_id,order_no,lot_no,quantity,created_at,product_code,product_name,customer_name";
 
@@ -35,6 +40,16 @@ const CUSTOMER_SELECT_COLUMNS =
   "id,customer_name,shipping_offset_days,note";
 
 const formatDate = (date: Date) => date.toISOString().slice(0, 10);
+
+const createShippingGroupKey = (post: ShippingPost) =>
+  [
+    post.scheduledDate,
+    post.customerName,
+    post.orderNo,
+    post.productName,
+    post.deliveryDate,
+    post.orderAmount,
+  ].join("|");
 
 const mapShipment = (row: Record<string, unknown>): Shipment => ({
   id: String(row.id || ""),
@@ -186,6 +201,32 @@ export default function ShippingPage() {
     [posts, targetDate],
   );
 
+  const visiblePostGroups = useMemo(() => {
+    const groupMap = new Map<string, ShippingPostGroup>();
+
+    visiblePosts.forEach((post) => {
+      const groupKey = createShippingGroupKey(post);
+      const currentGroup = groupMap.get(groupKey);
+
+      if (currentGroup) {
+        currentGroup.rows.push(post);
+        return;
+      }
+
+      groupMap.set(groupKey, {
+        groupKey,
+        rows: [post],
+      });
+    });
+
+    return Array.from(groupMap.values()).map((group) => ({
+      ...group,
+      rows: group.rows.sort((a, b) =>
+        a.lotNo.localeCompare(b.lotNo, "ja", { numeric: true }),
+      ),
+    }));
+  }, [visiblePosts]);
+
   const visibleShipments = useMemo(
     () =>
       (targetDate
@@ -314,36 +355,46 @@ export default function ShippingPage() {
             </tr>
           </thead>
           <tbody>
-            {visiblePosts.map((post) => (
-              <tr key={post.rowKey}>
-                <td>{post.scheduledDate}</td>
-                <td>{post.customerName}</td>
-                <td>{post.orderNo}</td>
-                <td>{post.productName}</td>
-                <td>{post.lotNo || "-"}</td>
-                <td>{post.deliveryDate}</td>
-                <td>{post.orderAmount}</td>
-                <td>
-                  <input
-                    className={styles.tableInput}
-                    inputMode="numeric"
-                    value={shipAmounts[post.rowKey] || ""}
-                    onFocus={() => setNumpadPostId(post.rowKey)}
-                    onChange={(e) =>
-                      setShipAmounts({
-                        ...shipAmounts,
-                        [post.rowKey]: Number(e.target.value),
-                      })
-                    }
-                  />
-                </td>
-                <td className={styles.actionArea}>
-                  <button className={styles.saveButton} onClick={() => handleShip(post)}>
-                    出荷
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {visiblePostGroups.map((group) =>
+              group.rows.map((post, index) => (
+                <tr key={post.rowKey}>
+                  {index === 0 && (
+                    <>
+                      <td rowSpan={group.rows.length}>{post.scheduledDate}</td>
+                      <td rowSpan={group.rows.length}>{post.customerName}</td>
+                      <td rowSpan={group.rows.length}>{post.orderNo}</td>
+                      <td rowSpan={group.rows.length}>{post.productName}</td>
+                    </>
+                  )}
+                  <td>{post.lotNo || "-"}</td>
+                  {index === 0 && (
+                    <>
+                      <td rowSpan={group.rows.length}>{post.deliveryDate}</td>
+                      <td rowSpan={group.rows.length}>{post.orderAmount}</td>
+                    </>
+                  )}
+                  <td>
+                    <input
+                      className={styles.tableInput}
+                      inputMode="numeric"
+                      value={shipAmounts[post.rowKey] || ""}
+                      onFocus={() => setNumpadPostId(post.rowKey)}
+                      onChange={(e) =>
+                        setShipAmounts({
+                          ...shipAmounts,
+                          [post.rowKey]: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </td>
+                  <td className={styles.actionArea}>
+                    <button className={styles.saveButton} onClick={() => handleShip(post)}>
+                      出荷
+                    </button>
+                  </td>
+                </tr>
+              )),
+            )}
           </tbody>
         </table>
       </div>
