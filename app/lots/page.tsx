@@ -171,29 +171,6 @@ export default function LotsPage() {
     filteredLots.length === 0 ? 0 : (normalizedCurrentPage - 1) * PAGE_SIZE + 1;
   const pageEnd = Math.min(normalizedCurrentPage * PAGE_SIZE, filteredLots.length);
 
-  const totals = useMemo(
-    () =>
-      filteredLots.reduce(
-        (acc, lot) => ({
-          measured: acc.measured + lot.measuredAmount,
-          packaged: acc.packaged + lot.packagedAmount,
-          inventory: acc.inventory + lot.inventoryAmount,
-          allocated: acc.allocated + lot.allocatedAmount,
-          shipped: acc.shipped + lot.shippedAmount,
-          remaining: acc.remaining + lot.remainingAmount,
-        }),
-        {
-          measured: 0,
-          packaged: 0,
-          inventory: 0,
-          allocated: 0,
-          shipped: 0,
-          remaining: 0,
-        },
-      ),
-    [filteredLots],
-  );
-
   const softDeleteLot = async (lot: LotFlowRow) => {
     const confirmed = confirm(
       `${lot.lotNo || "選択ロット"} を削除済みロット一覧へ移動します。よろしいですか？`,
@@ -268,37 +245,6 @@ export default function LotsPage() {
         <button className={styles.reloadButton} onClick={fetchLots}>
           再読み込み
         </button>
-      </div>
-
-      <div className={styles.summaryGrid}>
-        <div className={styles.summaryItem}>
-          <span>表示件数</span>
-          <strong>{filteredLots.length}</strong>
-        </div>
-        <div className={styles.summaryItem}>
-          <span>製造数</span>
-          <strong>{formatNumber(totals.measured)}</strong>
-        </div>
-        <div className={styles.summaryItem}>
-          <span>梱包数</span>
-          <strong>{formatNumber(totals.packaged)}</strong>
-        </div>
-        <div className={styles.summaryItem}>
-          <span>在庫数</span>
-          <strong>{formatNumber(totals.inventory)}</strong>
-        </div>
-        <div className={styles.summaryItem}>
-          <span>引当数</span>
-          <strong>{formatNumber(totals.allocated)}</strong>
-        </div>
-        <div className={styles.summaryItem}>
-          <span>出荷数</span>
-          <strong>{formatNumber(totals.shipped)}</strong>
-        </div>
-        <div className={styles.summaryItem}>
-          <span>残数</span>
-          <strong>{formatNumber(totals.remaining)}</strong>
-        </div>
       </div>
 
       {message && <div className={styles.message}>{message}</div>}
