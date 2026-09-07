@@ -139,22 +139,18 @@ begin
   else
     insert into inventory_items (
       product_id,
-      customer_id,
       lot_id,
       product_code,
       product_name,
-      customer_name,
       lot_no,
       current_stock,
       allocated_stock,
       updated_at
     ) values (
       coalesce(v_shipment.product_id, v_lot.product_id),
-      coalesce(v_shipment.customer_id, v_lot.customer_id),
       v_lot.id,
       coalesce(v_lot.product_code, ''),
       coalesce(v_lot.product_name, v_shipment.product_name),
-      coalesce(v_lot.customer_name, v_shipment.customer_name),
       coalesce(v_lot.lot_no, v_shipment.lot_no),
       v_shipment.quantity,
       v_allocated_restore_total,

@@ -1,8 +1,9 @@
--- Allow shipment cancellation when part or all of the shipment was consumed
--- from unallocated inventory. Allocation shipment amounts are reversed only
--- for the portion that was actually recorded as allocated shipment.
+-- Force replace the shipment cancellation RPC.
+-- Use this when CREATE OR REPLACE left an older function body in the database.
 
-create or replace function cancel_shipment_and_restore_inventory(
+drop function if exists cancel_shipment_and_restore_inventory(uuid, text);
+
+create function cancel_shipment_and_restore_inventory(
   p_shipment_id uuid,
   p_reason text
 ) returns void as $$
@@ -80,6 +81,10 @@ begin
     v_remaining := v_remaining - v_restore;
     v_allocated_restore_total := v_allocated_restore_total + v_restore;
   end loop;
+
+  if v_allocated_restore_total > v_shipment.quantity then
+    raise exception '引当復元数が出荷数を超えたため、出荷取消できません';
+  end if;
 
   select *
     into v_inventory
