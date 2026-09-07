@@ -76,25 +76,25 @@ const TableHeader = () => {
       </tr>
 
       <tr className={styles.headerBottom}>
-        <th>ロット</th>
+        <th className={styles.lotHeader}>ロット</th>
         <th className={styles.amountHeader}>数量</th>
-        <th>日付</th>
+        <th className={styles.dateHeader}>日付</th>
 
-        <th>ロット</th>
+        <th className={styles.lotHeader}>ロット</th>
         <th className={styles.amountHeader}>数量</th>
-        <th>日付</th>
+        <th className={styles.dateHeader}>日付</th>
 
-        <th>ロット</th>
+        <th className={styles.lotHeader}>ロット</th>
         <th className={styles.amountHeader}>数量</th>
-        <th>日付</th>
+        <th className={styles.dateHeader}>日付</th>
 
-        <th>ロット</th>
+        <th className={styles.lotHeader}>ロット</th>
         <th className={styles.amountHeader}>数量</th>
-        <th>日付</th>
+        <th className={styles.dateHeader}>日付</th>
 
-        <th>ロット</th>
+        <th className={styles.lotHeader}>ロット</th>
         <th className={styles.amountHeader}>数量</th>
-        <th>日付</th>
+        <th className={styles.dateHeader}>日付</th>
       </tr>
     </thead>
   );

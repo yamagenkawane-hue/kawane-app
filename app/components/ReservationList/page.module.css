@@ -294,6 +294,15 @@
   background-color: #e8f5e9;
 }
 
+.manufacturingCell,
+.cleaningCell,
+.inspectionCell,
+.measurementCell,
+.packagingCell {
+  min-width: 170px;
+  width: 170px;
+}
+
 .manufacturingAmountCell,
 .cleaningAmountCell,
 .inspectionAmountCell,
@@ -301,6 +310,15 @@
 .packagingAmountCell {
   min-width: 96px;
   width: 96px;
+}
+
+.averageCell,
+.cleaningAverageCell,
+.inspectionAverageCell,
+.measurementAverageCell,
+.packagingAverageCell {
+  min-width: 120px;
+  width: 120px;
 }
 
 /* =========================
