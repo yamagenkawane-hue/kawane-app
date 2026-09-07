@@ -401,11 +401,15 @@ export type Shipment = {
   customerName: string;
   productCode?: string;
   productName: string;
+  lotId?: string;
   lotNo: string;
   scheduledDate: string;
   deliveryDate: string;
   orderAmount: number;
   quantity: number;
+  cancelled?: boolean;
+  cancelledAt?: string;
+  cancelledReason?: string;
   createdAt: string;
   updatedAt: string;
 };

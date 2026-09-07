@@ -287,7 +287,10 @@ export default function OrderProcessesPage() {
           .from("v_order_processes_with_master")
           .select(ORDER_PROCESS_SELECT_COLUMNS)
           .order("process_order", { ascending: true }),
-        supabase.from("shipments").select("post_id,quantity"),
+        supabase
+          .from("shipments")
+          .select("post_id,quantity")
+          .eq("cancelled", false),
       ]);
 
       if (postResult.error) throw postResult.error;

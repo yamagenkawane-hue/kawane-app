@@ -38,6 +38,9 @@ type HistoryRow = {
   amount: number | null;
   target: string;
   detail: string;
+  shipmentId?: string;
+  canCancelShipment?: boolean;
+  cancelled?: boolean;
 };
 
 const LOT_SELECT_COLUMNS = [
@@ -185,6 +188,12 @@ export default function LotDetailPage() {
   const [lot, setLot] = useState<LotFlowRow | null>(null);
   const [historyRows, setHistoryRows] = useState<HistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancellingShipmentId, setCancellingShipmentId] = useState("");
+  const [isManagerIn] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.localStorage.getItem("isManagerIn") === "true",
+  );
   const [message, setMessage] = useState("");
 
   const loadHistory = useCallback(async (targetLot: LotFlowRow) => {
@@ -233,7 +242,9 @@ export default function LotDetailPage() {
         .order("confirmed_at", { ascending: true }),
       supabase
         .from("shipments")
-        .select("id,quantity,scheduled_date,delivery_date,customer_name,created_at,lot_no")
+        .select(
+          "id,quantity,scheduled_date,delivery_date,customer_name,created_at,lot_no,cancelled,cancelled_at,cancelled_reason",
+        )
         .or(`lot_id.eq.${targetLot.id},lot_no.eq.${targetLot.lotNo}`)
         .order("scheduled_date", { ascending: true }),
     ]);
@@ -389,10 +400,13 @@ export default function LotDetailPage() {
     const shipmentRows = (
       (shipmentResult.error ? [] : shipmentResult.data || []) as Record<string, unknown>[]
     ).map((row) => {
+      const cancelled = Boolean(row.cancelled);
       const detailParts = [
         `得意先: ${String(row.customer_name || targetLot.customerName || "-")}`,
         buildDateLabel("出荷予定", row.scheduled_date),
         buildDateLabel("納品日", row.delivery_date),
+        cancelled ? buildDateLabel("取消日", row.cancelled_at) : "",
+        cancelled ? `取消理由: ${String(row.cancelled_reason || "-")}` : "",
       ].filter(Boolean);
 
       return {
@@ -400,10 +414,13 @@ export default function LotDetailPage() {
         date: String(row.delivery_date || row.scheduled_date || row.created_at || ""),
         sortOrder: 90,
         section: "ロット履歴" as const,
-        action: "出荷",
+        action: cancelled ? "出荷取消済" : "出荷",
         amount: toNumber(row.quantity),
         target: targetLot.lotNo || "-",
         detail: detailParts.join(" / "),
+        shipmentId: String(row.id || ""),
+        canCancelShipment: !cancelled,
+        cancelled,
       };
     });
 
@@ -466,6 +483,69 @@ export default function LotDetailPage() {
 
     return () => window.clearTimeout(timerId);
   }, [loadLotDetail]);
+
+  const handleCancelShipment = async (history: HistoryRow) => {
+    if (!history.shipmentId || !lot) return;
+    if (!isManagerIn) {
+      alert("出荷取消は管理者のみ操作できます");
+      return;
+    }
+
+    const reason = window.prompt(
+      `${lot.lotNo} の出荷履歴を取り消します。理由を入力してください。`,
+      "出荷数量誤入力",
+    );
+    if (reason === null) return;
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      alert("取消理由を入力してください");
+      return;
+    }
+
+    const cancelPassword = window.prompt("出荷取消用パスワードを入力してください。");
+    if (cancelPassword === null) return;
+    if (!cancelPassword.trim()) {
+      alert("出荷取消用パスワードを入力してください");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `出荷数 ${formatAmount(history.amount)} を取り消し、在庫に戻します。よろしいですか？`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setCancellingShipmentId(history.shipmentId);
+      const response = await fetch("/api/shipments", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "x-manager": "true",
+        },
+        body: JSON.stringify({
+          id: history.shipmentId,
+          reason: trimmedReason,
+          cancel_password: cancelPassword,
+          is_manager: isManagerIn,
+        }),
+      });
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || "出荷取消に失敗しました");
+      }
+
+      await loadLotDetail();
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "出荷取消に失敗しました");
+    } finally {
+      setCancellingShipmentId("");
+    }
+  };
 
   const totals = useMemo(
     () =>
@@ -561,6 +641,7 @@ export default function LotDetailPage() {
                     <th>数量</th>
                     <th>対象</th>
                     <th>内容</th>
+                    <th>操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -574,11 +655,26 @@ export default function LotDetailPage() {
                       </td>
                       <td>{history.target}</td>
                       <td>{history.detail}</td>
+                      <td>
+                        {history.canCancelShipment && isManagerIn ? (
+                          <button
+                            className={styles.cancelShipmentButton}
+                            disabled={cancellingShipmentId === history.shipmentId}
+                            onClick={() => handleCancelShipment(history)}
+                          >
+                            取消
+                          </button>
+                        ) : history.cancelled ? (
+                          <span className={styles.cancelledBadge}>取消済</span>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
                     </tr>
                   ))}
                   {historyRows.length === 0 && (
                     <tr>
-                      <td className={styles.emptyCell} colSpan={6}>
+                      <td className={styles.emptyCell} colSpan={7}>
                         表示できる履歴がありません
                       </td>
                     </tr>

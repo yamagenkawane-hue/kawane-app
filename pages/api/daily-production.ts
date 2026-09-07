@@ -69,7 +69,10 @@ export default async function handler(
             ].join(","),
           )
           .order("customer_name", { ascending: true }),
-        supabase.from("shipments").select("post_id,quantity"),
+        supabase
+          .from("shipments")
+          .select("post_id,quantity")
+          .eq("cancelled", false),
         supabase
           .from("v_order_processes_with_master")
           .select("post_id,process_order,completed_amount"),

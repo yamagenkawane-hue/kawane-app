@@ -113,7 +113,10 @@ export const useFetchPosts = () => {
             .from("posts")
             .select(POST_SELECT_COLUMNS)
             .order("created_at", { ascending: true }),
-          supabase.from("shipments").select("post_id,quantity"),
+          supabase
+            .from("shipments")
+            .select("post_id,quantity")
+            .eq("cancelled", false),
           supabase
             .from("v_order_processes_with_master")
             .select(

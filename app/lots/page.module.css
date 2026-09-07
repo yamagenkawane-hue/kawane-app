@@ -355,6 +355,35 @@
   color: #991b1b;
 }
 
+.cancelShipmentButton {
+  background: #dc2626;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 900;
+  min-height: 34px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+
+.cancelShipmentButton:disabled {
+  background: #cbd5e1;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+.cancelledBadge {
+  background: #fee2e2;
+  border-radius: 999px;
+  color: #991b1b;
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
 .detailCard {
   margin-top: 20px;
   padding: 22px;

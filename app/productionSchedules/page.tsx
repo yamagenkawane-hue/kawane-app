@@ -345,7 +345,10 @@ export default function ProductionSchedulesPage() {
           .from("v_posts_with_master")
           .select("id,order_no,customer_name,product_name,order_amount,delivery_date")
           .or("delete.is.null,delete.eq.false"),
-        supabase.from("shipments").select("post_id,quantity"),
+        supabase
+          .from("shipments")
+          .select("post_id,quantity")
+          .eq("cancelled", false),
         fetch("/api/daily-production"),
         supabase
           .from("v_product_master_with_customer")

@@ -91,7 +91,10 @@ const OrdersPage = () => {
           supabase
             .from("v_inventory_items_with_master")
             .select("product_code,current_stock,allocated_stock"),
-          supabase.from("v_shipments_with_master").select("post_id,quantity"),
+          supabase
+            .from("v_shipments_with_master")
+            .select("post_id,quantity")
+            .eq("cancelled", false),
           supabase
             .from("v_order_processes_with_master")
             .select(

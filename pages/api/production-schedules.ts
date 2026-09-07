@@ -82,7 +82,10 @@ export default async function handler(
             .from("v_posts_with_master")
             .select(POST_SELECT_COLUMNS)
             .or("delete.is.null,delete.eq.false"),
-          supabase.from("shipments").select("post_id,quantity"),
+          supabase
+            .from("shipments")
+            .select("post_id,quantity")
+            .eq("cancelled", false),
           supabase
             .from("v_order_processes_with_master")
             .select("post_id,process_order,completed_amount"),
