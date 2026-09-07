@@ -97,7 +97,6 @@ begin
      where id = v_inventory.id;
   else
     insert into inventory_items (
-      post_id,
       product_id,
       customer_id,
       lot_id,
@@ -109,7 +108,6 @@ begin
       allocated_stock,
       updated_at
     ) values (
-      v_shipment.post_id,
       coalesce(v_shipment.product_id, v_lot.product_id),
       coalesce(v_shipment.customer_id, v_lot.customer_id),
       v_lot.id,

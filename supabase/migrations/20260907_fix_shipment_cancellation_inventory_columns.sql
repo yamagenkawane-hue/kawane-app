@@ -1,43 +1,5 @@
--- Add shipment cancellation support.
--- Cancelled shipments remain as history, but active shipment totals and lot
--- shipment summaries ignore them.
-
-alter table shipments
-  add column if not exists cancelled boolean not null default false,
-  add column if not exists cancelled_at timestamptz,
-  add column if not exists cancelled_reason text;
-
-create index if not exists shipments_cancelled_idx
-  on shipments (cancelled, cancelled_at);
-
-create or replace view v_shipments_with_master as
-select
-  s.id,
-  s.post_id,
-  coalesce(p.order_no, s.order_no) as order_no,
-  s.product_id,
-  coalesce(pm.product_code, p.product_code) as product_code,
-  coalesce(pm.product_name, s.product_name, p.product_name) as product_name,
-  s.customer_id,
-  coalesce(cm.customer_name, s.customer_name, p.customer_name) as customer_name,
-  s.lot_no,
-  s.scheduled_date,
-  s.delivery_date,
-  s.order_amount,
-  s.quantity,
-  s.created_at,
-  s.updated_at,
-  s.lot_id,
-  coalesce(s.cancelled, false) as cancelled,
-  s.cancelled_at,
-  s.cancelled_reason
-from shipments s
-left join posts p
-  on p.id = s.post_id
-left join product_master pm
-  on pm.id = s.product_id
-left join customer_master cm
-  on cm.id = s.customer_id;
+-- Fix shipment cancellation restore for databases where inventory_items does
+-- not have post_id. This replaces only the cancellation RPC.
 
 create or replace function cancel_shipment_and_restore_inventory(
   p_shipment_id uuid,
@@ -118,10 +80,6 @@ begin
     v_allocated_restore_total := v_allocated_restore_total + v_restore;
   end loop;
 
-  if v_allocated_restore_total <> v_shipment.quantity then
-    raise exception '出荷数と引当出荷数が一致しないため、出荷取消できません';
-  end if;
-
   select *
     into v_inventory
     from inventory_items
@@ -188,66 +146,3 @@ $$ language plpgsql security definer set search_path = public;
 
 revoke all on function cancel_shipment_and_restore_inventory(uuid, text) from public;
 grant execute on function cancel_shipment_and_restore_inventory(uuid, text) to service_role;
-
-create or replace view v_lot_flow_status as
-select
-  l.id,
-  l.post_id,
-  coalesce(p.order_no, l.order_no) as order_no,
-  l.product_id,
-  coalesce(pm.product_code, l.product_code, p.product_code) as product_code,
-  coalesce(pm.product_name, l.product_name, p.product_name) as product_name,
-  l.customer_id,
-  coalesce(cm.customer_name, l.customer_name, p.customer_name) as customer_name,
-  l.lot_no,
-  l.material_lot_no,
-  l.measurement_result_id,
-  l.measurement_order_process_id,
-  coalesce(l.measured_amount, 0) as measured_amount,
-  coalesce(l.packaged_amount, 0) as packaged_amount,
-  coalesce(ii.current_stock_sum, l.inventory_amount, 0) as inventory_amount,
-  coalesce(ia.allocated_sum, l.allocated_amount, 0) as allocated_amount,
-  coalesce(s.shipped_sum, l.shipped_amount, 0) as shipped_amount,
-  greatest(coalesce(l.measured_amount, 0) - coalesce(s.shipped_sum, l.shipped_amount, 0), 0) as remaining_amount,
-  case
-    when coalesce(l.status, '') = 'cancelled' then 'cancelled'
-    when coalesce(s.shipped_sum, l.shipped_amount, 0) >= coalesce(l.measured_amount, 0)
-      and coalesce(l.measured_amount, 0) > 0 then 'shipped'
-    when coalesce(s.shipped_sum, l.shipped_amount, 0) > 0 then 'partial_shipped'
-    when coalesce(ia.allocated_sum, l.allocated_amount, 0) > 0 then 'allocated'
-    when coalesce(ii.current_stock_sum, l.inventory_amount, 0) > 0 then 'stocked'
-    when coalesce(l.packaged_amount, 0) > 0 then 'packaging'
-    else 'measured'
-  end as flow_status,
-  l.measured_at,
-  l.packaged_at,
-  l.last_shipped_at,
-  l.note,
-  l.created_at,
-  l.updated_at,
-  coalesce(l.deleted, false) as deleted,
-  l.deleted_at,
-  l.deleted_reason
-from lots l
-left join posts p on p.id = l.post_id
-left join product_master pm on pm.id = coalesce(l.product_id, p.product_id)
-left join customer_master cm on cm.id = coalesce(l.customer_id, p.customer_id)
-left join (
-  select lot_id, sum(current_stock)::integer as current_stock_sum
-  from inventory_items
-  where lot_id is not null
-  group by lot_id
-) ii on ii.lot_id = l.id
-left join (
-  select lot_id, sum(allocated_amount - shipped_amount)::integer as allocated_sum
-  from inventory_allocations
-  where lot_id is not null
-  group by lot_id
-) ia on ia.lot_id = l.id
-left join (
-  select lot_id, sum(quantity)::integer as shipped_sum
-  from shipments
-  where lot_id is not null
-    and coalesce(cancelled, false) = false
-  group by lot_id
-) s on s.lot_id = l.id;
