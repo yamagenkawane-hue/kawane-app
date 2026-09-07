@@ -161,6 +161,7 @@ export type PostData = {
   productName: string;
   customerName: string;
   orderAmount: number;
+  planAmount?: number;
   remainingAmount: number;
   status: string;
   deliveryDate: string;
@@ -320,6 +321,7 @@ export type ProductionSchedule = {
   pressNumber: string;
   lotNo: string;
   planAmount: number;
+  productPlanAmount?: number;
   pressCompletedAmount: number;
   pressCompletedDate: string;
   shippingScheduledStart?: string;
@@ -357,6 +359,7 @@ export type ProductMaster = {
   standard: string;
   unit: string;
   unitWeight: number | string;
+  planAmount?: number | string;
 };
 
 export type MaterialMaster = {

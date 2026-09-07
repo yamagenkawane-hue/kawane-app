@@ -20,6 +20,20 @@ const emptyForm = {
 
 const DEPARTMENTS = ["製造G", "品質管理G", "梱包出荷G"] as const;
 type Department = (typeof DEPARTMENTS)[number];
+type DepartmentFilter = Department | "全て";
+
+type ScheduleSearch = {
+  orderNo: string;
+  customerName: string;
+  productName: string;
+  pressNumber: string;
+  lotNo: string;
+};
+
+type DailySchedulePost = PostData & {
+  planAmount?: number;
+  pressNumber?: string;
+};
 
 type LotProcessBalanceRow = {
   id: string;
@@ -46,6 +60,13 @@ type CompletedPostSummary = {
   deliveryDate: string;
 };
 
+type ProductPlanRow = {
+  product_code?: string | null;
+  product_name?: string | null;
+  customer_name?: string | null;
+  plan_amount?: number | string | null;
+};
+
 type NumpadTarget =
   | { kind: "form"; field: "planAmount" | "pressCompletedAmount" }
   | { kind: "schedule"; id: string; field: "planAmount" | "pressCompletedAmount" };
@@ -56,7 +77,7 @@ type EditingRow =
   | null;
 
 const SCHEDULE_SELECT_COLUMNS =
-  "id,post_id,order_no,customer_name,product_name,press_number,lot_no,plan_amount,press_completed_amount,press_completed_date,shipping_scheduled_start,shipping_scheduled_end,delivery_date,created_at,updated_at,department";
+  "id,post_id,order_no,customer_name,product_name,press_number,lot_no,plan_amount,press_completed_amount,press_completed_date,shipping_scheduled_start,shipping_scheduled_end,delivery_date,created_at,updated_at,department,product_plan_amount";
 
 const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
   "id,post_id,order_no,lot_no,process_name,process_order,quantity,completed_amount,completed_date,customer_name,product_name,delivery_date";
@@ -74,6 +95,7 @@ const mapSchedule = (row: Record<string, unknown>): ProductionSchedule => ({
   pressNumber: String(row.press_number || ""),
   lotNo: String(row.lot_no || ""),
   planAmount: Number(row.plan_amount || 0),
+  productPlanAmount: Number(row.product_plan_amount || 0),
   pressCompletedAmount: Number(row.press_completed_amount || 0),
   pressCompletedDate: String(row.press_completed_date || ""),
   shippingScheduledStart: String(row.shipping_scheduled_start || ""),
@@ -199,15 +221,51 @@ const filterSchedulesByBackorders = (
   });
 };
 
+const normalizeText = (value?: string | number) =>
+  String(value || "").trim().toLowerCase();
+
+const matchesSearch = (
+  row: {
+    orderNo?: string;
+    customerName?: string;
+    productName?: string;
+    pressNumber?: string;
+    lotNo?: string;
+  },
+  search: ScheduleSearch,
+) =>
+  (!search.orderNo || normalizeText(row.orderNo).includes(normalizeText(search.orderNo))) &&
+  (!search.customerName ||
+    normalizeText(row.customerName).includes(normalizeText(search.customerName))) &&
+  (!search.productName ||
+    normalizeText(row.productName).includes(normalizeText(search.productName))) &&
+  (!search.pressNumber ||
+    normalizeText(row.pressNumber).includes(normalizeText(search.pressNumber))) &&
+  (!search.lotNo || normalizeText(row.lotNo).includes(normalizeText(search.lotNo)));
+
+const getProductPlanKey = (
+  productCode?: string,
+  productName?: string,
+  customerName?: string,
+) =>
+  [productCode, productName, customerName].map((value) => normalizeText(value)).join("|");
+
 export default function ProductionSchedulesPage() {
   const [schedules, setSchedules] = useState<ProductionSchedule[]>([]);
-  const [orderSchedules, setOrderSchedules] = useState<PostData[]>([]);
+  const [orderSchedules, setOrderSchedules] = useState<DailySchedulePost[]>([]);
   const [lotProcessBalances, setLotProcessBalances] = useState<
     LotProcessBalanceRow[]
   >([]);
   const [selectedDepartment, setSelectedDepartment] =
-    useState<Department>("製造G");
+    useState<DepartmentFilter>("製造G");
   const [form, setForm] = useState(emptyForm);
+  const [appliedSearch, setAppliedSearch] = useState<ScheduleSearch>({
+    orderNo: "",
+    customerName: "",
+    productName: "",
+    pressNumber: "",
+    lotNo: "",
+  });
   const [loading, setLoading] = useState(false);
   const [numpadTarget, setNumpadTarget] = useState<NumpadTarget | null>(null);
   const [editingRow, setEditingRow] = useState<EditingRow>(null);
@@ -268,6 +326,7 @@ export default function ProductionSchedulesPage() {
         postResult,
         shipmentResult,
         dailyResult,
+        productPlanResult,
       ] = await Promise.all([
         supabase
           .from("v_production_schedules_with_master")
@@ -288,6 +347,9 @@ export default function ProductionSchedulesPage() {
           .or("delete.is.null,delete.eq.false"),
         supabase.from("shipments").select("post_id,quantity"),
         fetch("/api/daily-production"),
+        supabase
+          .from("v_product_master_with_customer")
+          .select("product_code,product_name,customer_name,plan_amount"),
       ]);
 
       if (scheduleResult.error) throw scheduleResult.error;
@@ -295,10 +357,36 @@ export default function ProductionSchedulesPage() {
       if (completedResult.error) throw completedResult.error;
       if (postResult.error) throw postResult.error;
       if (shipmentResult.error) throw shipmentResult.error;
+      if (productPlanResult.error) throw productPlanResult.error;
       if (!dailyResult.ok) throw new Error("注残データの取得に失敗しました");
 
       const dailyRows = await dailyResult.json();
-      const mappedPosts = (dailyRows || []).map(mapPost);
+      const productPlanMap = new Map<string, number>();
+      for (const row of (productPlanResult.data || []) as ProductPlanRow[]) {
+        const planAmount = Number(row.plan_amount || 0);
+        const codeKey = getProductPlanKey(row.product_code || "", "", "");
+        const detailKey = getProductPlanKey(
+          "",
+          row.product_name || "",
+          row.customer_name || "",
+        );
+        if (row.product_code) productPlanMap.set(codeKey, planAmount);
+        if (row.product_name || row.customer_name) productPlanMap.set(detailKey, planAmount);
+      }
+      const mappedPosts: DailySchedulePost[] = (dailyRows || []).map(
+        (row: Record<string, unknown>) => {
+          const post = mapPost(row);
+          return {
+            ...post,
+            planAmount:
+              productPlanMap.get(getProductPlanKey(post.productCode, "", "")) ||
+              productPlanMap.get(
+                getProductPlanKey("", post.productName, post.customerName),
+              ) ||
+              0,
+          };
+        },
+      );
       const postMap = new Map(
         (postResult.data || []).map((row) => [
           String(row.id || ""),
@@ -376,54 +464,6 @@ export default function ProductionSchedulesPage() {
     if (numpadTarget.kind === "form") return String(form[numpadTarget.field] || "");
     const schedule = schedules.find((item) => item.id === numpadTarget.id);
     return String(schedule?.[numpadTarget.field] || "");
-  };
-
-  const handleAdd = async () => {
-    if (!form.customerName || !form.productName || !form.pressNumber) {
-      alert("得意先、製品名、プレス機Noを入力してください");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const planAmount = Number(form.planAmount);
-      const pressCompletedAmount = Number(form.pressCompletedAmount);
-      if (planAmount < 0 || pressCompletedAmount < 0) {
-        alert("予定数と完了数は0以上で入力してください");
-        return;
-      }
-      if (pressCompletedAmount > planAmount) {
-        alert("完了数は予定数以下で入力してください");
-        return;
-      }
-
-      const orderNo = form.orderNo || createScheduleNo(schedules);
-      const response = await fetch("/api/daily-production", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          department: selectedDepartment,
-          customer_name: form.customerName,
-          product_name: form.productName,
-          order_no: orderNo,
-          press_number: form.pressNumber,
-          lot_no: form.lotNo,
-          plan_amount: planAmount,
-          press_completed_amount: pressCompletedAmount,
-          press_completed_date: form.pressCompletedDate || null,
-        }),
-      });
-
-      if (!response.ok) throw new Error("生産予定の登録に失敗しました");
-
-      setForm(emptyForm);
-      await fetchSchedules();
-    } catch (error) {
-      console.error(error);
-      alert("生産予定の登録に失敗しました");
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleChange = (
@@ -519,11 +559,6 @@ export default function ProductionSchedulesPage() {
       const { error } = await supabase
         .from("posts")
         .update({
-          order_no: post.orderNo,
-          customer_name: post.customerName,
-          product_name: post.productName,
-          lot_no: post.lotNo || null,
-          order_amount: Number(post.remainingAmount || post.orderAmount || 0),
           completion_scheduled_date:
             post.completionScheduledDate || post.deliveryDate || null,
           delivery_date: post.deliveryDate || null,
@@ -592,12 +627,14 @@ export default function ProductionSchedulesPage() {
     await fetchSchedules();
   };
 
-  const departmentBalanceRows = lotProcessBalances.filter(
-    (row) => getDepartmentForProcess(row.processName) === selectedDepartment,
-  );
-  const departmentSchedules = schedules.filter(
-    (schedule) => (schedule.department || "製造G") === selectedDepartment,
-  );
+  const departmentBalanceRows = lotProcessBalances.filter((row) => {
+    if (selectedDepartment === "全て") return true;
+    return getDepartmentForProcess(row.processName) === selectedDepartment;
+  });
+  const departmentSchedules = schedules.filter((schedule) => {
+    if (selectedDepartment === "全て") return true;
+    return (schedule.department || "製造G") === selectedDepartment;
+  });
   const scheduledPostIds = new Set(
     departmentSchedules.map((schedule) => schedule.postId).filter(Boolean),
   );
@@ -607,7 +644,40 @@ export default function ProductionSchedulesPage() {
   const unscheduledOrderSchedules = orderSchedules.filter((post) => {
     if (post.id && scheduledPostIds.has(post.id)) return false;
     if (post.orderNo && scheduledOrderNos.has(post.orderNo)) return false;
-    return true;
+    return matchesSearch(post, appliedSearch);
+  });
+  const filteredDepartmentSchedules = departmentSchedules.filter((schedule) =>
+    selectedDepartment === "製造G" ? matchesSearch(schedule, appliedSearch) : true,
+  );
+  const allDepartmentRows = orderSchedules.map((post) => {
+    const balances = lotProcessBalances.filter((row) => row.postId === post.id);
+    const schedulesForPost = schedules.filter(
+      (schedule) =>
+        (schedule.postId && schedule.postId === post.id) ||
+        (!schedule.postId && schedule.orderNo === post.orderNo),
+    );
+    const datesForDepartment = (department: Department) => {
+      const scheduleDates = schedulesForPost
+        .filter((schedule) => (schedule.department || "製造G") === department)
+        .map((schedule) => schedule.pressCompletedDate)
+        .filter(Boolean);
+      const balanceDates = balances
+        .filter((balance) => getDepartmentForProcess(balance.processName) === department)
+        .map((balance) => balance.completedDate)
+        .filter(Boolean);
+      return Array.from(new Set([...scheduleDates, ...balanceDates])).join(" / ") || "-";
+    };
+
+    return {
+      ...post,
+      lotNo:
+        balances.map((balance) => balance.lotNo).filter(Boolean).join(" / ") ||
+        post.lotNo ||
+        "-",
+      manufacturingCompletedDate: datesForDepartment("製造G"),
+      qualityCompletedDate: datesForDepartment("品質管理G"),
+      shippingCompletedDate: datesForDepartment("梱包出荷G"),
+    };
   });
 
   const showManualInput = selectedDepartment === "製造G";
@@ -630,8 +700,9 @@ export default function ProductionSchedulesPage() {
             id="department-select"
             className={styles.departmentSelect}
             value={selectedDepartment}
-            onChange={(e) => setSelectedDepartment(e.target.value as Department)}
+            onChange={(e) => setSelectedDepartment(e.target.value as DepartmentFilter)}
           >
+            <option value="全て">全て</option>
             {DEPARTMENTS.map((department) => (
               <option key={department} value={department}>
                 {department}
@@ -706,8 +777,19 @@ export default function ProductionSchedulesPage() {
             }
           />
         </div>
-        <button className={styles.addButton} onClick={handleAdd}>
-          追加
+        <button
+          className={styles.addButton}
+          onClick={() =>
+            setAppliedSearch({
+              orderNo: form.orderNo,
+              customerName: form.customerName,
+              productName: form.productName,
+              pressNumber: form.pressNumber,
+              lotNo: form.lotNo,
+            })
+          }
+        >
+          検索
         </button>
           </>
         )}
@@ -733,8 +815,16 @@ export default function ProductionSchedulesPage() {
               <th>製品名</th>
               <th>ロット</th>
               <th>数量</th>
+              <th>計画数</th>
+              <th>プレス機No</th>
               <th>完了数</th>
               <th>完了日</th>
+              {selectedDepartment === "全て" && (
+                <>
+                  <th>品質管理G完了日</th>
+                  <th>梱包出荷G完了日</th>
+                </>
+              )}
               <th>納期</th>
               <th>操作</th>
             </tr>
@@ -753,6 +843,7 @@ export default function ProductionSchedulesPage() {
                     {editing ? (
                       <input
                         className={`${styles.tableInput} ${styles.orderInput}`}
+                        disabled
                         value={post.orderNo}
                         onChange={(e) =>
                           handlePostChange(post.id, "orderNo", e.target.value)
@@ -766,6 +857,7 @@ export default function ProductionSchedulesPage() {
                     {editing ? (
                       <input
                         className={`${styles.tableInput} ${styles.customerInput}`}
+                        disabled
                         value={post.customerName}
                         onChange={(e) =>
                           handlePostChange(post.id, "customerName", e.target.value)
@@ -779,6 +871,7 @@ export default function ProductionSchedulesPage() {
                     {editing ? (
                       <input
                         className={`${styles.tableInput} ${styles.productInput}`}
+                        disabled
                         value={post.productName}
                         onChange={(e) =>
                           handlePostChange(post.id, "productName", e.target.value)
@@ -792,6 +885,7 @@ export default function ProductionSchedulesPage() {
                     {editing ? (
                       <input
                         className={`${styles.tableInput} ${styles.lotInput}`}
+                        disabled
                         value={post.lotNo || ""}
                         onChange={(e) =>
                           handlePostChange(post.id, "lotNo", e.target.value)
@@ -804,7 +898,7 @@ export default function ProductionSchedulesPage() {
                   <td>
                     <input
                       className={`${styles.tableInput} ${styles.numberInput}`}
-                      disabled={!editing}
+                      disabled
                       inputMode="numeric"
                       value={post.remainingAmount || ""}
                       onChange={(e) =>
@@ -816,6 +910,8 @@ export default function ProductionSchedulesPage() {
                       }
                     />
                   </td>
+                  <td>{renderCellText(post.planAmount || 0)}</td>
+                  <td>{renderCellText(post.pressNumber || "-")}</td>
                   <td>-</td>
                   <td>
                     <input
@@ -878,7 +974,7 @@ export default function ProductionSchedulesPage() {
             })}
 
             {selectedDepartment === "製造G" &&
-              departmentSchedules.map((schedule) => {
+              filteredDepartmentSchedules.map((schedule) => {
               const editing = isEditing("schedule", schedule.id);
 
               return (
@@ -890,6 +986,7 @@ export default function ProductionSchedulesPage() {
                   {editing ? (
                     <input
                       className={`${styles.tableInput} ${styles.orderInput}`}
+                      disabled
                       value={schedule.orderNo || ""}
                       onChange={(e) =>
                         handleChange(schedule.id, "orderNo", e.target.value)
@@ -903,6 +1000,7 @@ export default function ProductionSchedulesPage() {
                   {editing ? (
                     <input
                       className={`${styles.tableInput} ${styles.customerInput}`}
+                      disabled
                       value={schedule.customerName}
                       onChange={(e) =>
                         handleChange(schedule.id, "customerName", e.target.value)
@@ -916,6 +1014,7 @@ export default function ProductionSchedulesPage() {
                   {editing ? (
                     <input
                       className={`${styles.tableInput} ${styles.productInput}`}
+                      disabled
                       value={schedule.productName}
                       onChange={(e) =>
                         handleChange(schedule.id, "productName", e.target.value)
@@ -929,6 +1028,7 @@ export default function ProductionSchedulesPage() {
                   {editing ? (
                     <input
                       className={`${styles.tableInput} ${styles.lotInput}`}
+                      disabled
                       value={schedule.lotNo}
                       onChange={(e) =>
                         handleChange(schedule.id, "lotNo", e.target.value)
@@ -941,7 +1041,7 @@ export default function ProductionSchedulesPage() {
                 <td>
                   <input
                     className={`${styles.tableInput} ${styles.numberInput}`}
-                    disabled={!editing}
+                    disabled
                     inputMode="numeric"
                     value={schedule.planAmount || ""}
                     onFocus={() =>
@@ -957,6 +1057,8 @@ export default function ProductionSchedulesPage() {
                     }
                   />
                 </td>
+                <td>{renderCellText(schedule.productPlanAmount || 0)}</td>
+                <td>{renderCellText(schedule.pressNumber)}</td>
                 <td>
                   <input
                     className={`${styles.tableInput} ${styles.numberInput}`}
@@ -1037,7 +1139,7 @@ export default function ProductionSchedulesPage() {
               </tr>
               );
             })}
-            {selectedDepartment !== "製造G" &&
+            {selectedDepartment !== "製造G" && selectedDepartment !== "全て" &&
               departmentBalanceRows.map((row) => (
                 <tr
                   key={`balance-${row.id}`}
@@ -1048,6 +1150,8 @@ export default function ProductionSchedulesPage() {
                   <td>{renderCellText(row.productName)}</td>
                   <td>{renderCellText(row.lotNo)}</td>
                   <td>{renderCellText(row.quantity)}</td>
+                  <td>{renderCellText("-")}</td>
+                  <td>{renderCellText("-")}</td>
                   <td>{renderCellText(row.completedAmount)}</td>
                   <td>{renderCellText(row.completedDate)}</td>
                   <td>{renderCellText(row.deliveryDate)}</td>
@@ -1056,13 +1160,37 @@ export default function ProductionSchedulesPage() {
                   </td>
                 </tr>
               ))}
+            {selectedDepartment === "全て" &&
+              allDepartmentRows.map((row) => (
+                <tr
+                  key={`all-${row.id}`}
+                  className={isOverdue(row.deliveryDate) ? styles.dangerRow : ""}
+                >
+                  <td>{renderCellText(row.orderNo)}</td>
+                  <td>{renderCellText(row.customerName)}</td>
+                  <td>{renderCellText(row.productName)}</td>
+                  <td>{renderCellText(row.lotNo)}</td>
+                  <td>{renderCellText(row.orderAmount)}</td>
+                  <td>{renderCellText(row.planAmount || 0)}</td>
+                  <td>{renderCellText(row.pressNumber || "-")}</td>
+                  <td>{renderCellText("-")}</td>
+                  <td>{renderCellText(row.manufacturingCompletedDate)}</td>
+                  <td>{renderCellText(row.qualityCompletedDate)}</td>
+                  <td>{renderCellText(row.shippingCompletedDate)}</td>
+                  <td>{renderCellText(row.deliveryDate)}</td>
+                  <td className={styles.actionArea}>
+                    <span className={styles.readOnlyText}>全体確認</span>
+                  </td>
+                </tr>
+              ))}
             {((selectedDepartment === "製造G" &&
               unscheduledOrderSchedules.length === 0 &&
-              departmentSchedules.length === 0) ||
-              (selectedDepartment !== "製造G" &&
+              filteredDepartmentSchedules.length === 0) ||
+              (selectedDepartment === "全て" && allDepartmentRows.length === 0) ||
+              (selectedDepartment !== "製造G" && selectedDepartment !== "全て" &&
                 departmentBalanceRows.length === 0)) && (
               <tr>
-                <td colSpan={9} className={styles.emptyCell}>
+                <td colSpan={selectedDepartment === "全て" ? 13 : 11} className={styles.emptyCell}>
                   表示できる生産予定はありません
                 </td>
               </tr>

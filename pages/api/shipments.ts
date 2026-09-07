@@ -61,6 +61,7 @@ export default async function handler(
           order_no: body.order_no,
           customer_name: body.customer_name,
           product_name: body.product_name,
+          lot_id: body.lot_id || null,
           lot_no: body.lot_no || "",
           scheduled_date: body.scheduled_date,
           delivery_date: body.delivery_date || null,

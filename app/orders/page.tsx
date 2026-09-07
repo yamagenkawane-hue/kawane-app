@@ -61,6 +61,9 @@ const OrdersPage = () => {
   const [posts, setPosts] = useState<AdjustedPost[]>([]);
   const [loadingPostId, setLoadingPostId] = useState("");
   const [deletingPostId, setDeletingPostId] = useState("");
+  const [sortMode, setSortMode] = useState<"delivery" | "customer">("delivery");
+  const [editingPostId, setEditingPostId] = useState("");
+  const [editingPost, setEditingPost] = useState<AdjustedPost | null>(null);
 
   const formatAllocationSource = useCallback((allocations: InventoryAllocation[]) => {
     if (allocations.length === 0) return "-";
@@ -310,15 +313,8 @@ const OrdersPage = () => {
         .filter(
           (post) =>
             post.shippedAmount < post.orderAmount &&
-            (post.remainingAmount > 0 || post.allocationConfirmed),
-        )
-        .sort((a, b) => {
-          const deliveryCompare =
-            new Date(a.deliveryDate).getTime() -
-            new Date(b.deliveryDate).getTime();
-          if (deliveryCompare !== 0) return deliveryCompare;
-          return compareCustomerName(a.customerName, b.customerName);
-        });
+            (post.remainingAmount > 0 || post.allocationConfirmed)
+        );
 
       setPosts(visiblePosts);
     } catch (error) {
@@ -392,6 +388,59 @@ const OrdersPage = () => {
     }
   };
 
+  const sortedPosts = [...posts].sort((a, b) => {
+    if (sortMode === "customer") {
+      const customerCompare = compareCustomerName(a.customerName, b.customerName);
+      if (customerCompare !== 0) return customerCompare;
+    }
+
+    const deliveryCompare =
+      new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime();
+    if (deliveryCompare !== 0) return deliveryCompare;
+    return compareCustomerName(a.customerName, b.customerName);
+  });
+
+  const startEdit = (post: AdjustedPost) => {
+    setEditingPostId(post.id);
+    setEditingPost({ ...post });
+  };
+
+  const updateEditingPost = (field: keyof AdjustedPost, value: string | number) => {
+    setEditingPost((current) =>
+      current ? { ...current, [field]: value } : current,
+    );
+  };
+
+  const handleSaveOrder = async () => {
+    if (!editingPost) return;
+
+    const { error } = await supabase
+      .from("posts")
+      .update({
+        order_no: editingPost.orderNo,
+        lot_no: editingPost.lotNo || null,
+        product_name: editingPost.productName,
+        customer_name: editingPost.customerName,
+        order_amount: Number(editingPost.orderAmount || 0),
+        remaining_amount: Number(editingPost.remainingAmount || 0),
+        completion_scheduled_date:
+          editingPost.completionScheduledDate || editingPost.deliveryDate || null,
+        delivery_date: editingPost.deliveryDate || null,
+        remark: editingPost.remark || "",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", editingPost.id);
+
+    if (error) {
+      alert(error.message || "受注の保存に失敗しました");
+      return;
+    }
+
+    setEditingPostId("");
+    setEditingPost(null);
+    await fetchPosts();
+  };
+
   return (
     <div className={styles.container}>
       {/* ヘッダー */}
@@ -401,6 +450,22 @@ const OrdersPage = () => {
         </Link>
 
         <h1 className={styles.title}>注残管理一覧</h1>
+      </div>
+
+      <div className={styles.sortArea}>
+        <span>並び替え</span>
+        <button
+          className={sortMode === "delivery" ? styles.activeSortButton : styles.sortButton}
+          onClick={() => setSortMode("delivery")}
+        >
+          納期順
+        </button>
+        <button
+          className={sortMode === "customer" ? styles.activeSortButton : styles.sortButton}
+          onClick={() => setSortMode("customer")}
+        >
+          得意先順
+        </button>
       </div>
 
       {/* テーブル */}
@@ -421,12 +486,14 @@ const OrdersPage = () => {
               <th>納期</th>
               <th>出荷予定日</th>
               <th>在庫引当</th>
+              <th>編集</th>
               <th>削除</th>
             </tr>
           </thead>
 
           <tbody>
-            {posts.map((post) => {
+            {sortedPosts.map((post) => {
+              const editing = editingPostId === post.id && editingPost;
               const today = new Date();
               today.setHours(0, 0, 0, 0);
 
@@ -447,17 +514,92 @@ const OrdersPage = () => {
 
               return (
                 <tr key={post.id} className={rowClass}>
-                  <td>{post.orderNo}</td>
-                  <td>{post.lotNo || "-"}</td>
-                  <td>{post.productName}</td>
-                  <td>{post.customerName}</td>
-                  <td>{post.orderAmount}</td>
+                  <td>
+                    {editing ? (
+                      <input
+                        className={styles.tableInput}
+                        value={editingPost.orderNo}
+                        onChange={(e) => updateEditingPost("orderNo", e.target.value)}
+                      />
+                    ) : (
+                      post.orderNo
+                    )}
+                  </td>
+                  <td>
+                    {editing ? (
+                      <input
+                        className={styles.tableInput}
+                        value={editingPost.lotNo || ""}
+                        onChange={(e) => updateEditingPost("lotNo", e.target.value)}
+                      />
+                    ) : (
+                      post.lotNo || "-"
+                    )}
+                  </td>
+                  <td>
+                    {editing ? (
+                      <input
+                        className={styles.tableInput}
+                        value={editingPost.productName}
+                        onChange={(e) => updateEditingPost("productName", e.target.value)}
+                      />
+                    ) : (
+                      post.productName
+                    )}
+                  </td>
+                  <td>
+                    {editing ? (
+                      <input
+                        className={styles.tableInput}
+                        value={editingPost.customerName}
+                        onChange={(e) => updateEditingPost("customerName", e.target.value)}
+                      />
+                    ) : (
+                      post.customerName
+                    )}
+                  </td>
+                  <td>
+                    {editing ? (
+                      <input
+                        className={styles.tableInput}
+                        inputMode="numeric"
+                        value={editingPost.orderAmount}
+                        onChange={(e) => updateEditingPost("orderAmount", Number(e.target.value))}
+                      />
+                    ) : (
+                      post.orderAmount
+                    )}
+                  </td>
                   <td>{post.packagingAmount || 0}</td>
                   <td className={styles.remaining}>{post.remainingAmount}</td>
                   <td>{post.transferSource}</td>
                   <td>{post.status}</td>
-                  <td>{post.completionScheduledDate || "-"}</td>
-                  <td>{post.deliveryDate}</td>
+                  <td>
+                    {editing ? (
+                      <input
+                        className={styles.tableInput}
+                        type="date"
+                        value={editingPost.completionScheduledDate || ""}
+                        onChange={(e) =>
+                          updateEditingPost("completionScheduledDate", e.target.value)
+                        }
+                      />
+                    ) : (
+                      post.completionScheduledDate || "-"
+                    )}
+                  </td>
+                  <td>
+                    {editing ? (
+                      <input
+                        className={styles.tableInput}
+                        type="date"
+                        value={editingPost.deliveryDate || ""}
+                        onChange={(e) => updateEditingPost("deliveryDate", e.target.value)}
+                      />
+                    ) : (
+                      post.deliveryDate
+                    )}
+                  </td>
                   <td>{post.shippingScheduledDate}</td>
                   <td>
                     {post.allocationConfirmed ? (
@@ -472,6 +614,31 @@ const OrdersPage = () => {
                       </button>
                     ) : (
                       <span className={styles.noInventoryText}>在庫なし</span>
+                    )}
+                  </td>
+                  <td>
+                    {editing ? (
+                      <div className={styles.actionArea}>
+                        <button className={styles.confirmButton} onClick={handleSaveOrder}>
+                          保存
+                        </button>
+                        <button
+                          className={styles.deleteButton}
+                          onClick={() => {
+                            setEditingPostId("");
+                            setEditingPost(null);
+                          }}
+                        >
+                          取消
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className={styles.editButton}
+                        onClick={() => startEdit(post)}
+                      >
+                        編集
+                      </button>
                     )}
                   </td>
                   <td>

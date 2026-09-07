@@ -8,7 +8,7 @@ import { CustomerMaster, MaterialMaster, ProductMaster } from "@/app/type";
 import styles from "../masterCommon.module.css";
 
 const PRODUCT_SELECT_COLUMNS =
-  "id,product_code,product_name,customer_name,standard,unit,unit_weight";
+  "id,product_code,product_name,customer_name,standard,unit,unit_weight,plan_amount";
 
 const CUSTOMER_SELECT_COLUMNS =
   "id,customer_name,shipping_offset_days,note";
@@ -24,6 +24,7 @@ type ProductRow = {
   standard: string | null;
   unit: string | null;
   unit_weight: number | string | null;
+  plan_amount: number | string | null;
 };
 
 type CustomerRow = {
@@ -43,8 +44,8 @@ type MaterialRow = {
 };
 
 type NumpadTarget =
-  | { kind: "form"; field: "unitWeight" }
-  | { kind: "item"; id: string; field: "unitWeight" }
+  | { kind: "form"; field: "unitWeight" | "planAmount" }
+  | { kind: "item"; id: string; field: "unitWeight" | "planAmount" }
   | null;
 
 const emptyForm = {
@@ -54,6 +55,7 @@ const emptyForm = {
   standard: "",
   unit: "個",
   unitWeight: "",
+  planAmount: "",
 };
 
 const mapProduct = (row: ProductRow): ProductMaster => ({
@@ -64,6 +66,7 @@ const mapProduct = (row: ProductRow): ProductMaster => ({
   standard: row.standard || "",
   unit: row.unit || "",
   unitWeight: Number(row.unit_weight || 0),
+  planAmount: Number(row.plan_amount || 0),
 });
 
 const mapCustomer = (row: CustomerRow): CustomerMaster => ({
@@ -173,6 +176,7 @@ export default function ProductMasterPage() {
       standard: form.standard,
       unit: form.unit,
       unit_weight: form.unitWeight === "" ? 0 : Number(form.unitWeight),
+      plan_amount: form.planAmount === "" ? 0 : Number(form.planAmount),
     });
 
     if (error) {
@@ -205,6 +209,7 @@ export default function ProductMasterPage() {
           standard: item.standard,
           unit: item.unit,
           unit_weight: Number(item.unitWeight || 0),
+          plan_amount: Number(item.planAmount || 0),
         })
         .eq("id", item.id);
 
@@ -258,21 +263,23 @@ export default function ProductMasterPage() {
 
   const getNumpadValue = () => {
     if (!numpadTarget) return "";
-    if (numpadTarget.kind === "form") return String(form.unitWeight || "");
+    if (numpadTarget.kind === "form") {
+      return String(form[numpadTarget.field] || "");
+    }
 
     const item = items.find((currentItem) => currentItem.id === numpadTarget.id);
-    return String(item?.unitWeight || "");
+    return String(item?.[numpadTarget.field] || "");
   };
 
   const handleNumpadChange = (value: string) => {
     if (!numpadTarget) return;
 
     if (numpadTarget.kind === "form") {
-      setForm((prev) => ({ ...prev, unitWeight: value }));
+      setForm((prev) => ({ ...prev, [numpadTarget.field]: value }));
       return;
     }
 
-    updateItem(numpadTarget.id, "unitWeight", value);
+    updateItem(numpadTarget.id, numpadTarget.field, value);
   };
 
   return (
@@ -332,6 +339,19 @@ export default function ProductMasterPage() {
               setNumpadTarget({ kind: "form", field: "unitWeight" })
             }
           />
+          <input
+            className={`${styles.input} ${styles.numpadInput}`}
+            inputMode="numeric"
+            placeholder="計画数"
+            value={form.planAmount}
+            readOnly
+            onFocus={() =>
+              setNumpadTarget({ kind: "form", field: "planAmount" })
+            }
+            onClick={() =>
+              setNumpadTarget({ kind: "form", field: "planAmount" })
+            }
+          />
         </div>
         <div className={styles.buttonRow}>
           <button className={styles.addButton} onClick={handleAdd}>
@@ -354,6 +374,7 @@ export default function ProductMasterPage() {
               <th>得意先名</th>
               <th>材料コード</th>
               <th>単重</th>
+              <th>計画数</th>
               <th>材料残量目安</th>
               <th>操作</th>
             </tr>
@@ -424,6 +445,28 @@ export default function ProductMasterPage() {
                         kind: "item",
                         id: item.id,
                         field: "unitWeight",
+                      })
+                    }
+                  />
+                </td>
+                <td>
+                  <input
+                    className={`${styles.tableInput} ${styles.numpadInput}`}
+                    inputMode="numeric"
+                    value={item.planAmount}
+                    readOnly
+                    onFocus={() =>
+                      setNumpadTarget({
+                        kind: "item",
+                        id: item.id,
+                        field: "planAmount",
+                      })
+                    }
+                    onClick={() =>
+                      setNumpadTarget({
+                        kind: "item",
+                        id: item.id,
+                        field: "planAmount",
                       })
                     }
                   />

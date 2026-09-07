@@ -42,6 +42,51 @@
   border-radius: 12px;
   border: 1px solid #e5e7eb;
 }
+
+.sortArea {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  color: #334155;
+  font-weight: bold;
+}
+
+.sortButton,
+.activeSortButton,
+.editButton {
+  border: none;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+  padding: 8px 14px;
+  white-space: nowrap;
+}
+
+.sortButton {
+  background: #64748b;
+}
+
+.activeSortButton,
+.editButton {
+  background: #2563eb;
+}
+
+.actionArea {
+  display: inline-flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.tableInput {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+  max-width: 150px;
+  padding: 8px 10px;
+  text-align: center;
+}
 .table {
   width: 100%;
   border-collapse: collapse;

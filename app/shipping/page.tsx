@@ -12,6 +12,7 @@ import styles from "../masterCommon.module.css";
 
 type ShippingPost = {
   lotNo: string;
+  lotId: string;
   rowKey: string;
   id: string;
   postId: string;
@@ -34,7 +35,7 @@ type ShippingPostGroup = {
 };
 
 const STOCK_IN_HISTORY_SELECT_COLUMNS =
-  "id,post_id,order_no,lot_no,quantity,created_at,product_code,product_name,customer_name";
+  "id,post_id,order_no,lot_id,lot_no,quantity,created_at,product_code,product_name,customer_name";
 
 const CUSTOMER_SELECT_COLUMNS =
   "id,customer_name,shipping_offset_days,note";
@@ -151,6 +152,7 @@ export default function ShippingPage() {
           return {
             id: postId,
             rowKey: String(row.id || `${postId}-${lotNo}`),
+            lotId: String(row.lot_id || ""),
             postId,
             orderNo: row.order_no || "",
             lotNo,
@@ -269,6 +271,16 @@ export default function ShippingPage() {
       return;
     }
 
+    if (
+      !window.confirm(
+        `${post.orderNo} / ${post.lotNo} を ${amount.toLocaleString(
+          "ja-JP",
+        )} 個出荷します。よろしいですか？`,
+      )
+    ) {
+      return;
+    }
+
     try {
       setLoading(true);
       const response = await fetch("/api/shipments", {
@@ -280,6 +292,7 @@ export default function ShippingPage() {
           customer_name: post.customerName,
           product_code: post.productCode,
           product_name: post.productName,
+          lot_id: post.lotId || null,
           lot_no: post.lotNo || "",
           scheduled_date: post.scheduledDate,
           delivery_date: post.deliveryDate,

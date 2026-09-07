@@ -240,6 +240,7 @@
 .table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 1360px;
   table-layout: fixed;
 }
 
@@ -285,17 +286,28 @@
   width: 82px;
 }
 
-.table th:nth-child(6),
-.table td:nth-child(6),
 .table th:nth-child(7),
 .table td:nth-child(7),
 .table th:nth-child(8),
-.table td:nth-child(8) {
+.table td:nth-child(8),
+.table th:nth-child(9),
+.table td:nth-child(9),
+.table th:nth-child(10),
+.table td:nth-child(10),
+.table th:nth-child(11),
+.table td:nth-child(11),
+.table th:nth-child(12),
+.table td:nth-child(12) {
   width: 126px;
 }
 
-.table th:nth-child(9),
-.table td:nth-child(9) {
+.table th:nth-child(6),
+.table td:nth-child(6) {
+  width: 82px;
+}
+
+.table th:nth-child(13),
+.table td:nth-child(13) {
   width: 148px;
 }
 
