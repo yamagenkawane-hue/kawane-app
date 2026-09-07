@@ -197,11 +197,12 @@
 }
 
 .productNameCell {
-  min-width: 280px;
+  min-width: 220px;
+  width: 24%;
 }
 
 .productNameInput {
-  min-width: 260px;
+  min-width: 0;
 }
 
 .table th {
