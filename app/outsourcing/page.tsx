@@ -4,12 +4,14 @@ import {
   type MouseEvent,
   type RefObject,
   type UIEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import supabase from "@/lib/supabase";
 import { OrderProcess, ProductProcess } from "@/app/type";
 import styles from "../masterCommon.module.css";
@@ -112,17 +114,31 @@ const isSameProcess = (process: OutsourceRow, master: ProductProcess) => {
 };
 
 export default function OutsourcingPage() {
+  const router = useRouter();
   const [rows, setRows] = useState<OutsourceRow[]>([]);
   const [savingId, setSavingId] = useState("");
   const [loading, setLoading] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [queryParams] = useState(() => {
+    if (typeof window === "undefined") {
+      return { targetProcessId: "", returnTo: "" };
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    return {
+      targetProcessId: params.get("processId") || "",
+      returnTo: params.get("returnTo") || "",
+    };
+  });
   const [isDraggingTable, setIsDraggingTable] = useState(false);
   const topScrollRef = useRef<HTMLDivElement>(null);
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const dragStartXRef = useRef(0);
   const dragStartScrollLeftRef = useRef(0);
+  const targetProcessId = queryParams.targetProcessId;
+  const returnTo = queryParams.returnTo;
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const [orderProcessResult, productProcessResponse] = await Promise.all([
@@ -176,14 +192,18 @@ export default function OutsourcingPage() {
           );
         });
 
-      setRows(mappedRows);
+      setRows(
+        targetProcessId
+          ? mappedRows.filter((process) => process.id === targetProcessId)
+          : mappedRows,
+      );
     } catch (error) {
       console.error(error);
       alert("外注工程データの取得に失敗しました");
     } finally {
       setLoading(false);
     }
-  };
+  }, [targetProcessId]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -191,7 +211,11 @@ export default function OutsourcingPage() {
     };
 
     void loadData();
-  }, []);
+  }, [fetchData]);
+
+  const returnHref = returnTo === "reservation" ? "/reservation" : "/";
+  const returnLabel =
+    returnTo === "reservation" ? "進捗管理に戻る" : "トップへ戻る";
 
   const visibleRows = useMemo(
     () =>
@@ -252,6 +276,9 @@ export default function OutsourcingPage() {
 
       if (error) throw error;
       await fetchData();
+      if (targetProcessId && returnTo === "reservation") {
+        router.push("/reservation");
+      }
     } catch (error) {
       console.error(error);
       alert("外注情報の保存に失敗しました");
@@ -337,8 +364,8 @@ export default function OutsourcingPage() {
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
-        <Link href="/" className={styles.backButton}>
-          トップへ戻る
+        <Link href={returnHref} className={styles.backButton}>
+          {returnLabel}
         </Link>
         <h1 className={styles.title}>外注管理</h1>
         <div />
@@ -362,6 +389,7 @@ export default function OutsourcingPage() {
           <input
             type="checkbox"
             checked={showCompleted}
+            disabled={Boolean(targetProcessId)}
             onChange={(e) => setShowCompleted(e.target.checked)}
           />{" "}
           完了済みも表示

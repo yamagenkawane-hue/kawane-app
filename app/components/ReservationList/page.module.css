@@ -408,7 +408,20 @@
   font-weight: 900;
   line-height: 1.2;
   padding: 3px 6px;
+  text-decoration: none;
   white-space: nowrap;
+}
+
+.outsourceBadge:hover {
+  background: #ddd6fe;
+  border-color: #a78bfa;
+  color: #4c1d95;
+  cursor: pointer;
+}
+
+.outsourceBadge:focus-visible {
+  outline: 3px solid rgba(124, 58, 237, 0.3);
+  outline-offset: 2px;
 }
 
 .transferButton {

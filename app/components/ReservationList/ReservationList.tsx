@@ -170,9 +170,14 @@ const renderProcessLot = (
       </span>
     )}
     {isOutsourceBalance(balance) && (
-      <span className={styles.outsourceBadge}>
+      <Link
+        className={styles.outsourceBadge}
+        href={`/outsourcing?processId=${encodeURIComponent(
+          balance.orderProcessId,
+        )}&returnTo=reservation`}
+      >
         外注: {balance.processName || balance.subcontractorName || "-"}
-      </span>
+      </Link>
     )}
     {balance.isCompleted && (
       <span className={styles.completedBadge}>完了</span>
