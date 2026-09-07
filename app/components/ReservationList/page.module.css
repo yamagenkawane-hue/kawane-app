@@ -294,6 +294,15 @@
   background-color: #e8f5e9;
 }
 
+.manufacturingAmountCell,
+.cleaningAmountCell,
+.inspectionAmountCell,
+.measurementAmountCell,
+.packagingAmountCell {
+  min-width: 96px;
+  width: 96px;
+}
+
 /* =========================
    工程区切り線
 ========================= */

@@ -148,3 +148,8 @@
 .orderAmountHeader {
   min-width: 130px;
 }
+
+.amountHeader {
+  min-width: 96px;
+  width: 96px;
+}

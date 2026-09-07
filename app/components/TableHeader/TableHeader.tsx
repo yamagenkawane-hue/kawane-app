@@ -77,23 +77,23 @@ const TableHeader = () => {
 
       <tr className={styles.headerBottom}>
         <th>ロット</th>
-        <th>数量</th>
+        <th className={styles.amountHeader}>数量</th>
         <th>日付</th>
 
         <th>ロット</th>
-        <th>数量</th>
+        <th className={styles.amountHeader}>数量</th>
         <th>日付</th>
 
         <th>ロット</th>
-        <th>数量</th>
+        <th className={styles.amountHeader}>数量</th>
         <th>日付</th>
 
         <th>ロット</th>
-        <th>数量</th>
+        <th className={styles.amountHeader}>数量</th>
         <th>日付</th>
 
         <th>ロット</th>
-        <th>数量</th>
+        <th className={styles.amountHeader}>数量</th>
         <th>日付</th>
       </tr>
     </thead>
