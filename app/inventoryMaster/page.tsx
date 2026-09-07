@@ -302,9 +302,9 @@ export default function InventoryMasterPage() {
                     }
                   />
                 </td>
-                <td>
+                <td className={styles.productNameCell}>
                   <input
-                    className={styles.tableInput}
+                    className={`${styles.tableInput} ${styles.productNameInput}`}
                     value={item.productName}
                     onChange={(e) =>
                       updateItem(item.id, "productName", e.target.value)

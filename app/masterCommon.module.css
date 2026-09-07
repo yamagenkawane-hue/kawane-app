@@ -196,6 +196,14 @@
   border-collapse: collapse;
 }
 
+.productNameCell {
+  min-width: 280px;
+}
+
+.productNameInput {
+  min-width: 260px;
+}
+
 .table th {
   background: #1f2937;
   color: #fff;
