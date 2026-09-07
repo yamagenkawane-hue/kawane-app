@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Numpad from "@/app/components/Numpad/Numpad";
@@ -223,26 +223,26 @@ export default function ProductionResultsPage() {
     );
   };
 
-  const findPostIdForSchedule = (
-    schedule: ProductionSchedule,
-    postList = posts,
-  ) => {
-    if (schedule.postId) return schedule.postId;
+  const findPostIdForSchedule = useCallback(
+    (schedule: ProductionSchedule, postList = posts) => {
+      if (schedule.postId) return schedule.postId;
 
-    const schedulePostId = getPostIdFromScheduleId(schedule.id);
-    if (schedulePostId) return schedulePostId;
+      const schedulePostId = getPostIdFromScheduleId(schedule.id);
+      if (schedulePostId) return schedulePostId;
 
-    const matched = postList.find((post) => {
-      const sameOrder = schedule.orderNo && post.orderNo === schedule.orderNo;
-      const sameLot = schedule.lotNo && post.lotNo === schedule.lotNo;
+      const matched = postList.find((post) => {
+        const sameOrder = schedule.orderNo && post.orderNo === schedule.orderNo;
+        const sameLot = schedule.lotNo && post.lotNo === schedule.lotNo;
 
-      return Boolean(sameOrder || sameLot);
-    });
+        return Boolean(sameOrder || sameLot);
+      });
 
-    return matched?.id || "";
-  };
+      return matched?.id || "";
+    },
+    [posts],
+  );
 
-  const fetchOrderProcesses = async () => {
+  const fetchOrderProcesses = useCallback(async () => {
     const { data, error } = await supabase
       .from("v_order_processes_with_master")
       .select(ORDER_PROCESS_SELECT_COLUMNS)
@@ -253,28 +253,28 @@ export default function ProductionResultsPage() {
     const mappedProcesses = (data || []).map(mapOrderProcessRow);
     setOrderProcesses(mappedProcesses);
     return mappedProcesses;
-  };
+  }, []);
 
-  const ensureOrderProcesses = async (
-    schedule: ProductionSchedule,
-    postList = posts,
-  ) => {
-    const postId = findPostIdForSchedule(schedule, postList);
-    if (!postId) return;
+  const ensureOrderProcesses = useCallback(
+    async (schedule: ProductionSchedule, postList = posts) => {
+      const postId = findPostIdForSchedule(schedule, postList);
+      if (!postId) return;
 
-    const existingProcesses = orderProcesses.filter(
-      (process) => process.postId === postId,
-    );
-    if (existingProcesses.length > 0) return;
+      const existingProcesses = orderProcesses.filter(
+        (process) => process.postId === postId,
+      );
+      if (existingProcesses.length > 0) return;
 
-    const { error } = await supabase.rpc("create_order_processes_for_post", {
-      p_post_id: postId,
-    });
+      const { error } = await supabase.rpc("create_order_processes_for_post", {
+        p_post_id: postId,
+      });
 
-    if (error) throw error;
+      if (error) throw error;
 
-    await fetchOrderProcesses();
-  };
+      await fetchOrderProcesses();
+    },
+    [fetchOrderProcesses, findPostIdForSchedule, orderProcesses, posts],
+  );
 
   const fetchData = async () => {
     try {
@@ -350,27 +350,6 @@ export default function ProductionResultsPage() {
     void loadData();
   }, []);
 
-  const handleScheduleChange = async (value: string) => {
-    setScheduleId(value);
-    setOrderProcessId("");
-    setLotNo("");
-    setMaterialLotNo("");
-
-    const schedule = schedules.find((item) => item.id === value);
-    if (!schedule) return;
-    setLotNo(schedule.lotNo || "");
-
-    try {
-      setLoading(true);
-      await ensureOrderProcesses(schedule);
-    } catch (error) {
-      console.error(error);
-      alert("工程予定の自動作成に失敗しました。製品工程マスタを確認してください。");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     if (queryAppliedRef.current || schedules.length === 0) return;
     const params = new URLSearchParams(window.location.search);
@@ -388,8 +367,20 @@ export default function ProductionResultsPage() {
       setOrderProcessId("");
       setLotNo(matchedSchedule.lotNo || "");
       setMaterialLotNo("");
+
+      void (async () => {
+        try {
+          setLoading(true);
+          await ensureOrderProcesses(matchedSchedule);
+        } catch (error) {
+          console.error(error);
+          alert("工程予定の自動作成に失敗しました。製品工程マスタを確認してください。");
+        } finally {
+          setLoading(false);
+        }
+      })();
     }, 0);
-  }, [schedules]);
+  }, [ensureOrderProcesses, schedules]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -486,35 +477,60 @@ export default function ProductionResultsPage() {
         <h1 className={styles.title}>製造実績登録</h1>
       </div>
 
-      <form className={styles.formCard} onSubmit={handleSubmit}>
-        <select
-          className={styles.select}
-          value={scheduleId}
-          onChange={(e) => void handleScheduleChange(e.target.value)}
-        >
-          <option value="">製造予定を選択</option>
-          {schedules.map((schedule) => (
-            <option key={schedule.id} value={schedule.id}>
-              {schedule.orderNo || "-"} / {schedule.productName} / 数量{" "}
-              {schedule.planAmount}
-            </option>
-          ))}
-        </select>
+      {selectedSchedule ? (
+        <div className={styles.scheduleInfoCard}>
+          <div>
+            <span>注番</span>
+            <strong>{selectedSchedule.orderNo || "-"}</strong>
+          </div>
+          <div>
+            <span>取引先</span>
+            <strong>{selectedSchedule.customerName || "-"}</strong>
+          </div>
+          <div className={styles.wideInfo}>
+            <span>製品名</span>
+            <strong>{selectedSchedule.productName || "-"}</strong>
+          </div>
+          <div>
+            <span>予定数</span>
+            <strong>{selectedSchedule.planAmount}</strong>
+          </div>
+          <div>
+            <span>登録済み数</span>
+            <strong>{selectedSchedule.pressCompletedAmount}</strong>
+          </div>
+          <div>
+            <span>登録日</span>
+            <strong>{selectedSchedule.pressCompletedDate || "-"}</strong>
+          </div>
+        </div>
+      ) : (
+        <div className={styles.notice}>
+          進捗管理画面の納期をクリックすると、対象の製造予定が自動表示されます。
+        </div>
+      )}
 
+      <form className={styles.formCard} onSubmit={handleSubmit}>
         {selectedOrderProcess && (
           <>
-            <input
-              className={styles.input}
-              placeholder="ロットNo"
-              value={lotNo}
-              onChange={(e) => setLotNo(e.target.value)}
-            />
-            <input
-              className={styles.input}
-              placeholder="材料ロットNo"
-              value={materialLotNo}
-              onChange={(e) => setMaterialLotNo(e.target.value)}
-            />
+            <label className={styles.fieldGroup}>
+              <span>ロットNo</span>
+              <input
+                className={styles.input}
+                placeholder="ロットNo"
+                value={lotNo}
+                onChange={(e) => setLotNo(e.target.value)}
+              />
+            </label>
+            <label className={styles.fieldGroup}>
+              <span>材料ロットNo</span>
+              <input
+                className={styles.input}
+                placeholder="材料ロットNo"
+                value={materialLotNo}
+                onChange={(e) => setMaterialLotNo(e.target.value)}
+              />
+            </label>
           </>
         )}
 
@@ -542,49 +558,34 @@ export default function ProductionResultsPage() {
           </div>
         )}
 
-        <input
-          className={styles.input}
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
+        <label className={styles.fieldGroup}>
+          <span>製造日</span>
+          <input
+            className={styles.input}
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </label>
 
-        <input
-          className={styles.input}
-          inputMode="numeric"
-          placeholder="数量"
-          value={amount}
-          onFocus={() => setNumpadOpen(true)}
-          onChange={(e) =>
-            setAmount(e.target.value === "" ? "" : Number(e.target.value))
-          }
-        />
+        <label className={styles.fieldGroup}>
+          <span>数量</span>
+          <input
+            className={styles.input}
+            inputMode="numeric"
+            placeholder="数量"
+            value={amount}
+            onFocus={() => setNumpadOpen(true)}
+            onChange={(e) =>
+              setAmount(e.target.value === "" ? "" : Number(e.target.value))
+            }
+          />
+        </label>
 
         <button className={styles.submitButton} type="submit">
           製造実績登録
         </button>
       </form>
-
-      {selectedSchedule && (
-        <div className={styles.summaryCard}>
-          <div>
-            <span>取引先</span>
-            <strong>{selectedSchedule.customerName}</strong>
-          </div>
-          <div>
-            <span>予定数</span>
-            <strong>{selectedSchedule.planAmount}</strong>
-          </div>
-          <div>
-            <span>登録済み数</span>
-            <strong>{selectedSchedule.pressCompletedAmount}</strong>
-          </div>
-          <div>
-            <span>登録日</span>
-            <strong>{selectedSchedule.pressCompletedDate || "-"}</strong>
-          </div>
-        </div>
-      )}
 
       {loading && <div className={styles.loading}>読み込み中...</div>}
 

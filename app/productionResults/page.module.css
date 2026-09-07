@@ -43,6 +43,7 @@
 }
 
 .formCard,
+.scheduleInfoCard,
 .summaryCard,
 .tableCard {
   background: rgba(255, 255, 255, 0.86);
@@ -53,16 +54,42 @@
 
 .formCard {
   display: grid;
-  grid-template-columns:
-    minmax(240px, 1.8fr)
-    minmax(190px, 1.2fr)
-    minmax(220px, 1.3fr)
-    160px
-    140px
-    130px;
+  grid-template-columns: repeat(4, minmax(160px, 1fr)) 150px;
   gap: 14px;
   margin-bottom: 20px;
   padding: 24px;
+}
+
+.scheduleInfoCard {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(6, minmax(130px, 1fr));
+  margin-bottom: 20px;
+  padding: 18px 24px;
+}
+
+.scheduleInfoCard div {
+  min-width: 0;
+}
+
+.scheduleInfoCard span {
+  color: #64748b;
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.scheduleInfoCard strong {
+  color: #111827;
+  display: block;
+  font-size: 18px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.wideInfo {
+  grid-column: span 2;
 }
 
 .select,
@@ -193,8 +220,13 @@
 
 @media (max-width: 1100px) {
   .formCard,
+  .scheduleInfoCard,
   .summaryCard {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .wideInfo {
+    grid-column: span 2;
   }
 }
 
@@ -217,8 +249,13 @@
   }
 
   .formCard,
+  .scheduleInfoCard,
   .summaryCard {
     grid-template-columns: 1fr;
+  }
+
+  .wideInfo {
+    grid-column: span 1;
   }
 
   .submitButton {
