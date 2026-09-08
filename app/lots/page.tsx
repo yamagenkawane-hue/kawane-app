@@ -39,7 +39,7 @@ type LotFlowRow = {
   updatedAt: string;
 };
 
-const PAGE_SIZE = 7;
+const PAGE_SIZE = 10;
 
 const LOT_SELECT_COLUMNS = [
   "id",
