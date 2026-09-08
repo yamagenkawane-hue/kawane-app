@@ -121,9 +121,7 @@ const mapPost = (row: Record<string, unknown>): PostData => ({
   remainingAmount: Number(row.remaining_amount || row.order_amount || 0),
   status: String(row.status || ""),
   deliveryDate: String(row.delivery_date || ""),
-  completionScheduledDate: String(
-    row.completion_scheduled_date || row.delivery_date || "",
-  ),
+  completionScheduledDate: String(row.completion_scheduled_date || ""),
   remark: String(row.remark || ""),
 });
 
@@ -538,22 +536,6 @@ export default function ProductionSchedulesPage() {
 
       if (error) throw error;
 
-      if ((schedule.postId || orderNo) && schedule.pressCompletedDate && !orderNo.startsWith("PS-")) {
-        let postUpdate = supabase
-          .from("posts")
-          .update({
-            completion_scheduled_date: schedule.pressCompletedDate,
-            updated_at: new Date().toISOString(),
-          });
-
-        postUpdate = schedule.postId
-          ? postUpdate.eq("id", schedule.postId)
-          : postUpdate.eq("order_no", orderNo);
-
-        const { error: postError } = await postUpdate;
-        if (postError) throw postError;
-      }
-
       setEditingRow(null);
       await fetchSchedules();
     } catch (error) {
@@ -571,8 +553,7 @@ export default function ProductionSchedulesPage() {
       const { error } = await supabase
         .from("posts")
         .update({
-          completion_scheduled_date:
-            post.completionScheduledDate || post.deliveryDate || null,
+          completion_scheduled_date: post.completionScheduledDate || null,
           delivery_date: post.deliveryDate || null,
           updated_at: new Date().toISOString(),
         })
@@ -672,7 +653,7 @@ export default function ProductionSchedulesPage() {
       await fetchSchedules();
     } catch (error) {
       console.error(error);
-      alert("全体表示の完了日の保存に失敗しました");
+      alert("全体表示の完了予定日の保存に失敗しました");
     } finally {
       setLoading(false);
     }
@@ -926,16 +907,16 @@ export default function ProductionSchedulesPage() {
               <th>計画数</th>
               <th>プレス機No</th>
               <th>完了数</th>
-              <th>完了日</th>
+              <th>完了予定日</th>
               {selectedDepartment === "全て" && (
                 <>
                   <th className={styles.multiLineHeader}>
                     <span>品質管理G</span>
-                    <span>完了日</span>
+                    <span>完了予定日</span>
                   </th>
                   <th className={styles.multiLineHeader}>
                     <span>梱包出荷G</span>
-                    <span>完了日</span>
+                    <span>完了予定日</span>
                   </th>
                 </>
               )}
