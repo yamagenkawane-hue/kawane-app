@@ -44,6 +44,9 @@ const outsourceStatusLabels: Record<DerivedOutsourceStatus, string> = {
   returned: "\u623b\u308a\u6e08\u307f",
 };
 
+const uniqueJoined = (values: string[]) =>
+  Array.from(new Set(values.filter(Boolean))).join(" / ") || "-";
+
 const mapOrderProcess = (row: Record<string, unknown>): OutsourceRow => {
   const plannedAmount = Number(row.planned_amount || 0);
   const completedAmount = Number(row.completed_amount || 0);
@@ -207,6 +210,7 @@ function OutsourcingContent() {
   const returnHref = returnTo === "reservation" ? "/reservation" : "/";
   const returnLabel =
     returnTo === "reservation" ? "進捗管理に戻る" : "トップへ戻る";
+  const isProgressScoped = Boolean(targetOrderNo && returnTo === "reservation");
 
   const visibleRows = useMemo(
     () =>
@@ -235,6 +239,29 @@ function OutsourcingContent() {
     }),
     [rows, visibleRows],
   );
+
+  const scopedDetails = useMemo(() => {
+    const firstRow = visibleRows[0];
+
+    return {
+      deliveryDate: uniqueJoined(visibleRows.map((row) => row.deliveryDate)),
+      orderNo: targetOrderNo || firstRow?.orderNo || "-",
+      customerName: firstRow?.customerName || "-",
+      productName: uniqueJoined(
+        visibleRows.map((row) =>
+          row.productCode
+            ? `${row.productCode} / ${row.productName}`
+            : row.productName,
+        ),
+      ),
+      processName: uniqueJoined(
+        visibleRows.map((row) => `${row.processOrder}. ${row.processName}`),
+      ),
+      subcontractorName: uniqueJoined(
+        visibleRows.map((row) => row.subcontractorName || "-"),
+      ),
+    };
+  }, [targetOrderNo, visibleRows]);
 
   const updateRow = (
     id: string,
@@ -362,30 +389,60 @@ function OutsourcingContent() {
         <div />
       </div>
 
-      <div className={styles.summaryCard}>
-        <div>
-          <span>表示件数</span>
-          <strong>{summary.total}</strong>
+      {isProgressScoped ? (
+        <div
+          className={`${styles.summaryCard} ${outsourcingStyles.scopedSummaryCard}`}
+        >
+          <div>
+            <span>納期</span>
+            <strong>{scopedDetails.deliveryDate}</strong>
+          </div>
+          <div>
+            <span>注番</span>
+            <strong>{scopedDetails.orderNo}</strong>
+          </div>
+          <div>
+            <span>得意先</span>
+            <strong>{scopedDetails.customerName}</strong>
+          </div>
+          <div>
+            <span>製品</span>
+            <strong>{scopedDetails.productName}</strong>
+          </div>
+          <div>
+            <span>工程</span>
+            <strong>{scopedDetails.processName}</strong>
+          </div>
+          <div>
+            <span>外注先</span>
+            <strong>{scopedDetails.subcontractorName}</strong>
+          </div>
         </div>
-        <div>
-          <span>外注残数量</span>
-          <strong>{summary.remaining}</strong>
+      ) : (
+        <div className={styles.summaryCard}>
+          <div>
+            <span>表示件数</span>
+            <strong>{summary.total}</strong>
+          </div>
+          <div>
+            <span>外注残数量</span>
+            <strong>{summary.remaining}</strong>
+          </div>
+          <div>
+            <span>完了工程</span>
+            <strong>{summary.completed}</strong>
+          </div>
+          <label>
+            <span>表示条件</span>
+            <input
+              type="checkbox"
+              checked={showCompleted}
+              onChange={(e) => setShowCompleted(e.target.checked)}
+            />{" "}
+            完了済みも表示
+          </label>
         </div>
-        <div>
-          <span>完了工程</span>
-          <strong>{summary.completed}</strong>
-        </div>
-        <label>
-          <span>表示条件</span>
-          <input
-            type="checkbox"
-            checked={showCompleted}
-            disabled={Boolean(targetOrderNo)}
-            onChange={(e) => setShowCompleted(e.target.checked)}
-          />{" "}
-          完了済みも表示
-        </label>
-      </div>
+      )}
 
       {loading && <div className={styles.loading}>読み込み中...</div>}
 
@@ -394,7 +451,11 @@ function OutsourcingContent() {
         className={outsourcingStyles.topScroll}
         onScroll={(event) => syncScroll(event, tableScrollRef)}
       >
-        <div className={outsourcingStyles.scrollSpacer} />
+        <div
+          className={`${outsourcingStyles.scrollSpacer} ${
+            isProgressScoped ? outsourcingStyles.scopedScrollSpacer : ""
+          }`}
+        />
       </div>
 
       <div
@@ -408,15 +469,23 @@ function OutsourcingContent() {
         onMouseMove={moveTableDrag}
         onMouseUp={stopTableDrag}
       >
-        <table className={`${styles.table} ${outsourcingStyles.outsourceTable}`}>
+        <table
+          className={`${styles.table} ${outsourcingStyles.outsourceTable} ${
+            isProgressScoped ? outsourcingStyles.scopedOutsourceTable : ""
+          }`}
+        >
           <thead>
             <tr>
-              <th>納期</th>
-              <th>注番</th>
-              <th>得意先</th>
-              <th>製品</th>
-              <th>工程</th>
-              <th>外注先</th>
+              {!isProgressScoped && (
+                <>
+                  <th>納期</th>
+                  <th>注番</th>
+                  <th>得意先</th>
+                  <th>製品</th>
+                  <th>工程</th>
+                  <th>外注先</th>
+                </>
+              )}
               <th className={outsourcingStyles.quantityHeader}>数量</th>
               <th className={outsourcingStyles.statusHeader}>状態</th>
               <th className={outsourcingStyles.scheduleHeader}>外注日程</th>
@@ -431,18 +500,22 @@ function OutsourcingContent() {
 
               return (
                 <tr key={row.id}>
-                  <td className={outsourcingStyles.dateCell}>
-                    {row.deliveryDate || "-"}
-                  </td>
-                  <td>{row.orderNo}</td>
-                  <td>{row.customerName}</td>
-                  <td className={outsourcingStyles.productCell}>
-                    {row.productCode} / {row.productName}
-                  </td>
-                  <td>
-                    {row.processOrder}. {row.processName}
-                  </td>
-                  <td>{row.subcontractorName || "-"}</td>
+                  {!isProgressScoped && (
+                    <>
+                      <td className={outsourcingStyles.dateCell}>
+                        {row.deliveryDate || "-"}
+                      </td>
+                      <td>{row.orderNo}</td>
+                      <td>{row.customerName}</td>
+                      <td className={outsourcingStyles.productCell}>
+                        {row.productCode} / {row.productName}
+                      </td>
+                      <td>
+                        {row.processOrder}. {row.processName}
+                      </td>
+                      <td>{row.subcontractorName || "-"}</td>
+                    </>
+                  )}
                   <td className={outsourcingStyles.quantityCell}>
                     <div className={outsourcingStyles.quantityGroup}>
                       <span>予定</span>
@@ -539,7 +612,9 @@ function OutsourcingContent() {
             })}
             {visibleRows.length === 0 && (
               <tr>
-                <td colSpan={12}>外注工程はありません</td>
+                <td colSpan={isProgressScoped ? 6 : 12}>
+                  外注工程はありません
+                </td>
               </tr>
             )}
           </tbody>

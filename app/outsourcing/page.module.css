@@ -32,8 +32,59 @@
   width: 1640px;
 }
 
+.scopedScrollSpacer {
+  width: 980px;
+}
+
 .outsourceTable {
   min-width: 1640px;
+}
+
+.scopedSummaryCard {
+  display: grid;
+  gap: 0;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+
+.scopedSummaryCard div {
+  border-right: 1px solid #e5e7eb;
+  min-width: 0;
+  padding: 4px 18px;
+}
+
+.scopedSummaryCard div:last-child {
+  border-right: 0;
+}
+
+.scopedSummaryCard span,
+.scopedSummaryCard strong {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.scopedSummaryCard span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.scopedSummaryCard strong {
+  color: #0f172a;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.tableCard:has(.scopedOutsourceTable) {
+  max-width: 1120px;
+}
+
+.scopedOutsourceTable {
+  min-width: 980px;
 }
 
 .outsourceTable th,
@@ -210,4 +261,14 @@
 
 .actionCell button:last-child {
   margin-bottom: 0;
+}
+
+@media (max-width: 1100px) {
+  .scopedSummaryCard {
+    grid-template-columns: repeat(3, minmax(160px, 1fr));
+  }
+
+  .scopedSummaryCard div {
+    border-bottom: 1px solid #e5e7eb;
+  }
 }
