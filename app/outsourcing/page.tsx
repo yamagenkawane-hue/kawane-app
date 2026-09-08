@@ -446,23 +446,21 @@ function OutsourcingContent() {
 
       {loading && <div className={styles.loading}>読み込み中...</div>}
 
-      <div
-        ref={topScrollRef}
-        className={outsourcingStyles.topScroll}
-        onScroll={(event) => syncScroll(event, tableScrollRef)}
-      >
+      {!isProgressScoped && (
         <div
-          className={`${outsourcingStyles.scrollSpacer} ${
-            isProgressScoped ? outsourcingStyles.scopedScrollSpacer : ""
-          }`}
-        />
-      </div>
+          ref={topScrollRef}
+          className={outsourcingStyles.topScroll}
+          onScroll={(event) => syncScroll(event, tableScrollRef)}
+        >
+          <div className={outsourcingStyles.scrollSpacer} />
+        </div>
+      )}
 
       <div
         ref={tableScrollRef}
         className={`${styles.tableCard} ${outsourcingStyles.tableCard} ${
           isDraggingTable ? outsourcingStyles.draggingTable : ""
-        }`}
+        } ${isProgressScoped ? outsourcingStyles.scopedTableCard : ""}`}
         onScroll={(event) => syncScroll(event, topScrollRef)}
         onMouseDown={startTableDrag}
         onMouseLeave={stopTableDrag}

@@ -32,10 +32,6 @@
   width: 1640px;
 }
 
-.scopedScrollSpacer {
-  width: 980px;
-}
-
 .outsourceTable {
   min-width: 1640px;
 }
@@ -79,12 +75,68 @@
   line-height: 1.35;
 }
 
-.tableCard:has(.scopedOutsourceTable) {
-  max-width: 1120px;
+.scopedOutsourceTable {
+  min-width: 0;
+  table-layout: fixed;
+  width: 100%;
 }
 
-.scopedOutsourceTable {
-  min-width: 980px;
+.scopedTableCard {
+  cursor: default;
+  overflow-x: visible;
+}
+
+.scopedOutsourceTable th,
+.scopedOutsourceTable td {
+  padding: 12px 10px;
+  white-space: normal;
+}
+
+.scopedOutsourceTable th:nth-child(1),
+.scopedOutsourceTable td:nth-child(1) {
+  width: 18%;
+}
+
+.scopedOutsourceTable th:nth-child(2),
+.scopedOutsourceTable td:nth-child(2) {
+  width: 11%;
+}
+
+.scopedOutsourceTable th:nth-child(3),
+.scopedOutsourceTable td:nth-child(3) {
+  width: 26%;
+}
+
+.scopedOutsourceTable th:nth-child(4),
+.scopedOutsourceTable td:nth-child(4) {
+  width: 10%;
+}
+
+.scopedOutsourceTable th:nth-child(5),
+.scopedOutsourceTable td:nth-child(5) {
+  width: 24%;
+}
+
+.scopedOutsourceTable th:nth-child(6),
+.scopedOutsourceTable td:nth-child(6) {
+  width: 11%;
+}
+
+.scopedOutsourceTable .quantityHeader,
+.scopedOutsourceTable .quantityCell,
+.scopedOutsourceTable .statusHeader,
+.scopedOutsourceTable .statusCell,
+.scopedOutsourceTable .scheduleHeader,
+.scopedOutsourceTable .scheduleCell,
+.scopedOutsourceTable .noteHeader,
+.scopedOutsourceTable .noteCell,
+.scopedOutsourceTable .actionCell {
+  min-width: 0;
+}
+
+.scopedOutsourceTable .noteInput {
+  min-width: 0;
+  width: 100%;
 }
 
 .outsourceTable th,
