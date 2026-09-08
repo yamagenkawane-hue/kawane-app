@@ -159,6 +159,7 @@ const getBalanceRowClassName = (balance?: LotProcessBalance) => {
 
 const renderProcessLot = (
   balance: LotProcessBalance,
+  orderNo: string,
   handleTransferLot?: (balance: LotProcessBalance) => Promise<void>,
   handleEditLotBalance?: (balance: LotProcessBalance) => Promise<void>,
 ) => (
@@ -173,7 +174,7 @@ const renderProcessLot = (
       <Link
         className={styles.outsourceBadge}
         href={`/outsourcing?orderNo=${encodeURIComponent(
-          balance.orderNo,
+          balance.orderNo || orderNo,
         )}&returnTo=reservation`}
       >
         外注: {balance.processName || balance.subcontractorName || "-"}
@@ -356,6 +357,7 @@ const ReservationList: React.FC<ReservationRowProps> = ({
                 groupBalances.map((balance) =>
                   renderProcessLot(
                     balance,
+                    post.orderNo,
                     handleTransferLot,
                     handleEditLotBalance,
                   ),
