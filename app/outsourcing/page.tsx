@@ -3,6 +3,7 @@
 import {
   type MouseEvent,
   type RefObject,
+  Suspense,
   type UIEvent,
   useCallback,
   useEffect,
@@ -11,7 +12,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import supabase from "@/lib/supabase";
 import { OrderProcess, ProductProcess } from "@/app/type";
 import styles from "../masterCommon.module.css";
@@ -113,30 +114,20 @@ const isSameProcess = (process: OutsourceRow, master: ProductProcess) => {
   );
 };
 
-export default function OutsourcingPage() {
+function OutsourcingContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [rows, setRows] = useState<OutsourceRow[]>([]);
   const [savingId, setSavingId] = useState("");
   const [loading, setLoading] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
-  const [queryParams] = useState(() => {
-    if (typeof window === "undefined") {
-      return { targetOrderNo: "", returnTo: "" };
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    return {
-      targetOrderNo: params.get("orderNo") || "",
-      returnTo: params.get("returnTo") || "",
-    };
-  });
   const [isDraggingTable, setIsDraggingTable] = useState(false);
   const topScrollRef = useRef<HTMLDivElement>(null);
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const dragStartXRef = useRef(0);
   const dragStartScrollLeftRef = useRef(0);
-  const targetOrderNo = queryParams.targetOrderNo;
-  const returnTo = queryParams.returnTo;
+  const targetOrderNo = searchParams?.get("orderNo") || "";
+  const returnTo = searchParams?.get("returnTo") || "";
 
   const fetchData = useCallback(async () => {
     try {
@@ -555,5 +546,28 @@ export default function OutsourcingPage() {
         </table>
       </div>
     </div>
+  );
+}
+
+function OutsourcingFallback() {
+  return (
+    <div className={styles.container}>
+      <div className={styles.headerArea}>
+        <Link href="/" className={styles.backButton}>
+          トップへ戻る
+        </Link>
+        <h1 className={styles.title}>外注管理</h1>
+        <div />
+      </div>
+      <div className={styles.loading}>読み込み中...</div>
+    </div>
+  );
+}
+
+export default function OutsourcingPage() {
+  return (
+    <Suspense fallback={<OutsourcingFallback />}>
+      <OutsourcingContent />
+    </Suspense>
   );
 }
