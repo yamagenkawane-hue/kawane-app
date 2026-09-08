@@ -131,6 +131,30 @@ const filterSchedulesByActivePosts = (
   });
 };
 
+const getProductionResultErrorComment = (error: unknown, lotNo: string) => {
+  const message =
+    typeof error === "object" && error !== null && "message" in error
+      ? String(error.message)
+      : "";
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? String(error.code)
+      : "";
+  const isDuplicateLot =
+    code === "23505" ||
+    message.includes("duplicate key") ||
+    message.includes("already exists") ||
+    message.includes("unique");
+
+  if (isDuplicateLot) {
+    return `コメント: 入力されたロットNo「${lotNo}」はすでに登録されています。別のロットNoを入力してください。`;
+  }
+
+  return message
+    ? `コメント: ${message}`
+    : "コメント: 製造実績の登録に失敗しました。入力内容を確認してください。";
+};
+
 export default function ProductionResultsPage() {
   const router = useRouter();
   const [schedules, setSchedules] = useState<ProductionSchedule[]>([]);
@@ -145,6 +169,7 @@ export default function ProductionResultsPage() {
   const [amount, setAmount] = useState<number | "">("");
   const [loading, setLoading] = useState(false);
   const [numpadOpen, setNumpadOpen] = useState(false);
+  const [lotComment, setLotComment] = useState("");
   const queryAppliedRef = useRef(false);
 
   const selectedSchedule = useMemo(
@@ -384,6 +409,7 @@ export default function ProductionResultsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLotComment("");
 
     if (!selectedSchedule || !date || amount === "") {
       alert("製造予定、日付、数量を入力してください");
@@ -416,10 +442,13 @@ export default function ProductionResultsPage() {
       }
 
       if (!lotNo.trim()) {
-        alert("製造工程ではロットNoを入力してください");
+        const comment = "コメント: 製造工程ではロットNoを入力してください";
+        setLotComment(comment);
+        alert(comment);
         return;
       }
 
+      const trimmedLotNo = lotNo.trim();
       const { error } = await supabase.rpc("register_manufacturing_lot_result", {
         p_order_process_id: selectedOrderProcess.id,
         p_schedule_id: isPostScheduleId(selectedSchedule.id)
@@ -427,7 +456,7 @@ export default function ProductionResultsPage() {
           : selectedSchedule.id,
         p_date: date,
         p_amount: resultAmount,
-        p_lot_no: lotNo.trim(),
+        p_lot_no: trimmedLotNo,
         p_material_lot_no: materialLotNo.trim() || null,
         p_idempotency_key: idempotencyKey,
       });
@@ -456,10 +485,8 @@ export default function ProductionResultsPage() {
       router.push("/reservation");
     } catch (error) {
       console.error(error);
-      const message =
-        typeof error === "object" && error !== null && "message" in error
-          ? String(error.message)
-          : "製造実績の登録に失敗しました";
+      const message = getProductionResultErrorComment(error, lotNo.trim());
+      setLotComment(message);
       alert(message);
     } finally {
       setLoading(false);
@@ -519,8 +546,14 @@ export default function ProductionResultsPage() {
                 className={styles.input}
                 placeholder="ロットNo"
                 value={lotNo}
-                onChange={(e) => setLotNo(e.target.value)}
+                onChange={(e) => {
+                  setLotNo(e.target.value);
+                  setLotComment("");
+                }}
               />
+              {lotComment && (
+                <span className={styles.fieldComment}>{lotComment}</span>
+              )}
             </label>
             <label className={styles.fieldGroup}>
               <span>材料ロットNo</span>

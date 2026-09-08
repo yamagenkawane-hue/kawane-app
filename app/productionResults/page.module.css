@@ -112,6 +112,16 @@
   font-weight: 800;
 }
 
+.fieldGroup .fieldComment {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #b91c1c;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 8px 10px;
+}
+
 .submitButton {
   border: none;
   border-radius: 12px;
