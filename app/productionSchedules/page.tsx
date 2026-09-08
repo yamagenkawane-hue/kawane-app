@@ -71,9 +71,15 @@ type NumpadTarget =
   | { kind: "form"; field: "planAmount" | "pressCompletedAmount" }
   | { kind: "schedule"; id: string; field: "planAmount" | "pressCompletedAmount" };
 
+type AllDepartmentEdit = {
+  qualityCompletedDate: string;
+  shippingCompletedDate: string;
+};
+
 type EditingRow =
   | { kind: "post"; id: string }
   | { kind: "schedule"; id: string }
+  | { kind: "all"; id: string }
   | null;
 
 const SCHEDULE_SELECT_COLUMNS =
@@ -269,6 +275,9 @@ export default function ProductionSchedulesPage() {
   const [loading, setLoading] = useState(false);
   const [numpadTarget, setNumpadTarget] = useState<NumpadTarget | null>(null);
   const [editingRow, setEditingRow] = useState<EditingRow>(null);
+  const [allDepartmentEdits, setAllDepartmentEdits] = useState<
+    Record<string, AllDepartmentEdit>
+  >({});
   const [isDraggingTable, setIsDraggingTable] = useState(false);
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const dragStartXRef = useRef(0);
@@ -308,7 +317,7 @@ export default function ProductionSchedulesPage() {
     setIsDraggingTable(false);
   };
 
-  const isEditing = (kind: "post" | "schedule", id: string) =>
+  const isEditing = (kind: "post" | "schedule" | "all", id: string) =>
     editingRow?.kind === kind && editingRow.id === id;
 
   const renderCellText = (value?: string | number) => (
@@ -581,6 +590,94 @@ export default function ProductionSchedulesPage() {
     }
   };
 
+  const handleAllDepartmentChange = (
+    postId: string,
+    field: keyof AllDepartmentEdit,
+    value: string,
+  ) => {
+    setAllDepartmentEdits((prev) => ({
+      ...prev,
+      [postId]: {
+        ...(prev[postId] || {
+          qualityCompletedDate: "",
+          shippingCompletedDate: "",
+        }),
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleAllDepartmentSave = async (post: DailySchedulePost) => {
+    const edit = allDepartmentEdits[post.id];
+    if (!edit) {
+      setEditingRow(null);
+      return;
+    }
+
+    const saveDepartmentDate = async (department: Department, completedDate: string) => {
+      const existingSchedule = schedules.find(
+        (schedule) =>
+          ((schedule.postId && schedule.postId === post.id) ||
+            (!schedule.postId && schedule.orderNo === post.orderNo)) &&
+          (schedule.department || "製造G") === department,
+      );
+      const updatedAt = new Date().toISOString();
+
+      if (existingSchedule) {
+        const { error } = await supabase
+          .from("production_schedules")
+          .update({
+            press_completed_date: completedDate || null,
+            shipping_scheduled_end:
+              post.deliveryDate || existingSchedule.shippingScheduledEnd || null,
+            updated_at: updatedAt,
+          })
+          .eq("id", existingSchedule.id);
+
+        if (error) throw error;
+        return;
+      }
+
+      if (!completedDate) return;
+
+      const { error } = await supabase.from("production_schedules").insert({
+        post_id: post.id || null,
+        order_no: post.orderNo,
+        customer_name: post.customerName,
+        product_name: post.productName,
+        press_number: post.pressNumber || "",
+        lot_no: post.lotNo || "",
+        plan_amount: Number(post.remainingAmount || post.orderAmount || 0),
+        press_completed_amount: 0,
+        press_completed_date: completedDate,
+        shipping_scheduled_end: post.deliveryDate || null,
+        department,
+        updated_at: updatedAt,
+      });
+
+      if (error) throw error;
+    };
+
+    try {
+      setLoading(true);
+      await saveDepartmentDate("品質管理G", edit.qualityCompletedDate);
+      await saveDepartmentDate("梱包出荷G", edit.shippingCompletedDate);
+
+      setEditingRow(null);
+      setAllDepartmentEdits((prev) => {
+        const next = { ...prev };
+        delete next[post.id];
+        return next;
+      });
+      await fetchSchedules();
+    } catch (error) {
+      console.error(error);
+      alert("全体表示の完了日の保存に失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm("削除しますか？")) return;
 
@@ -659,6 +756,10 @@ export default function ProductionSchedulesPage() {
         (schedule.postId && schedule.postId === post.id) ||
         (!schedule.postId && schedule.orderNo === post.orderNo),
     );
+    const scheduleForDepartment = (department: Department) =>
+      schedulesForPost.find(
+        (schedule) => (schedule.department || "製造G") === department,
+      );
     const datesForDepartment = (department: Department) => {
       const scheduleDates = schedulesForPost
         .filter((schedule) => (schedule.department || "製造G") === department)
@@ -680,6 +781,10 @@ export default function ProductionSchedulesPage() {
       manufacturingCompletedDate: datesForDepartment("製造G"),
       qualityCompletedDate: datesForDepartment("品質管理G"),
       shippingCompletedDate: datesForDepartment("梱包出荷G"),
+      qualityScheduleDate:
+        scheduleForDepartment("品質管理G")?.pressCompletedDate || "",
+      shippingScheduleDate:
+        scheduleForDepartment("梱包出荷G")?.pressCompletedDate || "",
     };
   });
 
@@ -824,8 +929,14 @@ export default function ProductionSchedulesPage() {
               <th>完了日</th>
               {selectedDepartment === "全て" && (
                 <>
-                  <th>品質管理G完了日</th>
-                  <th>梱包出荷G完了日</th>
+                  <th className={styles.multiLineHeader}>
+                    <span>品質管理G</span>
+                    <span>完了日</span>
+                  </th>
+                  <th className={styles.multiLineHeader}>
+                    <span>梱包出荷G</span>
+                    <span>完了日</span>
+                  </th>
                 </>
               )}
               <th>納期</th>
@@ -1164,28 +1275,98 @@ export default function ProductionSchedulesPage() {
                 </tr>
               ))}
             {selectedDepartment === "全て" &&
-              allDepartmentRows.map((row) => (
-                <tr
-                  key={`all-${row.id}`}
-                  className={isOverdue(row.deliveryDate) ? styles.dangerRow : ""}
-                >
-                  <td>{renderCellText(row.orderNo)}</td>
-                  <td>{renderCellText(row.customerName)}</td>
-                  <td>{renderCellText(row.productName)}</td>
-                  <td>{renderCellText(row.lotNo)}</td>
-                  <td>{renderCellText(row.orderAmount)}</td>
-                  <td>{renderCellText(row.planAmount || 0)}</td>
-                  <td>{renderCellText(row.pressNumber || "-")}</td>
-                  <td>{renderCellText("-")}</td>
-                  <td>{renderCellText(row.manufacturingCompletedDate)}</td>
-                  <td>{renderCellText(row.qualityCompletedDate)}</td>
-                  <td>{renderCellText(row.shippingCompletedDate)}</td>
-                  <td>{renderCellText(row.deliveryDate)}</td>
-                  <td className={styles.actionArea}>
-                    <span className={styles.readOnlyText}>全体確認</span>
-                  </td>
-                </tr>
-              ))}
+              allDepartmentRows.map((row) => {
+                const editing = isEditing("all", row.id);
+                const edit = allDepartmentEdits[row.id] || {
+                  qualityCompletedDate: row.qualityScheduleDate,
+                  shippingCompletedDate: row.shippingScheduleDate,
+                };
+
+                return (
+                  <tr
+                    key={`all-${row.id}`}
+                    className={isOverdue(row.deliveryDate) ? styles.dangerRow : ""}
+                  >
+                    <td>{renderCellText(row.orderNo)}</td>
+                    <td>{renderCellText(row.customerName)}</td>
+                    <td>{renderCellText(row.productName)}</td>
+                    <td>{renderCellText(row.lotNo)}</td>
+                    <td>{renderCellText(row.orderAmount)}</td>
+                    <td>{renderCellText(row.planAmount || 0)}</td>
+                    <td>{renderCellText(row.pressNumber || "-")}</td>
+                    <td>{renderCellText("-")}</td>
+                    <td>{renderCellText(row.manufacturingCompletedDate)}</td>
+                    <td>
+                      {editing ? (
+                        <input
+                          className={`${styles.tableInput} ${styles.dateInput}`}
+                          type="date"
+                          value={edit.qualityCompletedDate}
+                          onChange={(e) =>
+                            handleAllDepartmentChange(
+                              row.id,
+                              "qualityCompletedDate",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      ) : (
+                        renderCellText(row.qualityCompletedDate)
+                      )}
+                    </td>
+                    <td>
+                      {editing ? (
+                        <input
+                          className={`${styles.tableInput} ${styles.dateInput}`}
+                          type="date"
+                          value={edit.shippingCompletedDate}
+                          onChange={(e) =>
+                            handleAllDepartmentChange(
+                              row.id,
+                              "shippingCompletedDate",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      ) : (
+                        renderCellText(row.shippingCompletedDate)
+                      )}
+                    </td>
+                    <td>{renderCellText(row.deliveryDate)}</td>
+                    <td className={styles.actionArea}>
+                      {editing ? (
+                        <>
+                          <button
+                            className={styles.saveButton}
+                            onClick={() => handleAllDepartmentSave(row)}
+                          >
+                            保存
+                          </button>
+                          <button className={styles.cancelButton} onClick={handleCancel}>
+                            キャンセル
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          className={styles.editButton}
+                          onClick={() => {
+                            setAllDepartmentEdits((prev) => ({
+                              ...prev,
+                              [row.id]: {
+                                qualityCompletedDate: row.qualityScheduleDate,
+                                shippingCompletedDate: row.shippingScheduleDate,
+                              },
+                            }));
+                            setEditingRow({ kind: "all", id: row.id });
+                          }}
+                        >
+                          編集
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             {((selectedDepartment === "製造G" &&
               unscheduledOrderSchedules.length === 0 &&
               filteredDepartmentSchedules.length === 0) ||
