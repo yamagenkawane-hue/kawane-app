@@ -121,12 +121,12 @@ export default function OutsourcingPage() {
   const [showCompleted, setShowCompleted] = useState(false);
   const [queryParams] = useState(() => {
     if (typeof window === "undefined") {
-      return { targetProcessId: "", returnTo: "" };
+      return { targetOrderNo: "", returnTo: "" };
     }
 
     const params = new URLSearchParams(window.location.search);
     return {
-      targetProcessId: params.get("processId") || "",
+      targetOrderNo: params.get("orderNo") || "",
       returnTo: params.get("returnTo") || "",
     };
   });
@@ -135,7 +135,7 @@ export default function OutsourcingPage() {
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const dragStartXRef = useRef(0);
   const dragStartScrollLeftRef = useRef(0);
-  const targetProcessId = queryParams.targetProcessId;
+  const targetOrderNo = queryParams.targetOrderNo;
   const returnTo = queryParams.returnTo;
 
   const fetchData = useCallback(async () => {
@@ -193,8 +193,8 @@ export default function OutsourcingPage() {
         });
 
       setRows(
-        targetProcessId
-          ? mappedRows.filter((process) => process.id === targetProcessId)
+        targetOrderNo
+          ? mappedRows.filter((process) => process.orderNo === targetOrderNo)
           : mappedRows,
       );
     } catch (error) {
@@ -203,7 +203,7 @@ export default function OutsourcingPage() {
     } finally {
       setLoading(false);
     }
-  }, [targetProcessId]);
+  }, [targetOrderNo]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -219,18 +219,18 @@ export default function OutsourcingPage() {
 
   const visibleRows = useMemo(
     () =>
-      rows.filter(
-        (row) => {
-          const derivedStatus = getDerivedOutsourceStatus(row);
+      targetOrderNo
+        ? rows
+        : rows.filter((row) => {
+            const derivedStatus = getDerivedOutsourceStatus(row);
 
-          return (
-            showCompleted ||
-            row.remainingAmount > 0 ||
-            derivedStatus !== "returned"
-          );
-        },
-      ),
-    [rows, showCompleted],
+            return (
+              showCompleted ||
+              row.remainingAmount > 0 ||
+              derivedStatus !== "returned"
+            );
+          }),
+    [rows, showCompleted, targetOrderNo],
   );
 
   const summary = useMemo(
@@ -276,7 +276,7 @@ export default function OutsourcingPage() {
 
       if (error) throw error;
       await fetchData();
-      if (targetProcessId && returnTo === "reservation") {
+      if (targetOrderNo && returnTo === "reservation") {
         router.push("/reservation");
       }
     } catch (error) {
@@ -389,7 +389,7 @@ export default function OutsourcingPage() {
           <input
             type="checkbox"
             checked={showCompleted}
-            disabled={Boolean(targetProcessId)}
+            disabled={Boolean(targetOrderNo)}
             onChange={(e) => setShowCompleted(e.target.checked)}
           />{" "}
           完了済みも表示
