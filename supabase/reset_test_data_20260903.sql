@@ -6,6 +6,8 @@
 
 begin;
 
+set local search_path = public;
+
 drop table if exists tmp_seed_transfers;
 drop table if exists tmp_seed_lots;
 drop table if exists tmp_order_processes;
