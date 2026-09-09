@@ -9,7 +9,7 @@ import TableHeader from "../components/TableHeader/TableHeader";
 import Pagination from "../components/Pagination/Pagination";
 import DeleteIcon from "@mui/icons-material/Delete";
 import supabase from "@/lib/supabase";
-import { LotProcessBalance } from "../type";
+import { LotProcessBalance, Post, ProgressGroupSummary } from "../type";
 import { useFetchPosts } from "../utills/useFetchPosts";
 import { usePagination } from "../utills/usePagination";
 import { useReservationDelete } from "../utills/useReservationDelete";
@@ -34,23 +34,69 @@ const getCustomerSortKey = (customerName: string) =>
 const getProgressGroupKey = (post: { customerName: string; productName: string }) =>
   `${getCustomerSortKey(post.customerName)}::${post.productName.trim().toLowerCase()}`;
 
+const getTotalInProcessAmount = (post: Post) =>
+  (post.lotProcessBalances || []).reduce(
+    (total, balance) =>
+      balance.isHistoryOnly ? total : total + Number(balance.quantity || 0),
+    0,
+  );
+
+const buildProgressGroupSummaryMap = (rows: Post[]) => {
+  const summaryMap = new Map<string, ProgressGroupSummary>();
+
+  rows.forEach((post) => {
+    const groupKey = getProgressGroupKey(post);
+    const current = summaryMap.get(groupKey) || {
+      totalInProcessAmount: 0,
+      orderAmount: 0,
+      inventoryAmount: 0,
+      allocatedAmount: 0,
+      quantityAdjustmentAmount: 0,
+    };
+
+    summaryMap.set(groupKey, {
+      totalInProcessAmount:
+        current.totalInProcessAmount + getTotalInProcessAmount(post),
+      orderAmount: current.orderAmount + Number(post.orderAmount || 0),
+      inventoryAmount: Math.max(
+        current.inventoryAmount,
+        Number(post.inventoryAmount || 0),
+      ),
+      allocatedAmount: current.allocatedAmount + Number(post.allocatedAmount || 0),
+      quantityAdjustmentAmount:
+        current.quantityAdjustmentAmount +
+        Number(post.quantityAdjustmentAmount || 0),
+    });
+  });
+
+  return summaryMap;
+};
+
 const buildGroupedPageRows = <T extends { customerName: string; productName: string }>(
   rows: T[],
+  summaryMap: Map<string, ProgressGroupSummary>,
 ) =>
   rows.map((post, index) => {
     const currentGroupKey = getProgressGroupKey(post);
     const previousGroupKey =
       index > 0 ? getProgressGroupKey(rows[index - 1]) : "";
+    const nextGroupKey =
+      index < rows.length - 1 ? getProgressGroupKey(rows[index + 1]) : "";
     const showGroupedCustomerProduct = currentGroupKey !== previousGroupKey;
     const customerProductRowSpan = showGroupedCustomerProduct
       ? rows.slice(index).findIndex((row) => getProgressGroupKey(row) !== currentGroupKey)
       : 0;
+    const resolvedRowSpan =
+      customerProductRowSpan === -1 ? rows.length - index : customerProductRowSpan;
 
     return {
       post,
       showGroupedCustomerProduct,
-      customerProductRowSpan:
-        customerProductRowSpan === -1 ? rows.length - index : customerProductRowSpan,
+      customerProductRowSpan: resolvedRowSpan,
+      showGroupedProgressTotals: showGroupedCustomerProduct,
+      progressTotalsRowSpan: resolvedRowSpan,
+      progressGroupSummary: summaryMap.get(currentGroupKey),
+      isLastInCustomerProductGroup: currentGroupKey !== nextGroupKey,
     };
   });
 
@@ -178,7 +224,11 @@ const Reservation = () => {
     filteredPosts,
     itemsPerPage,
   );
-  const groupedPageRows = buildGroupedPageRows(paginatedPosts);
+  const progressGroupSummaryMap = buildProgressGroupSummaryMap(filteredPosts);
+  const groupedPageRows = buildGroupedPageRows(
+    paginatedPosts,
+    progressGroupSummaryMap,
+  );
 
   const handleDelete = useReservationDelete(setShouldFetch);
 
@@ -355,7 +405,15 @@ const Reservation = () => {
 
           <tbody>
             {groupedPageRows.map(
-              ({ post, showGroupedCustomerProduct, customerProductRowSpan }) => (
+              ({
+                post,
+                showGroupedCustomerProduct,
+                customerProductRowSpan,
+                showGroupedProgressTotals,
+                progressTotalsRowSpan,
+                progressGroupSummary,
+                isLastInCustomerProductGroup,
+              }) => (
               <ReservationList
                 key={post.id}
                 post={post}
@@ -364,6 +422,10 @@ const Reservation = () => {
                 handleEditLotBalance={handleEditLotBalance}
                 showGroupedCustomerProduct={showGroupedCustomerProduct}
                 customerProductRowSpan={customerProductRowSpan}
+                showGroupedProgressTotals={showGroupedProgressTotals}
+                progressTotalsRowSpan={progressTotalsRowSpan}
+                progressGroupSummary={progressGroupSummary}
+                isLastInCustomerProductGroup={isLastInCustomerProductGroup}
               />
               ),
             )}

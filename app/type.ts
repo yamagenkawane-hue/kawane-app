@@ -109,6 +109,14 @@ export type SearchProps = {
   setSearch: (value: string) => void;
 };
 
+export type ProgressGroupSummary = {
+  totalInProcessAmount: number;
+  orderAmount: number;
+  inventoryAmount: number;
+  allocatedAmount: number;
+  quantityAdjustmentAmount: number;
+};
+
 export type ReservationRowProps = {
   post: Post;
   handleDelete: () => Promise<void>;
@@ -116,6 +124,10 @@ export type ReservationRowProps = {
   handleEditLotBalance?: (balance: LotProcessBalance) => Promise<void>;
   showGroupedCustomerProduct?: boolean;
   customerProductRowSpan?: number;
+  showGroupedProgressTotals?: boolean;
+  progressTotalsRowSpan?: number;
+  progressGroupSummary?: ProgressGroupSummary;
+  isLastInCustomerProductGroup?: boolean;
 };
 
 export type PaginationProps = {

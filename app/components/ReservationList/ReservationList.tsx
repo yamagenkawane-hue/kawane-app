@@ -312,6 +312,10 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   handleEditLotBalance,
   showGroupedCustomerProduct = true,
   customerProductRowSpan = 1,
+  showGroupedProgressTotals = true,
+  progressTotalsRowSpan = 1,
+  progressGroupSummary,
+  isLastInCustomerProductGroup = true,
 }) => {
   const balances = post.lotProcessBalances || [];
   const totalInProcessAmount = balances.reduce(
@@ -319,18 +323,31 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       balance.isHistoryOnly ? total : total + Number(balance.quantity || 0),
     0,
   );
-  const allocatedAmount = Number(post.allocatedAmount || 0);
-  const quantityAdjustmentAmount = Number(post.quantityAdjustmentAmount || 0);
+  const displayTotalInProcessAmount =
+    progressGroupSummary?.totalInProcessAmount ?? totalInProcessAmount;
+  const displayOrderAmount =
+    progressGroupSummary?.orderAmount ?? Number(post.orderAmount || 0);
+  const displayInventoryAmount =
+    progressGroupSummary?.inventoryAmount ?? Number(post.inventoryAmount || 0);
+  const allocatedAmount =
+    progressGroupSummary?.allocatedAmount ?? Number(post.allocatedAmount || 0);
+  const quantityAdjustmentAmount =
+    progressGroupSummary?.quantityAdjustmentAmount ??
+    Number(post.quantityAdjustmentAmount || 0);
   const remainingInProcessAmount =
-    totalInProcessAmount +
+    displayTotalInProcessAmount +
     allocatedAmount +
     quantityAdjustmentAmount -
-    Number(post.orderAmount || 0);
+    displayOrderAmount;
   const processProgress = getReachedProcessProgress(balances);
   const deliveryClass = getDeliveryClass(post.deliveryDate);
 
   return (
-    <tr className={`${styles.reservationText} ${styles.reservationRow}`}>
+    <tr
+      className={`${styles.reservationText} ${styles.reservationRow} ${
+        isLastInCustomerProductGroup ? "" : styles.groupContinuationRow
+      }`}
+    >
       <td>{post.orderNo}</td>
       {showGroupedCustomerProduct && (
         <>
@@ -396,19 +413,29 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         );
       })}
 
-      <td className={styles.totalCell}>{formatAmount(totalInProcessAmount)}</td>
-      <td className={styles.stockCell}>{formatAmount(post.inventoryAmount)}</td>
-      <td className={styles.stockCell}>{formatAmount(allocatedAmount)}</td>
-      <td className={styles.stockCell}>
-        <span className={styles.remainingAmountValue}>
-          {formatAmount(remainingInProcessAmount)}
-        </span>
-        {quantityAdjustmentAmount > 0 && (
-          <span className={styles.adjustmentAmountValue}>
-            {formatAdjustmentAmount(quantityAdjustmentAmount)}
-          </span>
-        )}
-      </td>
+      {showGroupedProgressTotals && (
+        <>
+          <td className={styles.totalCell} rowSpan={progressTotalsRowSpan}>
+            {formatAmount(displayTotalInProcessAmount)}
+          </td>
+          <td className={styles.stockCell} rowSpan={progressTotalsRowSpan}>
+            {formatAmount(displayInventoryAmount)}
+          </td>
+          <td className={styles.stockCell} rowSpan={progressTotalsRowSpan}>
+            {formatAmount(allocatedAmount)}
+          </td>
+          <td className={styles.stockCell} rowSpan={progressTotalsRowSpan}>
+            <span className={styles.remainingAmountValue}>
+              {formatAmount(remainingInProcessAmount)}
+            </span>
+            {quantityAdjustmentAmount > 0 && (
+              <span className={styles.adjustmentAmountValue}>
+                {formatAdjustmentAmount(quantityAdjustmentAmount)}
+              </span>
+            )}
+          </td>
+        </>
+      )}
 
       <td>
         <div className={styles.progressArea}>

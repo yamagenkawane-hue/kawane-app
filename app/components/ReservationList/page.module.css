@@ -60,6 +60,15 @@
   font-size: 14px;
 }
 
+.reservationText.groupContinuationRow td {
+  border-bottom: 1px solid #d0d0d0;
+}
+
+.reservationText.groupContinuationRow .totalCell,
+.reservationText.groupContinuationRow .stockCell {
+  border-bottom: 3px solid #444 !important;
+}
+
 .orderAmountCell {
   font-size: 18px !important;
   line-height: 1.35;
