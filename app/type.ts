@@ -114,6 +114,8 @@ export type ReservationRowProps = {
   handleDelete: () => Promise<void>;
   handleTransferLot?: (balance: LotProcessBalance) => Promise<void>;
   handleEditLotBalance?: (balance: LotProcessBalance) => Promise<void>;
+  showGroupedCustomerProduct?: boolean;
+  customerProductRowSpan?: number;
 };
 
 export type PaginationProps = {

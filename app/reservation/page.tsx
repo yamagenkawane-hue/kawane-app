@@ -31,6 +31,29 @@ const getCustomerSortKey = (customerName: string) =>
     .replaceAll("合資会社", "ごうしがいしゃ")
     .replaceAll("合名会社", "ごうめいがいしゃ");
 
+const getProgressGroupKey = (post: { customerName: string; productName: string }) =>
+  `${getCustomerSortKey(post.customerName)}::${post.productName.trim().toLowerCase()}`;
+
+const buildGroupedPageRows = <T extends { customerName: string; productName: string }>(
+  rows: T[],
+) =>
+  rows.map((post, index) => {
+    const currentGroupKey = getProgressGroupKey(post);
+    const previousGroupKey =
+      index > 0 ? getProgressGroupKey(rows[index - 1]) : "";
+    const showGroupedCustomerProduct = currentGroupKey !== previousGroupKey;
+    const customerProductRowSpan = showGroupedCustomerProduct
+      ? rows.slice(index).findIndex((row) => getProgressGroupKey(row) !== currentGroupKey)
+      : 0;
+
+    return {
+      post,
+      showGroupedCustomerProduct,
+      customerProductRowSpan:
+        customerProductRowSpan === -1 ? rows.length - index : customerProductRowSpan,
+    };
+  });
+
 const isPackagingProcess = (balance: LotProcessBalance) =>
   balance.processName.includes("梱包") ||
   balance.processName.includes("包装") ||
@@ -128,8 +151,26 @@ const Reservation = () => {
         return customerCompare;
       }
 
+      const productCompare = a.productName.localeCompare(b.productName, "ja", {
+        numeric: true,
+        sensitivity: "base",
+      });
+
+      if (productCompare !== 0) {
+        return productCompare;
+      }
+
+      const deliveryCompare =
+        new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime();
+
+      if (deliveryCompare !== 0) {
+        return deliveryCompare;
+      }
+
       return (
-        new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime()
+        String(a.orderNo || "").localeCompare(String(b.orderNo || ""), "ja", {
+          numeric: true,
+        })
       );
     });
 
@@ -137,6 +178,7 @@ const Reservation = () => {
     filteredPosts,
     itemsPerPage,
   );
+  const groupedPageRows = buildGroupedPageRows(paginatedPosts);
 
   const handleDelete = useReservationDelete(setShouldFetch);
 
@@ -312,15 +354,19 @@ const Reservation = () => {
           <TableHeader />
 
           <tbody>
-            {paginatedPosts.map((post) => (
+            {groupedPageRows.map(
+              ({ post, showGroupedCustomerProduct, customerProductRowSpan }) => (
               <ReservationList
                 key={post.id}
                 post={post}
                 handleDelete={() => handleDelete(post.id)}
                 handleTransferLot={handleTransferLot}
                 handleEditLotBalance={handleEditLotBalance}
+                showGroupedCustomerProduct={showGroupedCustomerProduct}
+                customerProductRowSpan={customerProductRowSpan}
               />
-            ))}
+              ),
+            )}
           </tbody>
         </table>
       </div>

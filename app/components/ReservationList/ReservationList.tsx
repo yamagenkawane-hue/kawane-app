@@ -310,6 +310,8 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   handleDelete,
   handleTransferLot,
   handleEditLotBalance,
+  showGroupedCustomerProduct = true,
+  customerProductRowSpan = 1,
 }) => {
   const balances = post.lotProcessBalances || [];
   const totalInProcessAmount = balances.reduce(
@@ -330,10 +332,22 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   return (
     <tr className={`${styles.reservationText} ${styles.reservationRow}`}>
       <td>{post.orderNo}</td>
-      <td>{post.customerName}</td>
-      <td className={styles.productName}>
-        <Link href={`/progress/${post.id}`}>{post.productName}</Link>
-      </td>
+      {showGroupedCustomerProduct && (
+        <>
+          <td
+            className={styles.groupedCustomerCell}
+            rowSpan={customerProductRowSpan}
+          >
+            {post.customerName}
+          </td>
+          <td
+            className={`${styles.productName} ${styles.groupedProductCell}`}
+            rowSpan={customerProductRowSpan}
+          >
+            <Link href={`/progress/${post.id}`}>{post.productName}</Link>
+          </td>
+        </>
+      )}
       <td className={styles.orderAmountCell}>{formatAmount(post.orderAmount)}</td>
       <td>
         <Link

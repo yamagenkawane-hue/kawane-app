@@ -115,6 +115,18 @@
   padding: 8px !important;
 }
 
+.groupedCustomerCell,
+.groupedProductCell {
+  background: #f8fafc;
+  border-bottom: 3px solid #444 !important;
+  font-weight: 800;
+  vertical-align: middle !important;
+}
+
+.groupedProductCell {
+  min-width: 190px;
+}
+
 .productName a {
   border-radius: 8px;
   color: #1d4ed8;
