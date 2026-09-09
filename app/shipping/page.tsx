@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { subDays } from "date-fns";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
 import { CustomerMaster, Shipment } from "@/app/type";
@@ -43,6 +41,14 @@ const CUSTOMER_SELECT_COLUMNS =
 
 const formatDate = (date: Date) => date.toISOString().slice(0, 10);
 
+const escapeHtml = (value: string | number) =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 const createShippingGroupKey = (post: ShippingPost) =>
   [
     post.scheduledDate,
@@ -75,7 +81,6 @@ const mapShipment = (row: Record<string, unknown>): Shipment => ({
 
 export default function ShippingPage() {
   const [posts, setPosts] = useState<ShippingPost[]>([]);
-  const [shipments, setShipments] = useState<Shipment[]>([]);
   const [shipAmounts, setShipAmounts] = useState<Record<string, number>>({});
   const [targetDate, setTargetDate] = useState("");
   const [loading, setLoading] = useState(false);
@@ -183,7 +188,6 @@ export default function ShippingPage() {
           return customerCompare || a.scheduledDate.localeCompare(b.scheduledDate);
         });
 
-      setShipments(shipmentRows);
       setPosts(mappedPosts);
     } catch (error) {
       console.error(error);
@@ -235,36 +239,106 @@ export default function ShippingPage() {
     }));
   }, [visiblePosts]);
 
-  const visibleShipments = useMemo(
-    () =>
-      (targetDate
-        ? shipments.filter((shipment) => shipment.scheduledDate === targetDate)
-        : shipments
-      ).sort((a, b) => a.customerName.localeCompare(b.customerName, "ja")),
-    [shipments, targetDate],
-  );
-
   const exportPdf = () => {
-    const doc = new jsPDF();
-    const productionAmountByPostLot = posts.reduce((acc: Record<string, number>, post) => {
-      acc[`${post.postId}:${post.lotNo}`] = post.lotProductionAmount;
-      return acc;
-    }, {});
-    autoTable(doc, {
-      head: [["出荷予定日", "得意先", "注番", "製品名", "ロットNo", "生産数", "納期", "受注数", "出荷数"]],
-      body: visibleShipments.map((shipment) => [
-        shipment.scheduledDate,
-        shipment.customerName,
-        shipment.orderNo,
-        shipment.productName,
-        shipment.lotNo,
-        productionAmountByPostLot[`${shipment.postId}:${shipment.lotNo}`] || "",
-        shipment.deliveryDate,
-        shipment.orderAmount,
-        shipment.quantity,
+    const printableRows = visiblePostGroups.flatMap((group) =>
+      group.rows.map((post) => [
+        post.scheduledDate,
+        post.customerName,
+        post.orderNo,
+        post.productName,
+        post.lotNo || "-",
+        post.lotProductionAmount.toLocaleString("ja-JP"),
+        post.deliveryDate,
+        post.orderAmount.toLocaleString("ja-JP"),
+        "",
       ]),
-    });
-    doc.save("出荷リスト.pdf");
+    );
+    const printWindow = window.open("", "_blank");
+
+    if (!printWindow) {
+      alert("PDF出力用の画面を開けませんでした。ポップアップ設定を確認してください。");
+      return;
+    }
+
+    const bodyRows =
+      printableRows.length > 0
+        ? printableRows
+            .map(
+              (row) =>
+                `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`,
+            )
+            .join("")
+        : `<tr><td colspan="9" class="empty">出荷対象がありません</td></tr>`;
+
+    printWindow.document.write(`<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>出荷リスト</title>
+    <style>
+      body {
+        color: #111827;
+        font-family: "Yu Gothic", "Meiryo", "Noto Sans JP", sans-serif;
+        margin: 24px;
+      }
+      h1 {
+        font-size: 22px;
+        margin: 0 0 16px;
+        text-align: center;
+      }
+      table {
+        border-collapse: collapse;
+        table-layout: fixed;
+        width: 100%;
+      }
+      th,
+      td {
+        border: 1px solid #d1d5db;
+        font-size: 11px;
+        padding: 7px 6px;
+        text-align: center;
+        word-break: break-word;
+      }
+      th {
+        background: #1f2937;
+        color: #fff;
+      }
+      .empty {
+        color: #64748b;
+        padding: 20px;
+      }
+      @page {
+        margin: 12mm;
+        size: A4 landscape;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>出荷リスト</h1>
+    <table>
+      <thead>
+        <tr>
+          <th>出荷予定日</th>
+          <th>得意先</th>
+          <th>注番</th>
+          <th>製品名</th>
+          <th>ロットNo</th>
+          <th>生産数</th>
+          <th>納期</th>
+          <th>受注数</th>
+          <th>出荷数</th>
+        </tr>
+      </thead>
+      <tbody>${bodyRows}</tbody>
+    </table>
+    <script>
+      window.addEventListener("load", () => {
+        window.print();
+      });
+    </script>
+  </body>
+</html>`);
+    printWindow.document.close();
   };
 
   const handleShip = async (post: ShippingPost) => {
