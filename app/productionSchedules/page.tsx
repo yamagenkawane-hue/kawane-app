@@ -770,6 +770,10 @@ export default function ProductionSchedulesPage() {
   });
 
   const showManualInput = selectedDepartment === "製造G";
+  const showManufacturingColumns =
+    selectedDepartment === "製造G" || selectedDepartment === "全て";
+  const emptyColSpan =
+    selectedDepartment === "全て" ? 13 : showManufacturingColumns ? 11 : 9;
 
   return (
     <div className={styles.container}>
@@ -896,7 +900,11 @@ export default function ProductionSchedulesPage() {
         onMouseMove={moveTableDrag}
         onMouseUp={stopTableDrag}
       >
-        <table className={styles.table}>
+        <table
+          className={`${styles.table} ${
+            showManufacturingColumns ? "" : styles.departmentTable
+          }`}
+        >
           <thead>
             <tr>
               <th>注番</th>
@@ -904,8 +912,12 @@ export default function ProductionSchedulesPage() {
               <th>製品名</th>
               <th>ロット</th>
               <th>数量</th>
-              <th>計画数</th>
-              <th>プレス機No</th>
+              {showManufacturingColumns && (
+                <>
+                  <th>計画数</th>
+                  <th>プレス機No</th>
+                </>
+              )}
               <th>完了数</th>
               <th>完了予定日</th>
               {selectedDepartment === "全て" && (
@@ -1245,8 +1257,6 @@ export default function ProductionSchedulesPage() {
                   <td>{renderCellText(row.productName)}</td>
                   <td>{renderCellText(row.lotNo)}</td>
                   <td>{renderCellText(row.quantity)}</td>
-                  <td>{renderCellText("-")}</td>
-                  <td>{renderCellText("-")}</td>
                   <td>{renderCellText(row.completedAmount)}</td>
                   <td>{renderCellText(row.completedDate)}</td>
                   <td>{renderCellText(row.deliveryDate)}</td>
@@ -1355,7 +1365,7 @@ export default function ProductionSchedulesPage() {
               (selectedDepartment !== "製造G" && selectedDepartment !== "全て" &&
                 departmentBalanceRows.length === 0)) && (
               <tr>
-                <td colSpan={selectedDepartment === "全て" ? 13 : 11} className={styles.emptyCell}>
+                <td colSpan={emptyColSpan} className={styles.emptyCell}>
                   表示できる生産予定はありません
                 </td>
               </tr>

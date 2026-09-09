@@ -321,6 +321,26 @@
   width: 148px;
 }
 
+.table.departmentTable {
+  min-width: 1080px;
+}
+
+.departmentTable th:nth-child(5),
+.departmentTable td:nth-child(5),
+.departmentTable th:nth-child(6),
+.departmentTable td:nth-child(6),
+.departmentTable th:nth-child(7),
+.departmentTable td:nth-child(7),
+.departmentTable th:nth-child(8),
+.departmentTable td:nth-child(8) {
+  width: 126px;
+}
+
+.departmentTable th:nth-child(9),
+.departmentTable td:nth-child(9) {
+  width: 148px;
+}
+
 .autoRow {
   background: #f8fafc;
 }
