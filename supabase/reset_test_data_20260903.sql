@@ -8,15 +8,15 @@ begin;
 
 set local search_path = public;
 
-drop table if exists tmp_seed_transfers;
-drop table if exists tmp_seed_lots;
-drop table if exists tmp_order_processes;
-drop table if exists tmp_process_completed;
-drop table if exists tmp_seed_posts;
-drop table if exists tmp_process_templates;
-drop table if exists tmp_seed_products;
+drop table if exists public.tmp_seed_transfers;
+drop table if exists public.tmp_seed_lots;
+drop table if exists public.tmp_order_processes;
+drop table if exists public.tmp_process_completed;
+drop table if exists public.tmp_seed_posts;
+drop table if exists public.tmp_process_templates;
+drop table if exists public.tmp_seed_products;
 
-create table tmp_seed_products (
+create table public.tmp_seed_products (
   product_code text primary key,
   product_name text not null,
   customer_name text not null,
@@ -24,7 +24,7 @@ create table tmp_seed_products (
   unit_weight numeric not null
 );
 
-insert into tmp_seed_products (
+insert into public.tmp_seed_products (
   product_code,
   product_name,
   customer_name,
@@ -37,14 +37,14 @@ insert into tmp_seed_products (
   ('TEST-P104', 'テスト製品04', 'テスト工業', 'MAT-TEST-B', 1.80),
   ('TEST-P105', 'テスト製品05', 'テスト工業', 'MAT-TEST-C', 2.00);
 
-create table tmp_process_templates (
+create table public.tmp_process_templates (
   process_order integer primary key,
   process_name text not null,
   is_outsource boolean not null default false,
   overlap_days integer not null default 0
 );
 
-insert into tmp_process_templates (
+insert into public.tmp_process_templates (
   process_order,
   process_name,
   is_outsource,
@@ -120,7 +120,7 @@ select
   p.material_code,
   '個',
   p.unit_weight
-from tmp_seed_products p
+from public.tmp_seed_products p
 join customer_master cm
   on cm.customer_name = p.customer_name
 where not exists (
@@ -136,7 +136,7 @@ set product_name = p.product_name,
     standard = p.material_code,
     unit = '個',
     unit_weight = p.unit_weight
-from tmp_seed_products p
+from public.tmp_seed_products p
 join customer_master cm
   on cm.customer_name = p.customer_name
 where pm.product_code = p.product_code;
@@ -174,9 +174,9 @@ select
   now(),
   now()
 from product_master pm
-join tmp_seed_products sp
+join public.tmp_seed_products sp
   on sp.product_code = pm.product_code
-cross join tmp_process_templates pt
+cross join public.tmp_process_templates pt
 left join subcontractors sc
   on sc.name = 'テストメッキ外注'
 where not exists (
@@ -186,7 +186,7 @@ where not exists (
     and pp.process_order = pt.process_order
 );
 
-create table tmp_seed_posts (
+create table public.tmp_seed_posts (
   post_id uuid primary key,
   order_no text not null,
   product_code text not null,
@@ -196,7 +196,7 @@ create table tmp_seed_posts (
   remark text not null
 );
 
-insert into tmp_seed_posts (
+insert into public.tmp_seed_posts (
   post_id,
   order_no,
   product_code,
@@ -248,20 +248,20 @@ select
   false,
   now(),
   now()
-from tmp_seed_posts sp
+from public.tmp_seed_posts sp
 join product_master pm
   on pm.product_code = sp.product_code
 join customer_master cm
   on cm.customer_name = 'テスト工業';
 
-create table tmp_process_completed (
+create table public.tmp_process_completed (
   order_no text not null,
   process_order integer not null,
   completed_amount integer not null,
   completed_date date
 );
 
-insert into tmp_process_completed (
+insert into public.tmp_process_completed (
   order_no,
   process_order,
   completed_amount,
@@ -280,7 +280,7 @@ insert into tmp_process_completed (
   ('TEST-ORD-005', 4, 350, '2026-09-04'),
   ('TEST-ORD-005', 5, 350, '2026-09-05');
 
-create table tmp_order_processes (
+create table public.tmp_order_processes (
   order_process_id uuid primary key,
   post_id uuid not null,
   order_no text not null,
@@ -289,7 +289,7 @@ create table tmp_order_processes (
   process_name text not null
 );
 
-insert into tmp_order_processes (
+insert into public.tmp_order_processes (
   order_process_id,
   post_id,
   order_no,
@@ -304,10 +304,10 @@ select
   pm.product_code,
   pt.process_order,
   pt.process_name
-from tmp_seed_posts sp
+from public.tmp_seed_posts sp
 join product_master pm
   on pm.product_code = sp.product_code
-cross join tmp_process_templates pt;
+cross join public.tmp_process_templates pt;
 
 insert into order_processes (
   id,
@@ -350,16 +350,16 @@ select
   pt.overlap_days,
   now(),
   now()
-from tmp_order_processes op
-join tmp_seed_posts sp
+from public.tmp_order_processes op
+join public.tmp_seed_posts sp
   on sp.post_id = op.post_id
 join product_master pm
   on pm.product_code = op.product_code
 join customer_master cm
   on cm.customer_name = 'テスト工業'
-join tmp_process_templates pt
+join public.tmp_process_templates pt
   on pt.process_order = op.process_order
-left join tmp_process_completed pc
+left join public.tmp_process_completed pc
   on pc.order_no = op.order_no
  and pc.process_order = op.process_order
 left join subcontractors sc
@@ -373,7 +373,7 @@ left join lateral (
   limit 1
 ) pp on true;
 
-create table tmp_seed_lots (
+create table public.tmp_seed_lots (
   lot_id uuid primary key,
   order_no text not null,
   lot_no text not null,
@@ -386,7 +386,7 @@ create table tmp_seed_lots (
   lot_status text not null
 );
 
-insert into tmp_seed_lots (
+insert into public.tmp_seed_lots (
   lot_id,
   order_no,
   lot_no,
@@ -451,8 +451,8 @@ select
   false,
   now(),
   now()
-from tmp_seed_lots sl
-join tmp_seed_posts sp
+from public.tmp_seed_lots sl
+join public.tmp_seed_posts sp
   on sp.order_no = sl.order_no
 join product_master pm
   on pm.product_code = sp.product_code
@@ -480,10 +480,10 @@ select
   sl.manufacturing_date,
   sl.quantity,
   sl.manufacturing_date::timestamptz
-from tmp_seed_lots sl
-join tmp_seed_posts sp
+from public.tmp_seed_lots sl
+join public.tmp_seed_posts sp
   on sp.order_no = sl.order_no
-join tmp_order_processes op
+join public.tmp_order_processes op
   on op.order_no = sl.order_no
  and op.process_order = 1;
 
@@ -506,10 +506,10 @@ select
   sl.current_quantity,
   now(),
   now()
-from tmp_seed_lots sl
-join tmp_seed_posts sp
+from public.tmp_seed_lots sl
+join public.tmp_seed_posts sp
   on sp.order_no = sl.order_no
-join tmp_order_processes op
+join public.tmp_order_processes op
   on op.order_no = sl.order_no
  and op.process_order = sl.current_process_order
 where sl.current_process_order is not null
@@ -548,14 +548,14 @@ select
   'Seed manufacturing result',
   'seed-manufacturing-' || sp.order_no || '-' || sl.lot_no,
   sl.manufacturing_date::timestamptz
-from tmp_seed_lots sl
-join tmp_seed_posts sp
+from public.tmp_seed_lots sl
+join public.tmp_seed_posts sp
   on sp.order_no = sl.order_no
-join tmp_order_processes op_to
+join public.tmp_order_processes op_to
   on op_to.order_no = sl.order_no
  and op_to.process_order = 2;
 
-create table tmp_seed_transfers (
+create table public.tmp_seed_transfers (
   order_no text not null,
   lot_no text not null,
   from_process_order integer not null,
@@ -565,7 +565,7 @@ create table tmp_seed_transfers (
   moved_at date not null
 );
 
-insert into tmp_seed_transfers (
+insert into public.tmp_seed_transfers (
   order_no,
   lot_no,
   from_process_order,
@@ -624,16 +624,16 @@ select
   'Seed process movement',
   'seed-transfer-' || st.order_no || '-' || st.lot_no || '-' || st.from_process_order,
   st.moved_at::timestamptz
-from tmp_seed_transfers st
-join tmp_seed_posts sp
+from public.tmp_seed_transfers st
+join public.tmp_seed_posts sp
   on sp.order_no = st.order_no
-join tmp_seed_lots sl
+join public.tmp_seed_lots sl
   on sl.order_no = st.order_no
  and sl.lot_no = st.lot_no
-join tmp_order_processes op_from
+join public.tmp_order_processes op_from
   on op_from.order_no = st.order_no
  and op_from.process_order = st.from_process_order
-left join tmp_order_processes op_to
+left join public.tmp_order_processes op_to
   on op_to.order_no = st.order_no
  and op_to.process_order = st.to_process_order;
 
@@ -656,8 +656,8 @@ select
   sl.inventory_quantity,
   0,
   now()
-from tmp_seed_lots sl
-join tmp_seed_posts sp
+from public.tmp_seed_lots sl
+join public.tmp_seed_posts sp
   on sp.order_no = sl.order_no
 join product_master pm
   on pm.product_code = sp.product_code
@@ -702,7 +702,7 @@ select
   40,
   0,
   now()
-from tmp_seed_posts sp
+from public.tmp_seed_posts sp
 join product_master pm
   on pm.product_code = sp.product_code
 join inventory_items ii
@@ -757,7 +757,7 @@ select
   dept.department,
   now(),
   now()
-from tmp_seed_posts sp
+from public.tmp_seed_posts sp
 join product_master pm
   on pm.product_code = sp.product_code
 join customer_master cm
@@ -767,14 +767,14 @@ cross join (
 ) as dept(department)
 left join lateral (
   select string_agg(lot_no, ' / ' order by lot_no) as lot_list
-  from tmp_seed_lots sl
+  from public.tmp_seed_lots sl
   where sl.order_no = sp.order_no
 ) lot_summary on true
 left join lateral (
   select
     pc.completed_amount,
     pc.completed_date
-  from tmp_process_completed pc
+  from public.tmp_process_completed pc
   where pc.order_no = sp.order_no
     and pc.process_order = case
       when dept.department = '製造G' then 1
@@ -784,13 +784,13 @@ left join lateral (
   limit 1
 ) done on true;
 
-drop table if exists tmp_seed_transfers;
-drop table if exists tmp_seed_lots;
-drop table if exists tmp_order_processes;
-drop table if exists tmp_process_completed;
-drop table if exists tmp_seed_posts;
-drop table if exists tmp_process_templates;
-drop table if exists tmp_seed_products;
+drop table if exists public.tmp_seed_transfers;
+drop table if exists public.tmp_seed_lots;
+drop table if exists public.tmp_order_processes;
+drop table if exists public.tmp_process_completed;
+drop table if exists public.tmp_seed_posts;
+drop table if exists public.tmp_process_templates;
+drop table if exists public.tmp_seed_products;
 
 commit;
 
@@ -814,3 +814,4 @@ select 'inventory_allocations', count(*) from inventory_allocations
 union all
 select 'shipments', count(*) from shipments
 order by table_name;
+
