@@ -2,6 +2,9 @@
   width: 100%;
 
   overflow-x: auto;
+  scrollbar-color: #2563eb #dbeafe;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
 
   cursor: grab;
 
@@ -12,6 +15,25 @@
   border-radius: 12px;
 
   background: white;
+}
+
+.wrapper::-webkit-scrollbar {
+  height: 16px;
+}
+
+.wrapper::-webkit-scrollbar-track {
+  background: #dbeafe;
+  border-radius: 999px;
+}
+
+.wrapper::-webkit-scrollbar-thumb {
+  background: #2563eb;
+  border: 3px solid #dbeafe;
+  border-radius: 999px;
+}
+
+.wrapper::-webkit-scrollbar-thumb:hover {
+  background: #1d4ed8;
 }
 
 .dragging {

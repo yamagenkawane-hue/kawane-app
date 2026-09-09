@@ -1,7 +1,33 @@
 .tableCard {
   cursor: grab;
   padding: 22px;
+  scrollbar-color: #2563eb #dbeafe;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
   user-select: none;
+}
+
+.tableCard::-webkit-scrollbar,
+.topScroll::-webkit-scrollbar {
+  height: 16px;
+}
+
+.tableCard::-webkit-scrollbar-track,
+.topScroll::-webkit-scrollbar-track {
+  background: #dbeafe;
+  border-radius: 999px;
+}
+
+.tableCard::-webkit-scrollbar-thumb,
+.topScroll::-webkit-scrollbar-thumb {
+  background: #2563eb;
+  border: 3px solid #dbeafe;
+  border-radius: 999px;
+}
+
+.tableCard::-webkit-scrollbar-thumb:hover,
+.topScroll::-webkit-scrollbar-thumb:hover {
+  background: #1d4ed8;
 }
 
 .draggingTable {
@@ -25,6 +51,9 @@
   margin-bottom: 10px;
   overflow-x: auto;
   overflow-y: hidden;
+  scrollbar-color: #2563eb #dbeafe;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
 }
 
 .scrollSpacer {

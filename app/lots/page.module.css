@@ -167,8 +167,30 @@
   margin-bottom: 20px;
   overflow-x: auto;
   padding: 0;
+  scrollbar-color: #2563eb #dbeafe;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
   touch-action: pan-y;
   user-select: none;
+}
+
+.tableCard::-webkit-scrollbar {
+  height: 16px;
+}
+
+.tableCard::-webkit-scrollbar-track {
+  background: #dbeafe;
+  border-radius: 999px;
+}
+
+.tableCard::-webkit-scrollbar-thumb {
+  background: #2563eb;
+  border: 3px solid #dbeafe;
+  border-radius: 999px;
+}
+
+.tableCard::-webkit-scrollbar-thumb:hover {
+  background: #1d4ed8;
 }
 
 .tableCard:active {

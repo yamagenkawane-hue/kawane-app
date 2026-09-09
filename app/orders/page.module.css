@@ -41,6 +41,28 @@
   overflow-x: auto;
   border-radius: 12px;
   border: 1px solid #e5e7eb;
+  scrollbar-color: #2563eb #dbeafe;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+}
+
+.tableWrapper::-webkit-scrollbar {
+  height: 16px;
+}
+
+.tableWrapper::-webkit-scrollbar-track {
+  background: #dbeafe;
+  border-radius: 999px;
+}
+
+.tableWrapper::-webkit-scrollbar-thumb {
+  background: #2563eb;
+  border: 3px solid #dbeafe;
+  border-radius: 999px;
+}
+
+.tableWrapper::-webkit-scrollbar-thumb:hover {
+  background: #1d4ed8;
 }
 
 .sortArea {
