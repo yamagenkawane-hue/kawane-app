@@ -21,6 +21,7 @@ type ShippingPost = {
   productName: string;
   customerName: string;
   orderAmount: number;
+  lotProductionAmount: number;
   remainingAmount: number;
   status: string;
   deliveryDate: string;
@@ -164,6 +165,7 @@ export default function ShippingPage() {
             productName: row.product_name || "",
             customerName: row.customer_name || "",
             orderAmount,
+            lotProductionAmount: completedQuantity,
             remainingAmount: Math.min(
               Math.max(completedQuantity - shippedLotAmount, 0),
               orderRemainingAmount,
@@ -244,14 +246,19 @@ export default function ShippingPage() {
 
   const exportPdf = () => {
     const doc = new jsPDF();
+    const productionAmountByPostLot = posts.reduce((acc: Record<string, number>, post) => {
+      acc[`${post.postId}:${post.lotNo}`] = post.lotProductionAmount;
+      return acc;
+    }, {});
     autoTable(doc, {
-      head: [["出荷予定日", "得意先", "注番", "製品名", "ロットNo", "納期", "受注数", "出荷数"]],
+      head: [["出荷予定日", "得意先", "注番", "製品名", "ロットNo", "生産数", "納期", "受注数", "出荷数"]],
       body: visibleShipments.map((shipment) => [
         shipment.scheduledDate,
         shipment.customerName,
         shipment.orderNo,
         shipment.productName,
         shipment.lotNo,
+        productionAmountByPostLot[`${shipment.postId}:${shipment.lotNo}`] || "",
         shipment.deliveryDate,
         shipment.orderAmount,
         shipment.quantity,
@@ -365,6 +372,7 @@ export default function ShippingPage() {
               <th>注番</th>
               <th>製品名</th>
               <th>ロットNo</th>
+              <th>生産数</th>
               <th>納期</th>
               <th>受注数</th>
               <th>出荷数</th>
@@ -384,6 +392,7 @@ export default function ShippingPage() {
                     </>
                   )}
                   <td>{post.lotNo || "-"}</td>
+                  <td>{post.lotProductionAmount.toLocaleString("ja-JP")}</td>
                   {index === 0 && (
                     <>
                       <td rowSpan={group.rows.length}>{post.deliveryDate}</td>
