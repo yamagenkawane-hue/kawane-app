@@ -76,28 +76,28 @@ const getGroupBalances = (
         a.lotId.localeCompare(b.lotId),
     );
 
-const getReachedProcessProgress = (balances: LotProcessBalance[]) => {
-  if (balances.some((balance) => balance.isCompleted)) {
-    return 100;
-  }
-
-  const reachedIndex = processGroups.reduce((maxIndex, group, index) => {
-    if (getGroupBalances(balances, group).length === 0) {
-      return maxIndex;
-    }
-
-    return Math.max(maxIndex, index);
-  }, -1);
-
-  if (reachedIndex < 0) {
+const getWeightedProcessProgress = (
+  balances: LotProcessBalance[],
+  orderAmount: number,
+) => {
+  if (orderAmount <= 0) {
     return 0;
   }
 
-  if (processGroups[reachedIndex]?.label === "packaging") {
-    return 80;
-  }
+  const weightedProgressAmount = balances.reduce((total, balance) => {
+    if (balance.isHistoryOnly) {
+      return total;
+    }
 
-  return Math.round(((reachedIndex + 1) / processGroups.length) * 100);
+    const quantity = Math.max(0, Number(balance.quantity || 0));
+    const processRate = balance.isCompleted
+      ? 100
+      : Math.min(Math.max(balance.processOrder - 1, 0), 4) * 20;
+
+    return total + quantity * processRate;
+  }, 0);
+
+  return Math.min(100, Math.round(weightedProgressAmount / orderAmount));
 };
 
 const renderRows = (
@@ -340,7 +340,8 @@ const ReservationList: React.FC<ReservationRowProps> = ({
     quantityAdjustmentAmount -
     displayOrderAmount;
   const processProgress =
-    progressGroupSummary?.processProgress ?? getReachedProcessProgress(balances);
+    progressGroupSummary?.processProgress ??
+    getWeightedProcessProgress(balances, Number(post.orderAmount || 0));
   const deliveryClass = getDeliveryClass(post.deliveryDate);
 
   return (

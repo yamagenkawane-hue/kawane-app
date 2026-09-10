@@ -34,43 +34,28 @@ const getCustomerSortKey = (customerName: string) =>
 const getProgressGroupKey = (post: { customerName: string; productName: string }) =>
   `${getCustomerSortKey(post.customerName)}::${post.productName.trim().toLowerCase()}`;
 
-const processGroups = [
-  { processOrder: 1, names: ["製造", "プレス"] },
-  { processOrder: 2, names: ["洗浄", "メッキ", "外注"] },
-  { processOrder: 3, names: ["検査", "品質"] },
-  { processOrder: 4, names: ["計量"] },
-  { processOrder: 5, names: ["梱包", "包装"] },
-];
-
-const matchesProcessGroup = (
-  balance: LotProcessBalance,
-  group: (typeof processGroups)[number],
-) =>
-  balance.processOrder === group.processOrder ||
-  group.names.some((name) => balance.processName.includes(name));
-
-const getReachedProcessProgress = (balances: LotProcessBalance[]) => {
-  if (balances.some((balance) => balance.isCompleted)) {
-    return 100;
-  }
-
-  const reachedIndex = processGroups.reduce((maxIndex, group, index) => {
-    const hasBalance = balances.some((balance) =>
-      matchesProcessGroup(balance, group),
-    );
-
-    return hasBalance ? Math.max(maxIndex, index) : maxIndex;
-  }, -1);
-
-  if (reachedIndex < 0) {
+const getWeightedProcessProgress = (
+  balances: LotProcessBalance[],
+  orderAmount: number,
+) => {
+  if (orderAmount <= 0) {
     return 0;
   }
 
-  if (reachedIndex === processGroups.length - 1) {
-    return 80;
-  }
+  const weightedProgressAmount = balances.reduce((total, balance) => {
+    if (balance.isHistoryOnly) {
+      return total;
+    }
 
-  return Math.round(((reachedIndex + 1) / processGroups.length) * 100);
+    const quantity = Math.max(0, Number(balance.quantity || 0));
+    const processRate = balance.isCompleted
+      ? 100
+      : Math.min(Math.max(balance.processOrder - 1, 0), 4) * 20;
+
+    return total + quantity * processRate;
+  }, 0);
+
+  return Math.min(100, Math.round(weightedProgressAmount / orderAmount));
 };
 
 const getTotalInProcessAmount = (post: Post) =>
@@ -114,7 +99,7 @@ const buildProgressGroupSummaryMap = (rows: Post[]) => {
       quantityAdjustmentAmount:
         current.quantityAdjustmentAmount +
         Number(post.quantityAdjustmentAmount || 0),
-      processProgress: getReachedProcessProgress(balances),
+      processProgress: 0,
       balances,
     });
   });
@@ -128,7 +113,10 @@ const buildProgressGroupSummaryMap = (rows: Post[]) => {
         inventoryAmount: summary.inventoryAmount,
         allocatedAmount: summary.allocatedAmount,
         quantityAdjustmentAmount: summary.quantityAdjustmentAmount,
-        processProgress: summary.processProgress,
+        processProgress: getWeightedProcessProgress(
+          summary.balances,
+          summary.orderAmount,
+        ),
       },
     ]),
   );
