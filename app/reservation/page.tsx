@@ -34,6 +34,45 @@ const getCustomerSortKey = (customerName: string) =>
 const getProgressGroupKey = (post: { customerName: string; productName: string }) =>
   `${getCustomerSortKey(post.customerName)}::${post.productName.trim().toLowerCase()}`;
 
+const processGroups = [
+  { processOrder: 1, names: ["製造", "プレス"] },
+  { processOrder: 2, names: ["洗浄", "メッキ", "外注"] },
+  { processOrder: 3, names: ["検査", "品質"] },
+  { processOrder: 4, names: ["計量"] },
+  { processOrder: 5, names: ["梱包", "包装"] },
+];
+
+const matchesProcessGroup = (
+  balance: LotProcessBalance,
+  group: (typeof processGroups)[number],
+) =>
+  balance.processOrder === group.processOrder ||
+  group.names.some((name) => balance.processName.includes(name));
+
+const getReachedProcessProgress = (balances: LotProcessBalance[]) => {
+  if (balances.some((balance) => balance.isCompleted)) {
+    return 100;
+  }
+
+  const reachedIndex = processGroups.reduce((maxIndex, group, index) => {
+    const hasBalance = balances.some((balance) =>
+      matchesProcessGroup(balance, group),
+    );
+
+    return hasBalance ? Math.max(maxIndex, index) : maxIndex;
+  }, -1);
+
+  if (reachedIndex < 0) {
+    return 0;
+  }
+
+  if (reachedIndex === processGroups.length - 1) {
+    return 80;
+  }
+
+  return Math.round(((reachedIndex + 1) / processGroups.length) * 100);
+};
+
 const getTotalInProcessAmount = (post: Post) =>
   (post.lotProcessBalances || []).reduce(
     (total, balance) =>
@@ -42,7 +81,10 @@ const getTotalInProcessAmount = (post: Post) =>
   );
 
 const buildProgressGroupSummaryMap = (rows: Post[]) => {
-  const summaryMap = new Map<string, ProgressGroupSummary>();
+  const summaryMap = new Map<
+    string,
+    ProgressGroupSummary & { balances: LotProcessBalance[] }
+  >();
 
   rows.forEach((post) => {
     const groupKey = getProgressGroupKey(post);
@@ -52,7 +94,13 @@ const buildProgressGroupSummaryMap = (rows: Post[]) => {
       inventoryAmount: 0,
       allocatedAmount: 0,
       quantityAdjustmentAmount: 0,
+      processProgress: 0,
+      balances: [],
     };
+    const balances = [
+      ...current.balances,
+      ...(post.lotProcessBalances || []),
+    ];
 
     summaryMap.set(groupKey, {
       totalInProcessAmount:
@@ -66,10 +114,24 @@ const buildProgressGroupSummaryMap = (rows: Post[]) => {
       quantityAdjustmentAmount:
         current.quantityAdjustmentAmount +
         Number(post.quantityAdjustmentAmount || 0),
+      processProgress: getReachedProcessProgress(balances),
+      balances,
     });
   });
 
-  return summaryMap;
+  return new Map(
+    [...summaryMap].map(([groupKey, summary]) => [
+      groupKey,
+      {
+        totalInProcessAmount: summary.totalInProcessAmount,
+        orderAmount: summary.orderAmount,
+        inventoryAmount: summary.inventoryAmount,
+        allocatedAmount: summary.allocatedAmount,
+        quantityAdjustmentAmount: summary.quantityAdjustmentAmount,
+        processProgress: summary.processProgress,
+      },
+    ]),
+  );
 };
 
 const buildGroupedPageRows = <T extends { customerName: string; productName: string }>(

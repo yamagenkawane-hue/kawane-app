@@ -115,6 +115,7 @@ export type ProgressGroupSummary = {
   inventoryAmount: number;
   allocatedAmount: number;
   quantityAdjustmentAmount: number;
+  processProgress: number;
 };
 
 export type ReservationRowProps = {

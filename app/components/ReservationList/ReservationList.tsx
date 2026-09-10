@@ -339,7 +339,8 @@ const ReservationList: React.FC<ReservationRowProps> = ({
     allocatedAmount +
     quantityAdjustmentAmount -
     displayOrderAmount;
-  const processProgress = getReachedProcessProgress(balances);
+  const processProgress =
+    progressGroupSummary?.processProgress ?? getReachedProcessProgress(balances);
   const deliveryClass = getDeliveryClass(post.deliveryDate);
 
   return (
@@ -437,17 +438,19 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         </>
       )}
 
-      <td>
-        <div className={styles.progressArea}>
-          <div className={styles.progressBar}>
-            <div
-              className={styles.progressFill}
-              style={{ width: `${processProgress}%` }}
-            />
-            <span className={styles.progressText}>{processProgress}%</span>
+      {showGroupedProgressTotals && (
+        <td className={styles.progressCell} rowSpan={progressTotalsRowSpan}>
+          <div className={styles.progressArea}>
+            <div className={styles.progressBar}>
+              <div
+                className={styles.progressFill}
+                style={{ width: `${processProgress}%` }}
+              />
+              <span className={styles.progressText}>{processProgress}%</span>
+            </div>
           </div>
-        </div>
-      </td>
+        </td>
+      )}
 
       <td>{post.remark || "-"}</td>
 

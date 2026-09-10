@@ -65,7 +65,8 @@
 }
 
 .reservationText.groupContinuationRow .totalCell,
-.reservationText.groupContinuationRow .stockCell {
+.reservationText.groupContinuationRow .stockCell,
+.reservationText.groupContinuationRow .progressCell {
   border-bottom: 3px solid #444 !important;
 }
 
@@ -833,6 +834,10 @@
 .progressArea {
   min-width: 120px;
   padding: 0 6px;
+}
+
+.progressCell {
+  vertical-align: middle !important;
 }
 
 .progressBar {
