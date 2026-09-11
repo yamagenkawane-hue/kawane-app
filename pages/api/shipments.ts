@@ -94,20 +94,28 @@ export default async function handler(
         return res.status(403).json({ error: "出荷取消は管理者のみ操作できます" });
       }
 
-      if (!process.env.SHIPMENT_CANCEL_PASSWORD) {
-        return res.status(500).json({
-          error: "出荷取消用パスワードがサーバーに設定されていません",
-        });
-      }
-
-      if (cancelPassword !== process.env.SHIPMENT_CANCEL_PASSWORD) {
-        return res.status(403).json({ error: "出荷取消用パスワードが違います" });
-      }
-
       if (!hasSupabaseAdminConfig || !supabaseAdmin) {
         return res.status(500).json({
           error: "Supabase管理用キーがサーバーに設定されていません",
         });
+      }
+
+      if (!cancelPassword.trim()) {
+        return res.status(400).json({ error: "管理者パスワードを入力してください" });
+      }
+
+      const { data: managerUsers, error: managerError } = await supabaseAdmin
+        .from("user")
+        .select("id")
+        .eq("manager", true)
+        .eq("delete", false)
+        .eq("pass", cancelPassword.trim())
+        .limit(1);
+
+      if (managerError) throw managerError;
+
+      if (!managerUsers || managerUsers.length === 0) {
+        return res.status(403).json({ error: "管理者パスワードが違います" });
       }
 
       const { error } = await supabaseAdmin.rpc("cancel_shipment_and_restore_inventory", {

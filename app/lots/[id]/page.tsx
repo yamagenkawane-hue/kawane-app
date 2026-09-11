@@ -502,10 +502,10 @@ export default function LotDetailPage() {
       return;
     }
 
-    const cancelPassword = window.prompt("出荷取消用パスワードを入力してください。");
+    const cancelPassword = window.prompt("管理者ログインパスワードを入力してください。");
     if (cancelPassword === null) return;
     if (!cancelPassword.trim()) {
-      alert("出荷取消用パスワードを入力してください");
+      alert("管理者ログインパスワードを入力してください");
       return;
     }
 
