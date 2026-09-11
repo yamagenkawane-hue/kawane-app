@@ -406,6 +406,115 @@
   white-space: nowrap;
 }
 
+.passwordModal {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 1000;
+}
+
+.passwordModalCard {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+  max-width: 480px;
+  padding: 24px;
+  width: min(100%, 480px);
+}
+
+.passwordModalCard h2 {
+  color: #111827;
+  font-size: 22px;
+  font-weight: 900;
+  margin: 0 0 10px;
+}
+
+.passwordModalCard p {
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.6;
+  margin: 0 0 18px;
+}
+
+.passwordLabel {
+  color: #334155;
+  display: block;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.passwordInputRow {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 86px;
+  margin-top: 8px;
+}
+
+.passwordInput {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  color: #111827;
+  font: inherit;
+  min-height: 44px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.passwordInput:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
+  outline: none;
+}
+
+.passwordToggleButton {
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+  color: #075985;
+  cursor: pointer;
+  font-weight: 900;
+  min-height: 44px;
+}
+
+.passwordModalActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.passwordCancelButton,
+.passwordConfirmButton {
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 900;
+  min-height: 42px;
+  padding: 9px 16px;
+}
+
+.passwordCancelButton {
+  background: #64748b;
+}
+
+.passwordConfirmButton {
+  background: #dc2626;
+}
+
+.passwordCancelButton:disabled,
+.passwordConfirmButton:disabled {
+  background: #cbd5e1;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
 .detailCard {
   margin-top: 20px;
   padding: 22px;

@@ -189,6 +189,12 @@ export default function LotDetailPage() {
   const [historyRows, setHistoryRows] = useState<HistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancellingShipmentId, setCancellingShipmentId] = useState("");
+  const [pendingCancelShipment, setPendingCancelShipment] = useState<{
+    history: HistoryRow;
+    reason: string;
+  } | null>(null);
+  const [cancelPassword, setCancelPassword] = useState("");
+  const [showCancelPassword, setShowCancelPassword] = useState(false);
   const [isManagerIn] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -502,23 +508,39 @@ export default function LotDetailPage() {
       return;
     }
 
-    const cancelPassword = window.prompt("管理者ログインパスワードを入力してください。");
-    if (cancelPassword === null) return;
-    if (!cancelPassword.trim()) {
+    setPendingCancelShipment({ history, reason: trimmedReason });
+    setCancelPassword("");
+    setShowCancelPassword(false);
+  };
+
+  const closeCancelPasswordDialog = () => {
+    if (cancellingShipmentId) return;
+    setPendingCancelShipment(null);
+    setCancelPassword("");
+    setShowCancelPassword(false);
+  };
+
+  const submitCancelShipment = async () => {
+    if (!pendingCancelShipment || !lot) return;
+
+    const trimmedPassword = cancelPassword.trim();
+    if (!trimmedPassword) {
       alert("管理者ログインパスワードを入力してください");
       return;
     }
 
     if (
       !window.confirm(
-        `出荷数 ${formatAmount(history.amount)} を取り消し、在庫に戻します。よろしいですか？`,
+        `出荷数 ${formatAmount(
+          pendingCancelShipment.history.amount,
+        )} を取り消し、在庫に戻します。よろしいですか？`,
       )
     ) {
       return;
     }
 
     try {
-      setCancellingShipmentId(history.shipmentId);
+      setCancellingShipmentId(pendingCancelShipment.history.shipmentId || "");
       const response = await fetch("/api/shipments", {
         method: "DELETE",
         headers: {
@@ -526,9 +548,9 @@ export default function LotDetailPage() {
           "x-manager": "true",
         },
         body: JSON.stringify({
-          id: history.shipmentId,
-          reason: trimmedReason,
-          cancel_password: cancelPassword,
+          id: pendingCancelShipment.history.shipmentId,
+          reason: pendingCancelShipment.reason,
+          cancel_password: trimmedPassword,
           is_manager: isManagerIn,
         }),
       });
@@ -539,6 +561,9 @@ export default function LotDetailPage() {
       }
 
       await loadLotDetail();
+      setPendingCancelShipment(null);
+      setCancelPassword("");
+      setShowCancelPassword(false);
     } catch (error) {
       console.error(error);
       alert(error instanceof Error ? error.message : "出荷取消に失敗しました");
@@ -684,6 +709,59 @@ export default function LotDetailPage() {
             </div>
           </div>
         </>
+      )}
+
+      {pendingCancelShipment && (
+        <div className={styles.passwordModal} role="dialog" aria-modal="true">
+          <div className={styles.passwordModalCard}>
+            <h2>管理者確認</h2>
+            <p>
+              出荷取消を実行するため、管理者ログインパスワードを入力してください。
+            </p>
+            <label className={styles.passwordLabel}>
+              管理者ログインパスワード
+              <div className={styles.passwordInputRow}>
+                <input
+                  autoFocus
+                  className={styles.passwordInput}
+                  type={showCancelPassword ? "text" : "password"}
+                  value={cancelPassword}
+                  onChange={(event) => setCancelPassword(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      void submitCancelShipment();
+                    }
+                  }}
+                />
+                <button
+                  className={styles.passwordToggleButton}
+                  type="button"
+                  onClick={() => setShowCancelPassword((current) => !current)}
+                >
+                  {showCancelPassword ? "非表示" : "表示"}
+                </button>
+              </div>
+            </label>
+            <div className={styles.passwordModalActions}>
+              <button
+                className={styles.passwordCancelButton}
+                type="button"
+                disabled={Boolean(cancellingShipmentId)}
+                onClick={closeCancelPasswordDialog}
+              >
+                キャンセル
+              </button>
+              <button
+                className={styles.passwordConfirmButton}
+                type="button"
+                disabled={Boolean(cancellingShipmentId)}
+                onClick={() => void submitCancelShipment()}
+              >
+                {cancellingShipmentId ? "取消中..." : "取消実行"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
