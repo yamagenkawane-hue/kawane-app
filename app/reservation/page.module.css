@@ -68,13 +68,16 @@
 
 .listTitle {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   background-color: white;
   table-layout: auto;
 }
 
 .reservationWrapper {
-  overflow-x: auto;
+  max-height: calc(100vh - 150px);
+  overflow: auto;
+  position: relative;
   scrollbar-color: #2563eb #dbeafe;
   scrollbar-gutter: stable;
   scrollbar-width: auto;
