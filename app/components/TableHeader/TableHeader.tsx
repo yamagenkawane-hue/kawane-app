@@ -10,7 +10,7 @@ const TableHeader = () => {
           注番
         </th>
 
-        <th rowSpan={2} className={styles.orderHeader}>
+        <th rowSpan={2} className={styles.customerHeader}>
           得意先
         </th>
 

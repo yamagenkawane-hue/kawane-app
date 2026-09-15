@@ -49,17 +49,23 @@
 
 /* 注番 */
 .orderHeader {
+  left: 0;
   min-width: 140px;
+  width: 140px;
 }
 
 /* 製品名 */
 .productHeader {
-  min-width: 180px;
+  left: 320px;
+  min-width: 190px;
+  width: 190px;
 }
 
 /* 得意先 */
 .customerHeader {
+  left: 140px;
   min-width: 180px;
+  width: 180px;
 }
 
 /* 工程 */
@@ -82,7 +88,9 @@
 
 /* 納期 */
 .deliveryHeader {
+  left: 640px;
   min-width: 120px;
+  width: 120px;
 }
 
 /* 備考 */
@@ -136,6 +144,14 @@
   z-index: 30;
 }
 
+.headerTop .orderHeader,
+.headerTop .customerHeader,
+.headerTop .productHeader,
+.headerTop .orderAmountHeader,
+.headerTop .deliveryHeader {
+  z-index: 50;
+}
+
 /* ヘッダー下段 */
 .headerBottom th {
   background: #42a5f5;
@@ -163,7 +179,9 @@
 }
 
 .orderAmountHeader {
+  left: 510px;
   min-width: 130px;
+  width: 130px;
 }
 
 .amountHeader {

@@ -350,11 +350,11 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         isLastInCustomerProductGroup ? "" : styles.groupContinuationRow
       }`}
     >
-      <td>{post.orderNo}</td>
+      <td className={styles.orderNoCell}>{post.orderNo}</td>
       {showGroupedCustomerProduct && (
         <>
           <td
-            className={styles.groupedCustomerCell}
+            className={`${styles.groupedCustomerCell} ${styles.customerCell}`}
             rowSpan={customerProductRowSpan}
           >
             {post.customerName}
@@ -368,7 +368,7 @@ const ReservationList: React.FC<ReservationRowProps> = ({
         </>
       )}
       <td className={styles.orderAmountCell}>{formatAmount(post.orderAmount)}</td>
-      <td>
+      <td className={styles.deliveryCell}>
         <Link
           className={`${styles.deliveryLink} ${deliveryClass}`}
           href={`/productionResults?orderNo=${encodeURIComponent(post.orderNo)}`}
