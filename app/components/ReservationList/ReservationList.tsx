@@ -456,12 +456,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       <td>{post.remark || "-"}</td>
 
       <td>
-        <Link
-          className={styles.editButton}
-          href={`/productionResults?orderNo=${encodeURIComponent(post.orderNo)}`}
-        >
-          製造実績
-        </Link>
         <button className={styles.deleteButton} onClick={handleDelete}>
           削除
         </button>
