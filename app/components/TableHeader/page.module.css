@@ -88,7 +88,6 @@
 
 /* 納期 */
 .deliveryHeader {
-  left: 640px;
   min-width: 120px;
   width: 120px;
 }
@@ -146,9 +145,7 @@
 
 .headerTop .orderHeader,
 .headerTop .customerHeader,
-.headerTop .productHeader,
-.headerTop .orderAmountHeader,
-.headerTop .deliveryHeader {
+.headerTop .productHeader {
   z-index: 50;
 }
 
@@ -179,7 +176,6 @@
 }
 
 .orderAmountHeader {
-  left: 510px;
   min-width: 130px;
   width: 130px;
 }
