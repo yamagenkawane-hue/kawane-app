@@ -492,6 +492,31 @@ export default function ProductionResultsPage() {
       setLoading(false);
     }
   };
+
+  const getResultOrderNo = (result: ProcessResult) => {
+    const postOrderNo = posts.find((post) => post.id === result.postId)?.orderNo;
+    if (postOrderNo) return postOrderNo;
+
+    const scheduleOrderNo = schedules.find(
+      (schedule) =>
+        schedule.id === result.scheduleId || schedule.postId === result.postId,
+    )?.orderNo;
+
+    return scheduleOrderNo || "-";
+  };
+
+  const getResultLotNo = (result: ProcessResult) => {
+    const scheduleLotNo = schedules.find(
+      (schedule) =>
+        schedule.id === result.scheduleId || schedule.postId === result.postId,
+    )?.lotNo;
+    if (scheduleLotNo) return scheduleLotNo;
+
+    const postLotNo = posts.find((post) => post.id === result.postId)?.lotNo;
+
+    return postLotNo || "-";
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
@@ -629,8 +654,8 @@ export default function ProductionResultsPage() {
               <th>日付</th>
               <th>工程</th>
               <th>数量</th>
-              <th>予定ID</th>
-              <th>受注ID</th>
+              <th>ロットNo</th>
+              <th>注番</th>
             </tr>
           </thead>
           <tbody>
@@ -639,8 +664,8 @@ export default function ProductionResultsPage() {
                 <td>{result.date}</td>
                 <td>{result.processName || result.processId}</td>
                 <td>{result.amount}</td>
-                <td>{result.scheduleId || "-"}</td>
-                <td>{result.postId || "-"}</td>
+                <td>{getResultLotNo(result)}</td>
+                <td>{getResultOrderNo(result)}</td>
               </tr>
             ))}
           </tbody>
