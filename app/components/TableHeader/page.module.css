@@ -127,15 +127,32 @@
   background: #1565c0;
   color: white;
   font-weight: bold;
+  height: 44px;
+  padding: 8px 4px;
+  position: sticky;
+  top: 0;
   text-align: center;
   vertical-align: middle;
+  z-index: 30;
 }
 
 /* ヘッダー下段 */
 .headerBottom th {
   background: #42a5f5;
   color: white;
+  height: 40px;
+  padding: 8px 4px;
+  position: sticky;
+  top: 44px;
   text-align: center;
+  vertical-align: middle;
+  z-index: 29;
+}
+
+.headerTop th,
+.headerBottom th {
+  background-clip: padding-box;
+  box-shadow: 0 1px 0 #777;
 }
 
 /* セル */
