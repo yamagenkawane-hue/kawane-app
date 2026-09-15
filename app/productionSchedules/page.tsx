@@ -919,7 +919,11 @@ export default function ProductionSchedulesPage() {
                 </>
               )}
               <th>完了数</th>
-              <th>完了予定日</th>
+              <th>
+                {selectedDepartment === "全て"
+                  ? "製造・洗浄完了予定日"
+                  : "完了予定日"}
+              </th>
               {selectedDepartment === "全て" && (
                 <>
                   <th className={styles.multiLineHeader}>
@@ -1038,7 +1042,7 @@ export default function ProductionSchedulesPage() {
                   <td>
                     <input
                       className={`${styles.tableInput} ${styles.dateInput}`}
-                      disabled={!editing}
+                      disabled
                       type="date"
                       value={post.deliveryDate || ""}
                       onChange={(e) =>
@@ -1203,7 +1207,7 @@ export default function ProductionSchedulesPage() {
                 <td>
                   <input
                     className={`${styles.tableInput} ${styles.dateInput}`}
-                    disabled={!editing}
+                    disabled
                     type="date"
                     value={schedule.deliveryDate || ""}
                     onChange={(e) =>
