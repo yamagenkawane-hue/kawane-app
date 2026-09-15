@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, {
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import supabase from "../../lib/supabase";
 import styles from "./page.module.css";
@@ -64,6 +70,44 @@ const OrdersPage = () => {
   const [sortMode, setSortMode] = useState<"delivery" | "customer">("delivery");
   const [editingPostId, setEditingPostId] = useState("");
   const [editingPost, setEditingPost] = useState<AdjustedPost | null>(null);
+  const [isDraggingTable, setIsDraggingTable] = useState(false);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const dragStartXRef = useRef(0);
+  const dragStartScrollLeftRef = useRef(0);
+
+  const startTableDrag = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+
+    if (target.closest("a, button, input, select, textarea")) {
+      return;
+    }
+
+    const scrollElement = tableScrollRef.current;
+
+    if (!scrollElement) {
+      return;
+    }
+
+    setIsDraggingTable(true);
+    dragStartXRef.current = event.clientX;
+    dragStartScrollLeftRef.current = scrollElement.scrollLeft;
+  };
+
+  const moveTableDrag = (event: MouseEvent<HTMLDivElement>) => {
+    const scrollElement = tableScrollRef.current;
+
+    if (!isDraggingTable || !scrollElement) {
+      return;
+    }
+
+    event.preventDefault();
+    scrollElement.scrollLeft =
+      dragStartScrollLeftRef.current - (event.clientX - dragStartXRef.current);
+  };
+
+  const stopTableDrag = () => {
+    setIsDraggingTable(false);
+  };
 
   const formatAllocationSource = useCallback((allocations: InventoryAllocation[]) => {
     if (allocations.length === 0) return "-";
@@ -472,7 +516,16 @@ const OrdersPage = () => {
       </div>
 
       {/* テーブル */}
-      <div className={styles.tableWrapper}>
+      <div
+        ref={tableScrollRef}
+        className={`${styles.tableWrapper} ${
+          isDraggingTable ? styles.draggingTable : ""
+        }`}
+        onMouseDown={startTableDrag}
+        onMouseLeave={stopTableDrag}
+        onMouseMove={moveTableDrag}
+        onMouseUp={stopTableDrag}
+      >
         <table className={styles.table}>
           <thead>
             <tr>
