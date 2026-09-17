@@ -33,7 +33,7 @@ const Pagination: React.FC<PaginationProps> = ({
 
   return (
     <div className={styles.pagination}>
-      <button onClick={handlePrev} disabled={page === 1}>
+      <button className={styles.button} onClick={handlePrev} disabled={page === 1}>
         前へ
       </button>
       {[...Array(totalPages)].map((_, index) => {
@@ -48,7 +48,7 @@ const Pagination: React.FC<PaginationProps> = ({
           </button>
         );
       })}
-      <button onClick={handleNext} disabled={page === totalPages}>
+      <button className={styles.button} onClick={handleNext} disabled={page === totalPages}>
         次へ
       </button>
     </div>
