@@ -278,7 +278,7 @@ export default function ProgressDetail() {
         .find((value): value is number => Boolean(value && value > 0));
 
       if (historicalCapacity) {
-        capacity = Math.min(capacity, historicalCapacity);
+        capacity = historicalCapacity;
       }
     }
 
