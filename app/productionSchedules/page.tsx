@@ -919,10 +919,13 @@ export default function ProductionSchedulesPage() {
                 </>
               )}
               <th>完了数</th>
-              <th>
-                {selectedDepartment === "全て"
-                  ? "製造・洗浄完了予定日"
-                  : "完了予定日"}
+              <th className={selectedDepartment === "全て" ? styles.multiLineHeader : undefined}>
+                {selectedDepartment === "全て" ? (
+                  <>
+                    <span>製造・洗浄</span>
+                    <span>完了予定日</span>
+                  </>
+                ) : "完了予定日"}
               </th>
               {selectedDepartment === "全て" && (
                 <>
