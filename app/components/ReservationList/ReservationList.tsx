@@ -351,7 +351,9 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       }`}
     >
       <td className={styles.orderNoCell}>
-        <Link href={`/progress/${post.id}`}>{post.orderNo}</Link>
+        <Link className={styles.orderDetailLink} href={`/progress/${post.id}`}>
+          {post.orderNo}
+        </Link>
       </td>
       {showGroupedCustomerProduct && (
         <>
