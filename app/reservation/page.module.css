@@ -108,12 +108,16 @@
   cursor: grabbing;
 }
 
-.reservationWrapper a,
 .reservationWrapper button,
 .reservationWrapper input,
 .reservationWrapper select,
 .reservationWrapper textarea {
   cursor: auto;
+  user-select: auto;
+}
+
+.reservationWrapper a {
+  cursor: pointer;
   user-select: auto;
 }
 
