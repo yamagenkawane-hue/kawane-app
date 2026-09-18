@@ -112,6 +112,8 @@ export default function ProgressDetail() {
 
   const [post, setPost] = useState<Post | null>(null);
   const [loadError, setLoadError] = useState("");
+  const [lotNumbers, setLotNumbers] = useState<string[]>([]);
+  const [lotLoadError, setLotLoadError] = useState("");
   const [ganttProcesses, setGanttProcesses] = useState<ProcessItem[]>([]);
   const [ganttCalendar, setGanttCalendar] = useState<CompanyCalendar[]>([]);
   const [materialInfo, setMaterialInfo] = useState<MaterialInfo | null>(null);
@@ -458,6 +460,23 @@ export default function ProgressDetail() {
         if (!postRow) {
           setLoadError("対象の受注データが見つかりませんでした。");
           return;
+        }
+
+        setLotNumbers([]);
+        setLotLoadError("");
+        const { data: lotRows, error: lotError } = await supabase
+          .from("lots")
+          .select("lot_no")
+          .eq("post_id", id)
+          .eq("deleted", false)
+          .order("lot_no", { ascending: true });
+
+        if (lotError) {
+          setLotLoadError("ロットNoを取得できませんでした。");
+        } else {
+          setLotNumbers(
+            [...new Set((lotRows || []).map((row) => String(row.lot_no || "")).filter(Boolean))],
+          );
         }
 
         const currentPost: Post = {
@@ -1044,6 +1063,20 @@ export default function ProgressDetail() {
         <h1 className={styles.title}>{post.productName}</h1>
 
         <div className={styles.infoGrid}>
+          <div className={styles.infoCard}>
+            <span className={styles.label}>注番</span>
+            <span className={styles.value}>{post.orderNo || "-"}</span>
+          </div>
+
+          <div className={styles.infoCard}>
+            <span className={styles.label}>ロットNo</span>
+            <div className={styles.value}>
+              {lotLoadError || (lotNumbers.length > 0
+                ? lotNumbers.map((lotNo) => <div key={lotNo}>{lotNo}</div>)
+                : "-")}
+            </div>
+          </div>
+
           <div className={styles.infoCard}>
             <span className={styles.label}>得意先</span>
             <span className={styles.value}>{post.customerName}</span>
