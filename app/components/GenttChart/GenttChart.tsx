@@ -204,6 +204,20 @@ export default function GanttChart({ processes, deliveryDate, calendar = [] }: P
               <div>{process.name}</div>
 
               <div className={styles.subInfo}>{process.progress}%</div>
+              {process.predictionSource && (
+                <div className={styles.predictionSource}>
+                  {process.predictionSource === "gemini"
+                    ? "Gemini予測"
+                    : process.predictionSource === "capacity"
+                      ? "工程能力計算"
+                      : "実績確定"}
+                </div>
+              )}
+              {(process.predictionReason || process.predictionComments?.length) && (
+                <div className={styles.predictionNote} title={[process.predictionReason, ...(process.predictionComments || [])].filter(Boolean).join("\n")}>
+                  予測根拠あり
+                </div>
+              )}
             </div>
 
             {/* ガント */}

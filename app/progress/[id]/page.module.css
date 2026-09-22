@@ -27,6 +27,39 @@
   overflow: hidden;
 }
 
+.predictionComments {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  margin-top: 18px;
+  padding: 16px;
+}
+
+.predictionComments h3 {
+  color: #0f172a;
+  margin: 0 0 12px;
+}
+
+.predictionComment {
+  border-top: 1px solid #e2e8f0;
+  display: grid;
+  gap: 4px;
+  padding: 10px 0;
+}
+
+.predictionComment:first-of-type {
+  border-top: 0;
+}
+
+.predictionComment strong {
+  color: #1d4ed8;
+}
+
+.predictionComment span {
+  color: #334155;
+  font-size: 14px;
+}
+
 .title {
   font-size: 32px;
   margin-bottom: 24px;

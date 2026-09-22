@@ -212,6 +212,10 @@ export type ProcessItem = {
   isDelay: boolean;
   completedAmount: number;
   remainingAmount: number;
+  predictionSource?: string;
+  predictionReason?: string;
+  predictionComments?: string[];
+  predictionUpdatedAt?: string;
 };
 
 export type Props = {
@@ -273,16 +277,21 @@ export type AiPredictionStrength = "weak" | "standard" | "strong";
 export type AiPredictionSettings = {
   id: string;
   enabled: boolean;
-  targetOutsourceDelay: boolean;
-  targetShippingDelay: boolean;
-  targetLineLoad: boolean;
-  strength: AiPredictionStrength;
-  useLineOperationRate: boolean;
   usePastResults: boolean;
-  useOutsourceProcess: boolean;
-  useHolidays: boolean;
-  useCurrentDelay: boolean;
-  useProcessAverageDelay: boolean;
+  priorityReferenceDays: number;
+  maxReferenceDays: number;
+  manufacturingMinBusinessDays: number;
+  otherProcessMinLots: number;
+  validationMode: boolean;
+  targetOutsourceDelay?: boolean;
+  targetShippingDelay?: boolean;
+  targetLineLoad?: boolean;
+  strength?: AiPredictionStrength;
+  useLineOperationRate?: boolean;
+  useOutsourceProcess?: boolean;
+  useHolidays?: boolean;
+  useCurrentDelay?: boolean;
+  useProcessAverageDelay?: boolean;
   updatedAt?: string;
 };
 

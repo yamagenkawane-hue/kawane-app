@@ -39,7 +39,7 @@ const DIRECT_ORDER_PROCESS_SELECT_COLUMNS =
   "id,post_id,order_no,product_code,product_name,customer_name,process_name,process_order,overlap_days,planned_amount,completed_amount,completed_date,subcontractor_id,locked,created_at,updated_at";
 
 const AI_SETTINGS_SELECT_COLUMNS =
-  "id,enabled,target_outsource_delay,target_shipping_delay,target_line_load,strength,use_line_operation_rate,use_past_results,use_outsource_process,use_holidays,use_current_delay,use_process_average_delay,updated_at";
+  "id,enabled,target_outsource_delay,target_shipping_delay,target_line_load,strength,use_line_operation_rate,use_past_results,use_outsource_process,use_holidays,use_current_delay,use_process_average_delay,priority_reference_days,max_reference_days,manufacturing_min_business_days,other_process_min_lots,validation_mode,updated_at";
 
 const PRODUCT_MATERIAL_SELECT_COLUMNS =
   "material_code,material_number,material_name,material_size";
@@ -68,6 +68,11 @@ const DEFAULT_AI_SETTINGS: AiPredictionSettings = {
   useHolidays: true,
   useCurrentDelay: true,
   useProcessAverageDelay: false,
+  priorityReferenceDays: 90,
+  maxReferenceDays: 730,
+  manufacturingMinBusinessDays: 5,
+  otherProcessMinLots: 5,
+  validationMode: true,
 };
 
 const mapAiSettings = (row: Record<string, unknown> | null): AiPredictionSettings => {
@@ -89,6 +94,11 @@ const mapAiSettings = (row: Record<string, unknown> | null): AiPredictionSetting
     useHolidays: Boolean(row.use_holidays),
     useCurrentDelay: Boolean(row.use_current_delay),
     useProcessAverageDelay: Boolean(row.use_process_average_delay),
+    priorityReferenceDays: Number(row.priority_reference_days || 90),
+    maxReferenceDays: Number(row.max_reference_days || 730),
+    manufacturingMinBusinessDays: Number(row.manufacturing_min_business_days || 5),
+    otherProcessMinLots: Number(row.other_process_min_lots || 5),
+    validationMode: row.validation_mode !== false,
     updatedAt: String(row.updated_at || ""),
   };
 };
@@ -655,6 +665,18 @@ export default function ProgressDetail() {
           }
         }
 
+        const { data: latestPredictionRows, error: latestPredictionError } =
+          await supabase
+            .from("ai_prediction_latest")
+            .select("order_process_id,predicted_start_date,predicted_end_date,source_type,status,reason,comments,last_success_at")
+            .eq("post_id", id);
+        if (latestPredictionError) {
+          console.warn("保存済みAI予測の取得に失敗しました。従来計算を使用します。", latestPredictionError);
+        }
+        const latestPredictionMap = new Map(
+          (latestPredictionRows || []).map((row) => [String(row.order_process_id), row]),
+        );
+
         const { data: viewOrderProcessRows, error: viewOrderProcessError } =
           await supabase
             .from("v_order_processes_with_master")
@@ -874,6 +896,15 @@ export default function ProgressDetail() {
             }
 
             const delivery = safeDate(currentPost.deliveryDate);
+            const savedPrediction = latestPredictionMap.get(process.id);
+            if (
+              aiSettings.enabled &&
+              savedPrediction?.predicted_start_date &&
+              savedPrediction?.predicted_end_date
+            ) {
+              predictedStart = safeDate(savedPrediction.predicted_start_date);
+              predictedEnd = safeDate(savedPrediction.predicted_end_date);
+            }
             const isDelay = predictedEnd.getTime() > delivery.getTime();
             if (progress >= 100) {
               actualEnd = predictedEnd;
@@ -890,6 +921,12 @@ export default function ProgressDetail() {
               isDelay,
               completedAmount: totalActual,
               remainingAmount,
+              predictionSource: savedPrediction?.source_type,
+              predictionReason: savedPrediction?.reason,
+              predictionComments: Array.isArray(savedPrediction?.comments)
+                ? savedPrediction.comments.map(String)
+                : [],
+              predictionUpdatedAt: savedPrediction?.last_success_at,
             });
 
             previousPredictedStart = predictedStart;
@@ -1128,6 +1165,25 @@ export default function ProgressDetail() {
           deliveryDate={post.deliveryDate}
           calendar={ganttCalendar}
         />
+
+        {ganttProcesses.some(
+          (process) => process.predictionReason || process.predictionComments?.length,
+        ) && (
+          <div className={styles.predictionComments}>
+            <h3>AI予測コメント</h3>
+            {ganttProcesses.map((process) =>
+              process.predictionReason || process.predictionComments?.length ? (
+                <div className={styles.predictionComment} key={`prediction-${process.id}`}>
+                  <strong>{process.name}</strong>
+                  {process.predictionReason && <span>{process.predictionReason}</span>}
+                  {process.predictionComments?.map((comment, index) => (
+                    <span key={`${process.id}-comment-${index}`}>{comment}</span>
+                  ))}
+                </div>
+              ) : null,
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

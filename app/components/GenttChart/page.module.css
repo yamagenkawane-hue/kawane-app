@@ -109,6 +109,8 @@
 
   display: flex;
 
+  flex-direction: column;
+
   align-items: center;
 
   font-weight: 600;
@@ -179,6 +181,21 @@
   width: 2px;
   background: #2563eb;
   z-index: 5;
+}
+
+.predictionSource {
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 800;
+  margin-top: 3px;
+}
+
+.predictionNote {
+  color: #64748b;
+  cursor: help;
+  font-size: 10px;
+  margin-top: 2px;
+  text-decoration: underline;
 }
 
 /* =========================
