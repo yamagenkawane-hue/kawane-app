@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import styles from "./page.module.css";
 
 type NumpadProps = {
@@ -8,6 +8,7 @@ type NumpadProps = {
   onChange: (value: string) => void;
   onClose: () => void;
   open: boolean;
+  replaceOnFirstInput?: boolean;
 };
 
 const keys = ["7", "8", "9", "4", "5", "6", "1", "2", "3", "0", ".", "C"];
@@ -27,14 +28,31 @@ const deleteLast = (currentValue: string) => {
   return currentValue.slice(0, -1);
 };
 
-export default function Numpad({ value, onChange, onClose, open }: NumpadProps) {
+export default function Numpad({
+  value,
+  onChange,
+  onClose,
+  open,
+  replaceOnFirstInput = false,
+}: NumpadProps) {
+  const isFirstInputRef = useRef(replaceOnFirstInput);
+
+  const enterValue = useCallback((key: string) => {
+    if (replaceOnFirstInput && isFirstInputRef.current) {
+      isFirstInputRef.current = false;
+      return key === "." ? "0." : key;
+    }
+    return appendKey(value, key);
+  }, [replaceOnFirstInput, value]);
+
   const handlePress = (key: string) => {
     if (key === "C") {
+      isFirstInputRef.current = false;
       onChange("");
       return;
     }
 
-    const nextValue = appendKey(value, key);
+    const nextValue = enterValue(key);
     if (nextValue !== value) onChange(nextValue);
   };
 
@@ -44,13 +62,13 @@ export default function Numpad({ value, onChange, onClose, open }: NumpadProps) 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (/^[0-9]$/.test(event.key)) {
         event.preventDefault();
-        onChange(appendKey(value, event.key));
+        onChange(enterValue(event.key));
         return;
       }
 
       if (event.key === "." && !value.includes(".")) {
         event.preventDefault();
-        onChange(appendKey(value, "."));
+        onChange(enterValue("."));
         return;
       }
 
@@ -62,6 +80,7 @@ export default function Numpad({ value, onChange, onClose, open }: NumpadProps) 
 
       if (event.key === "Delete" || event.key.toLowerCase() === "c") {
         event.preventDefault();
+        isFirstInputRef.current = false;
         onChange("");
         return;
       }
@@ -80,7 +99,7 @@ export default function Numpad({ value, onChange, onClose, open }: NumpadProps) 
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onChange, onClose, open, value]);
+  }, [enterValue, onChange, onClose, open, value]);
 
   if (!open) return null;
 

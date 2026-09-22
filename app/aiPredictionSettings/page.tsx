@@ -131,6 +131,6 @@ export default function AiPredictionSettingsPage() {
     <section className={styles.statusCard}><h2>最新の実行状況</h2>{runStatus ? <div className={styles.statusGrid}>
       <div><span>状態</span><strong>{runStatus.status}</strong></div><div><span>実行方法</span><strong>{runStatus.trigger_type === "manual" ? "手動" : "毎朝7時"}</strong></div><div><span>開始日時</span><strong>{formatDateTime(runStatus.started_at)}</strong></div><div><span>完了日時</span><strong>{formatDateTime(runStatus.finished_at)}</strong></div><div><span>対象注番</span><strong>{runStatus.target_count}件</strong></div><div><span>成功 / 失敗</span><strong>{runStatus.success_count} / {runStatus.failed_count}</strong></div>
     </div> : <p className={styles.helpText}>まだAI予測は実行されていません。</p>}{runStatus?.error_message && <div className={styles.errorMessage}>{runStatus.error_message}</div>}</section>
-    {editingKey && <Numpad open value={String(settings[editingKey])} onChange={(value) => setNumber(editingKey, value)} onClose={() => setEditingKey(null)} />}
+    {editingKey && <Numpad open replaceOnFirstInput value={String(settings[editingKey])} onChange={(value) => setNumber(editingKey, value)} onClose={() => setEditingKey(null)} />}
   </div>;
 }
