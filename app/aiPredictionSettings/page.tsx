@@ -36,6 +36,7 @@ export default function AiPredictionSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
   const [runStatus, setRunStatus] = useState<RunStatus | null>(null);
   const [editingKey, setEditingKey] = useState<NumberSettingKey | null>(null);
 
@@ -47,7 +48,10 @@ export default function AiPredictionSettingsPage() {
   useEffect(() => {
     const load = async () => {
       const { data, error } = await supabase.from("ai_prediction_settings").select("*").eq("id", "global").maybeSingle();
-      if (error) setMessage("AI予測用SQLを実行してください。");
+      if (error) {
+        setMessageType("error");
+        setMessage("AI予測用SQLを実行してください。");
+      }
       else if (data) setSettings(mapSettings(data));
       await fetchRunStatus();
       setLoading(false);
@@ -64,8 +68,11 @@ export default function AiPredictionSettingsPage() {
 
   const saveSettings = async () => {
     const validationMessage = validate();
-    if (validationMessage) return setMessage(validationMessage);
-    setSaving(true); setMessage("");
+    if (validationMessage) {
+      setMessageType("error");
+      return setMessage(validationMessage);
+    }
+    setSaving(true); setMessage(""); setMessageType("success");
     const { error } = await supabase.from("ai_prediction_settings").upsert({
       id: "global", enabled: settings.enabled, use_past_results: settings.usePastResults,
       priority_reference_days: settings.priorityReferenceDays, max_reference_days: settings.maxReferenceDays,
@@ -73,22 +80,29 @@ export default function AiPredictionSettingsPage() {
       other_process_min_lots: settings.otherProcessMinLots, validation_mode: settings.validationMode,
       updated_at: new Date().toISOString(),
     });
+    setMessageType(error ? "error" : "success");
     setMessage(error ? `保存に失敗しました: ${error.message}` : "AI予測設定を保存しました。");
     setSaving(false);
   };
 
   const runPrediction = async () => {
     const validationMessage = validate();
-    if (validationMessage) return setMessage(validationMessage);
-    setRunning(true); setMessage("AI予測を実行しています。この画面を閉じずにお待ちください。");
+    if (validationMessage) {
+      setMessageType("error");
+      return setMessage(validationMessage);
+    }
+    setRunning(true); setMessageType("success"); setMessage("AI予測を実行しています。この画面を閉じずにお待ちください。");
     try {
       const response = await fetch("/api/ai-predictions/run", { method: "POST" });
       const body = (await response.json()) as { error?: string; message?: string };
       if (!response.ok) throw new Error(body.error || "AI予測の実行に失敗しました。");
       setMessage(body.message || "AI予測を更新しました。");
+      setMessageType("success");
       await fetchRunStatus();
     } catch (error) {
+      setMessageType("error");
       setMessage(error instanceof Error ? error.message : "AI予測の実行に失敗しました。");
+      await fetchRunStatus();
     } finally { setRunning(false); }
   };
 
@@ -101,7 +115,7 @@ export default function AiPredictionSettingsPage() {
 
   return <div className={styles.container}>
     <div className={styles.headerArea}><Link href="/settings" className={styles.backButton}>← 設定へ戻る</Link><h1 className={styles.title}>AI予測設定</h1></div>
-    {message && <div className={styles.message}>{message}</div>}
+    {message && <div className={messageType === "error" ? styles.errorBanner : styles.message}>{message}</div>}
     <section className={styles.card}>
       <div className={styles.cardHeader}><div><h2>予測条件</h2><p className={styles.helpText}>全製品・全工程に共通して適用します。</p></div><label className={styles.switchRow}><input type="checkbox" checked={settings.enabled} onChange={() => setSettings((current) => ({ ...current, enabled: !current.enabled }))} disabled={loading} />AI予測を使用する</label></div>
       <div className={styles.numberGrid}>{numberFields.map((field) => <button type="button" className={styles.numberField} key={field.key} onClick={() => setEditingKey(field.key)}><span className={styles.numberLabel}>{field.label}</span><strong>{settings[field.key].toLocaleString()} {field.unit}</strong><small>{field.help}</small></button>)}</div>

@@ -510,14 +510,17 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     const message = error instanceof Error ? error.message : "Unknown prediction error";
     const status = Number((error as { status?: number })?.status || 0);
     const isRateLimit = status === 429;
+    const isUnavailable = status === 503;
     await supabaseAdmin
       .from("ai_prediction_runs")
       .update({
         status: "failed",
         finished_at: new Date().toISOString(),
-        error_code: isRateLimit ? "rate_limit" : "execution_error",
+        error_code: isRateLimit ? "rate_limit" : isUnavailable ? "provider_unavailable" : "execution_error",
         error_message: isRateLimit
           ? "API利用上限に達したため、今回の予測は更新できませんでした。翌朝の定期更新で再実行します。"
+          : isUnavailable
+            ? "Geminiが一時的に混雑しているため、今回の予測は更新できませんでした。翌朝の定期更新で再実行します。"
           : `${message} 予測の更新に失敗しました。翌朝の定期更新で再実行します。`,
       })
       .eq("id", runId);
