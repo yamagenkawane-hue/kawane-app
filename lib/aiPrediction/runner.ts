@@ -685,7 +685,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
             machineBlockedByOrder.set(input.pressNumber, input.orderNo);
           }
         }
-        if (endDate) cursor = nextDay(endDate, holidaySet, input.outsourcing);
+        if (endDate) cursor = nextDay(endDate, holidaySet, false);
       }
       if (postUnavailable) failedPosts += 1;
     }
