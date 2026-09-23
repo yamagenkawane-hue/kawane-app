@@ -696,7 +696,7 @@ export default function ProgressDetail() {
         const { data: latestPredictionRows, error: latestPredictionError } =
           await supabase
             .from("ai_prediction_latest")
-            .select("order_process_id,process_order,predicted_start_date,predicted_end_date,source_type,status,reason,comments,last_success_at")
+            .select("order_process_id,process_order,predicted_start_date,predicted_end_date,source_type,status,reason,comments,input_summary,last_success_at")
             .eq("post_id", id);
         if (latestPredictionError) {
           console.warn("保存済みAI予測の取得に失敗しました。従来計算を使用します。", latestPredictionError);
@@ -962,6 +962,25 @@ export default function ProgressDetail() {
               predictedStart = safeDate(savedPrediction.predicted_start_date);
               predictedEnd = safeDate(savedPrediction.predicted_end_date);
             }
+            const savedInput = savedPrediction?.input_summary as
+              | Record<string, unknown>
+              | null
+              | undefined;
+            const displayCompletedAmount = savedInput
+              ? Number(savedInput.completedAmount || 0)
+              : totalActual;
+            const displayRemainingAmount = savedInput
+              ? Number(savedInput.remainingAmount || 0)
+              : remainingAmount;
+            if (savedInput) {
+              const displayPlannedAmount = Number(savedInput.plannedAmount || 0);
+              progress = displayPlannedAmount > 0
+                ? Math.min(
+                    100,
+                    Math.floor((displayCompletedAmount / displayPlannedAmount) * 100),
+                  )
+                : 100;
+            }
             const isDelay = predictedEnd.getTime() > delivery.getTime();
             if (progress >= 100) {
               actualEnd = predictedEnd;
@@ -976,8 +995,8 @@ export default function ProgressDetail() {
               predictedEnd,
               progress,
               isDelay,
-              completedAmount: totalActual,
-              remainingAmount,
+              completedAmount: displayCompletedAmount,
+              remainingAmount: displayRemainingAmount,
               predictionSource: savedPrediction?.source_type,
               predictionReason: savedPrediction?.reason,
               predictionComments: Array.isArray(savedPrediction?.comments)
