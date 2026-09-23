@@ -563,11 +563,14 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         } else if (input.sourceType === "unavailable" || postUnavailable || blockingOrder) {
           status = "unavailable";
           startDate = cursor;
+          const directFailureReason = comments.find((comment) =>
+            comment.includes("予測できません") || comment.includes("複数登録されています"),
+          );
           reason = blockingOrder
             ? `同じプレス機の先行注番 ${blockingOrder} が予測不能のため予測できません。`
             : postUnavailable
               ? "前工程が予測不能のため予測できません。"
-              : comments.at(-1) || "予測できません。";
+              : directFailureReason || comments.at(-1) || "予測できません。";
           postUnavailable = true;
         } else {
           let durationDays = 1;

@@ -16,7 +16,7 @@ const DEFAULT_SETTINGS: AiPredictionSettings = {
 };
 
 type NumberSettingKey = "priorityReferenceDays" | "maxReferenceDays" | "manufacturingMinBusinessDays" | "otherProcessMinLots";
-type RunStatus = { id?: string; status?: string; model?: string; trigger_type?: string; started_at?: string; finished_at?: string; target_count?: number; success_count?: number; failed_count?: number; error_message?: string; evaluation_count?: number; average_absolute_error?: number | null; cron_configured?: boolean; schedule_label?: string };
+type RunStatus = { id?: string; status?: string; model?: string; trigger_type?: string; started_at?: string; finished_at?: string; target_count?: number; success_count?: number; failed_count?: number; error_message?: string; evaluation_count?: number; average_absolute_error?: number | null; cron_configured?: boolean; schedule_label?: string; failure_details?: Array<{ order_no: string; process_name: string; reason: string }> };
 type ProductOption = { id: string; name: string };
 type ProcessOption = { id: string; name: string; sort: number };
 type ReferenceStart = { id: string; productId: string; productName: string; processId: string; processName: string; referenceStartDate: string };
@@ -200,7 +200,7 @@ export default function AiPredictionSettingsPage() {
     </section>}
     {activeTab === "status" && <section className={styles.card}><h2>最新の実行状況</h2>{runStatus ? <div className={styles.statusGrid}>
       <div><span>定期更新</span><strong>{runStatus.cron_configured ? "設定済み" : "未設定"}</strong></div><div><span>更新時刻</span><strong>{runStatus.schedule_label || "毎朝7:00（日本時間）"}</strong></div>{runStatus.id && <><div><span>状態</span><strong>{runStatus.status}</strong></div><div><span>実行方法</span><strong>{runStatus.trigger_type === "manual" ? "手動" : "毎朝7時"}</strong></div><div><span>開始日時</span><strong>{formatDateTime(runStatus.started_at)}</strong></div><div><span>完了日時</span><strong>{formatDateTime(runStatus.finished_at)}</strong></div><div><span>対象注番</span><strong>{runStatus.target_count || 0}件</strong></div><div><span>成功 / 失敗</span><strong>{runStatus.success_count || 0} / {runStatus.failed_count || 0}</strong></div><div><span>評価済み予測</span><strong>{runStatus.evaluation_count || 0}件</strong></div><div><span>平均営業日誤差</span><strong>{runStatus.average_absolute_error == null ? "-" : `${runStatus.average_absolute_error.toFixed(1)}日`}</strong></div></>}
-    </div> : <p className={styles.helpText}>まだAI予測は実行されていません。</p>}{runStatus?.error_message && <div className={styles.errorMessage}>{runStatus.error_message}</div>}</section>}
+    </div> : <p className={styles.helpText}>まだAI予測は実行されていません。</p>}{runStatus?.error_message && <div className={styles.errorMessage}>{runStatus.error_message}</div>}{Boolean(runStatus?.failure_details?.length) && <div className={styles.errorMessage}><strong>予測できなかった工程</strong><ul>{runStatus?.failure_details?.map((detail, index) => <li key={`${detail.order_no}-${detail.process_name}-${index}`}>{detail.order_no} / {detail.process_name}: {detail.reason}</li>)}</ul></div>}</section>}
     {editingKey && <Numpad open replaceOnFirstInput value={String(settings[editingKey])} onChange={(value) => setNumber(editingKey, value)} onClose={() => setEditingKey(null)} />}
   </div>;
 }

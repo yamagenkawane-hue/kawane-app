@@ -28,6 +28,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       schedule_label: "毎朝7:00（日本時間）",
     });
   }
+  const { data: unavailableRows, error: unavailableError } = await supabaseAdmin
+    .from("ai_prediction_results")
+    .select("order_no,process_name,reason")
+    .eq("run_id", runResponse.data.id)
+    .eq("status", "unavailable")
+    .order("order_no", { ascending: true })
+    .order("process_order", { ascending: true });
+  if (unavailableError) return res.status(500).json({ error: unavailableError.message });
   const errors = (evaluationResponse.data || []).map((row) => Number(row.business_day_error || 0));
   const averageAbsoluteError = errors.length
     ? errors.reduce((sum, value) => sum + Math.abs(value), 0) / errors.length
@@ -38,5 +46,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     average_absolute_error: averageAbsoluteError,
     cron_configured: Boolean(process.env.CRON_SECRET),
     schedule_label: "毎朝7:00（日本時間）",
+    failure_details: unavailableRows || [],
   });
 }
