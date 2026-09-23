@@ -469,7 +469,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         sourceType = "unavailable";
         comments.push("外注先が未設定のため、予測できません。");
       }
-      if (isOutsourcing && !process.outsource_sent_date) {
+      if (isOutsourcing && sourceType !== "actual" && !process.outsource_sent_date) {
         comments.push(`出し日未登録のため、予測条件（出し日${settings.outsource_default_sent_offset_days}営業日後・戻り日${settings.outsource_default_return_offset_days}営業日後）で予測しています。`);
       }
 
@@ -488,7 +488,9 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         completedAmount,
         remainingAmount,
         completedDate: textValue(
-          isOutsourcing ? process.outsource_returned_date : process.completed_date,
+          isOutsourcing
+            ? process.outsource_returned_date || process.completed_date
+            : process.completed_date,
         ).slice(0, 10) || null,
         outsourcing: isOutsourcing,
         subcontractorName: textValue(subcontractor?.name) || null,
