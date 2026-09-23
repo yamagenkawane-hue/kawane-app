@@ -55,6 +55,13 @@ type MaterialInfo = {
   materialSize: string;
 };
 
+type AiCompletionSummary = {
+  plannedDate: string;
+  predictedDate: string;
+  businessDayDifference: number | null;
+  lastSuccessAt: string;
+};
+
 const DEFAULT_AI_SETTINGS: AiPredictionSettings = {
   id: "global",
   enabled: true,
@@ -127,6 +134,7 @@ export default function ProgressDetail() {
   const [ganttProcesses, setGanttProcesses] = useState<ProcessItem[]>([]);
   const [ganttCalendar, setGanttCalendar] = useState<CompanyCalendar[]>([]);
   const [materialInfo, setMaterialInfo] = useState<MaterialInfo | null>(null);
+  const [aiCompletionSummary, setAiCompletionSummary] = useState<AiCompletionSummary | null>(null);
 
   // =========================
   // 日付変換
@@ -665,10 +673,26 @@ export default function ProgressDetail() {
           }
         }
 
+        const { data: shippingScheduleRows, error: shippingScheduleError } =
+          await supabase
+            .from("production_schedules")
+            .select("press_completed_date")
+            .eq("post_id", id)
+            .eq("department", "梱包出荷G");
+        if (shippingScheduleError) {
+          console.warn("梱包出荷G完了予定日の取得に失敗しました。", shippingScheduleError);
+        }
+        const shippingPlannedDates = (shippingScheduleRows || [])
+          .map((row) => String(row.press_completed_date || "").slice(0, 10))
+          .filter(Boolean)
+          .sort();
+        const plannedCompletionDate =
+          shippingPlannedDates.at(-1) || String(postRow.completion_scheduled_date || "").slice(0, 10);
+
         const { data: latestPredictionRows, error: latestPredictionError } =
           await supabase
             .from("ai_prediction_latest")
-            .select("order_process_id,predicted_start_date,predicted_end_date,source_type,status,reason,comments,last_success_at")
+            .select("order_process_id,process_order,predicted_start_date,predicted_end_date,source_type,status,reason,comments,last_success_at")
             .eq("post_id", id);
         if (latestPredictionError) {
           console.warn("保存済みAI予測の取得に失敗しました。従来計算を使用します。", latestPredictionError);
@@ -676,6 +700,35 @@ export default function ProgressDetail() {
         const latestPredictionMap = new Map(
           (latestPredictionRows || []).map((row) => [String(row.order_process_id), row]),
         );
+
+        const finalPrediction = [...(latestPredictionRows || [])]
+          .filter((row) => row.predicted_end_date)
+          .sort((left, right) => Number(right.process_order || 0) - Number(left.process_order || 0))[0];
+        if (aiSettings.enabled && finalPrediction?.predicted_end_date) {
+          const predictedDate = String(finalPrediction.predicted_end_date).slice(0, 10);
+          const countDifference = (from: string, to: string) => {
+            if (!from || !to) return null;
+            const direction = to >= from ? 1 : -1;
+            const cursor = safeDate(direction === 1 ? from : to);
+            const target = direction === 1 ? to : from;
+            let count = 0;
+            const cursorKey = () =>
+              `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
+            while (cursorKey() < target) {
+              cursor.setDate(cursor.getDate() + 1);
+              if (!isHoliday(cursor, calendarData)) count += 1;
+            }
+            return count * direction;
+          };
+          setAiCompletionSummary({
+            plannedDate: plannedCompletionDate,
+            predictedDate,
+            businessDayDifference: countDifference(plannedCompletionDate, predictedDate),
+            lastSuccessAt: String(finalPrediction.last_success_at || ""),
+          });
+        } else {
+          setAiCompletionSummary(null);
+        }
 
         const { data: viewOrderProcessRows, error: viewOrderProcessError } =
           await supabase
@@ -1068,6 +1121,7 @@ export default function ProgressDetail() {
     getProcessLogs,
     fetchMaterialInfo,
     id,
+    isHoliday,
     safeDate,
   ]);
 
@@ -1154,6 +1208,45 @@ export default function ProgressDetail() {
             </span>
           </div>
         </div>
+
+        {aiCompletionSummary && (
+          <div className={styles.aiSummary}>
+            <div>
+              <span className={styles.label}>梱包出荷G完了予定日</span>
+              <strong>{aiCompletionSummary.plannedDate || "-"}</strong>
+            </div>
+            <div>
+              <span className={styles.label}>AI完了予測日</span>
+              <strong className={
+                (aiCompletionSummary.businessDayDifference || 0) > 0
+                  ? styles.delayedPrediction
+                  : ""
+              }>{aiCompletionSummary.predictedDate}</strong>
+            </div>
+            <div>
+              <span className={styles.label}>予定との差</span>
+              <strong className={
+                (aiCompletionSummary.businessDayDifference || 0) > 0
+                  ? styles.delayedPrediction
+                  : ""
+              }>
+                {aiCompletionSummary.businessDayDifference == null
+                  ? "-"
+                  : `${aiCompletionSummary.businessDayDifference > 0 ? "+" : ""}${aiCompletionSummary.businessDayDifference}営業日`}
+              </strong>
+            </div>
+            <div>
+              <span className={styles.label}>最終成功更新</span>
+              <strong>{aiCompletionSummary.lastSuccessAt
+                ? new Intl.DateTimeFormat("ja-JP", {
+                    timeZone: "Asia/Tokyo",
+                    dateStyle: "short",
+                    timeStyle: "short",
+                  }).format(new Date(aiCompletionSummary.lastSuccessAt))
+                : "-"}</strong>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ガント */}

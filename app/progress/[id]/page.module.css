@@ -81,6 +81,34 @@
   margin-top: 16px;
 }
 
+.aiSummary {
+  background: #cbd5e1;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  margin-top: 18px;
+  overflow: hidden;
+}
+
+.aiSummary > div {
+  background: #fff;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px 16px;
+}
+
+.aiSummary strong {
+  color: #0f172a;
+  overflow-wrap: anywhere;
+}
+
+.aiSummary .delayedPrediction {
+  color: #dc2626;
+}
+
 .infoCard {
   background: #f9fafb;
   padding: 16px;
