@@ -248,7 +248,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           .from("production_results")
           .select("id,post_id,order_process_id,lot_id,process_name,date,amount")
           .gte("date", cutoffDate),
-        supabaseAdmin.from("lots").select("id,deleted").eq("deleted", true),
+        supabaseAdmin.from("lots").select("id,post_id,quantity,deleted"),
         supabaseAdmin.from("line_master").select("*").eq("enabled", true),
         supabaseAdmin.from("process_master").select("id,process_id,name,outsourcing"),
         supabaseAdmin.from("company_calendar").select("date,is_holiday").eq("is_holiday", true),
@@ -265,8 +265,20 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     const posts = (postsResponse.data || []) as DbRow[];
     const allProcesses = (processesResponse.data || []) as DbRow[];
     const deletedLotIds = new Set(
-      ((lotsResponse.data || []) as DbRow[]).map((lot) => textValue(lot.id)),
+      ((lotsResponse.data || []) as DbRow[])
+        .filter((lot) => Boolean(lot.deleted))
+        .map((lot) => textValue(lot.id)),
     );
+    const producedLotAmountByPost = new Map<string, number>();
+    ((lotsResponse.data || []) as DbRow[])
+      .filter((lot) => !lot.deleted)
+      .forEach((lot) => {
+        const postId = textValue(lot.post_id);
+        producedLotAmountByPost.set(
+          postId,
+          (producedLotAmountByPost.get(postId) || 0) + numberValue(lot.quantity),
+        );
+      });
     const allResults = ((resultsResponse.data || []) as DbRow[]).filter(
       (result) => !result.lot_id || !deletedLotIds.has(textValue(result.lot_id)),
     );
@@ -296,7 +308,12 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     for (const process of targetProcesses) {
       const post = postMap.get(textValue(process.post_id));
       if (!post) continue;
-      const plannedAmount = Math.max(numberValue(process.planned_amount), numberValue(post.order_amount));
+      const producedLotAmount = producedLotAmountByPost.get(textValue(post.id)) || 0;
+      const plannedAmount = Math.max(
+        numberValue(process.planned_amount),
+        numberValue(post.order_amount),
+        producedLotAmount,
+      );
       const completedAmount = numberValue(process.completed_amount);
       const remainingAmount = Math.max(0, plannedAmount - completedAmount);
       const processName = textValue(process.process_name);
@@ -462,6 +479,11 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
       if (isManufacturing && !pressNumber) {
         comments.push("プレス機No未設定のため、設備の競合を考慮していません。");
       }
+      if (producedLotAmount > numberValue(post.order_amount)) {
+        comments.push(
+          `受注数量を超える余剰生産 ${producedLotAmount - numberValue(post.order_amount)}個を含めて予測しています。`,
+        );
+      }
       if (isManufacturing && completedAmount <= 0 && (!plannedStartDate || plannedStartDate < getTodayInJapan())) {
         comments.push("製造開始予定日が未設定または過去日のため、更新日以降の営業日から予測しています。");
       }
@@ -484,6 +506,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         pressNumber,
         plannedStartDate,
         lastActualDate,
+        producedLotAmount,
         plannedAmount,
         completedAmount,
         remainingAmount,
@@ -749,7 +772,11 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         .sort((left, right) => numberValue(right.process_order) - numberValue(left.process_order));
       const finalProcess = postProcesses[0];
       if (!finalProcess) return [];
-      const plannedAmount = Math.max(numberValue(finalProcess.planned_amount), numberValue(post.order_amount));
+      const plannedAmount = Math.max(
+        numberValue(finalProcess.planned_amount),
+        numberValue(post.order_amount),
+        producedLotAmountByPost.get(textValue(post.id)) || 0,
+      );
       const actualCompletionDate = textValue(
         finalProcess.outsource_returned_date || finalProcess.completed_date,
       ).slice(0, 10);
