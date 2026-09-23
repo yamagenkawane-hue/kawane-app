@@ -16,7 +16,7 @@ const DEFAULT_SETTINGS: AiPredictionSettings = {
 };
 
 type NumberSettingKey = "priorityReferenceDays" | "maxReferenceDays" | "manufacturingMinBusinessDays" | "otherProcessMinLots";
-type RunStatus = { id: string; status: string; model: string; trigger_type: string; started_at: string; finished_at?: string; target_count: number; success_count: number; failed_count: number; error_message?: string };
+type RunStatus = { id: string; status: string; model: string; trigger_type: string; started_at: string; finished_at?: string; target_count: number; success_count: number; failed_count: number; error_message?: string; evaluation_count?: number; average_absolute_error?: number | null };
 type ProductOption = { id: string; name: string };
 type ProcessOption = { id: string; name: string; sort: number };
 type ReferenceStart = { id: string; productId: string; productName: string; processId: string; processName: string; referenceStartDate: string };
@@ -199,7 +199,7 @@ export default function AiPredictionSettingsPage() {
       <div className={styles.referenceTableWrap}><table className={styles.referenceTable}><thead><tr><th>製品</th><th>工程</th><th>参照開始日</th><th>操作</th></tr></thead><tbody>{referenceStarts.length === 0 ? <tr><td colSpan={4}>個別の参照開始日は登録されていません。</td></tr> : referenceStarts.map((item) => <tr key={item.id}><td>{item.productName}</td><td>{item.processName}</td><td>{item.referenceStartDate}</td><td><button type="button" className={styles.deleteButton} title="削除" onClick={() => deleteReferenceStart(item.id)}><Trash2 size={18} /></button></td></tr>)}</tbody></table></div>
     </section>}
     {activeTab === "status" && <section className={styles.card}><h2>最新の実行状況</h2>{runStatus ? <div className={styles.statusGrid}>
-      <div><span>状態</span><strong>{runStatus.status}</strong></div><div><span>実行方法</span><strong>{runStatus.trigger_type === "manual" ? "手動" : "毎朝7時"}</strong></div><div><span>開始日時</span><strong>{formatDateTime(runStatus.started_at)}</strong></div><div><span>完了日時</span><strong>{formatDateTime(runStatus.finished_at)}</strong></div><div><span>対象注番</span><strong>{runStatus.target_count}件</strong></div><div><span>成功 / 失敗</span><strong>{runStatus.success_count} / {runStatus.failed_count}</strong></div>
+      <div><span>状態</span><strong>{runStatus.status}</strong></div><div><span>実行方法</span><strong>{runStatus.trigger_type === "manual" ? "手動" : "毎朝7時"}</strong></div><div><span>開始日時</span><strong>{formatDateTime(runStatus.started_at)}</strong></div><div><span>完了日時</span><strong>{formatDateTime(runStatus.finished_at)}</strong></div><div><span>対象注番</span><strong>{runStatus.target_count}件</strong></div><div><span>成功 / 失敗</span><strong>{runStatus.success_count} / {runStatus.failed_count}</strong></div><div><span>評価済み予測</span><strong>{runStatus.evaluation_count || 0}件</strong></div><div><span>平均営業日誤差</span><strong>{runStatus.average_absolute_error == null ? "-" : `${runStatus.average_absolute_error.toFixed(1)}日`}</strong></div>
     </div> : <p className={styles.helpText}>まだAI予測は実行されていません。</p>}{runStatus?.error_message && <div className={styles.errorMessage}>{runStatus.error_message}</div>}</section>}
     {editingKey && <Numpad open replaceOnFirstInput value={String(settings[editingKey])} onChange={(value) => setNumber(editingKey, value)} onClose={() => setEditingKey(null)} />}
   </div>;

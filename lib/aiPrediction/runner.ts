@@ -57,6 +57,22 @@ const nextDay = (date: string, holidaySet: Set<string>, useCalendarDays: boolean
   return dateKey(next);
 };
 
+const countBusinessDays = (start: string, end: string, holidaySet: Set<string>) => {
+  if (!start || !end) return null;
+  const direction = end >= start ? 1 : -1;
+  const cursor = parseDate(direction === 1 ? start : end);
+  const target = direction === 1 ? end : start;
+  let count = 0;
+  while (dateKey(cursor) < target) {
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+    const key = dateKey(cursor);
+    if (!holidaySet.has(key) && cursor.getUTCDay() !== 0 && cursor.getUTCDay() !== 6) {
+      count += 1;
+    }
+  }
+  return count * direction;
+};
+
 const getTodayInJapan = () => {
   const parts = new Intl.DateTimeFormat("en", {
     timeZone: "Asia/Tokyo",
@@ -646,6 +662,70 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           .from("ai_prediction_latest")
           .upsert(latestRows, { onConflict: "post_id,order_process_id" });
         if (latestError) throw latestError;
+      }
+
+      const evaluationRows = [...grouped.entries()].flatMap(([postId, processInputs]) => {
+        const postPredictions = saved
+          .filter((item) => item.post_id === postId)
+          .sort((left, right) => right.process_order - left.process_order);
+        const finalPrediction = postPredictions[0];
+        if (
+          !finalPrediction?.predicted_end_date ||
+          postPredictions.some((item) => item.status === "unavailable")
+        ) return [];
+        const orderNo = processInputs[0]?.orderNo || finalPrediction.order_no;
+        return [{
+          post_id: postId,
+          order_no: orderNo,
+          prediction_run_id: runId,
+          predicted_completion_date: finalPrediction.predicted_end_date,
+          legacy_completion_date: null,
+          actual_completion_date: null,
+          business_day_error: null,
+          lead_business_days: countBusinessDays(today, finalPrediction.predicted_end_date, holidaySet),
+        }];
+      });
+      if (evaluationRows.length > 0) {
+        const { error: evaluationError } = await supabaseAdmin
+          .from("ai_prediction_evaluations")
+          .insert(evaluationRows);
+        if (evaluationError) throw evaluationError;
+      }
+    }
+
+    const completedOrders = posts.flatMap((post) => {
+      const postProcesses = allProcesses
+        .filter((process) => textValue(process.post_id) === textValue(post.id))
+        .sort((left, right) => numberValue(right.process_order) - numberValue(left.process_order));
+      const finalProcess = postProcesses[0];
+      if (!finalProcess) return [];
+      const plannedAmount = Math.max(numberValue(finalProcess.planned_amount), numberValue(post.order_amount));
+      const actualCompletionDate = textValue(
+        finalProcess.outsource_returned_date || finalProcess.completed_date,
+      ).slice(0, 10);
+      if (numberValue(finalProcess.completed_amount) < plannedAmount || !actualCompletionDate) return [];
+      return [{ postId: textValue(post.id), actualCompletionDate }];
+    });
+
+    for (const completedOrder of completedOrders) {
+      const { data: evaluations, error: evaluationFetchError } = await supabaseAdmin
+        .from("ai_prediction_evaluations")
+        .select("id,predicted_completion_date")
+        .eq("post_id", completedOrder.postId)
+        .is("actual_completion_date", null);
+      if (evaluationFetchError) throw evaluationFetchError;
+      for (const evaluation of evaluations || []) {
+        const predictedDate = textValue(evaluation.predicted_completion_date).slice(0, 10);
+        const { error: evaluationUpdateError } = await supabaseAdmin
+          .from("ai_prediction_evaluations")
+          .update({
+            actual_completion_date: completedOrder.actualCompletionDate,
+            business_day_error: predictedDate
+              ? countBusinessDays(predictedDate, completedOrder.actualCompletionDate, holidaySet)
+              : null,
+          })
+          .eq("id", evaluation.id);
+        if (evaluationUpdateError) throw evaluationUpdateError;
       }
     }
 
