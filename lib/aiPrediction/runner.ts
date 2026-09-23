@@ -557,7 +557,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     let failedPosts = 0;
     for (const processInputs of orderedGroups) {
       processInputs.sort((a, b) => a.processOrder - b.processOrder);
-      let cursor = today;
+      let cursor = shiftBusinessDays(today, 0, holidaySet);
       let postUnavailable = false;
       for (const input of processInputs) {
         let startDate = cursor;
