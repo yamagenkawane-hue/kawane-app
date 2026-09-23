@@ -323,7 +323,7 @@
   align-items: end;
   display: grid;
   gap: 12px;
-  grid-template-columns: 1.3fr 1fr 220px auto;
+  grid-template-columns: 1.3fr 1fr 1fr 1fr 190px auto;
   margin-top: 18px;
 }
 

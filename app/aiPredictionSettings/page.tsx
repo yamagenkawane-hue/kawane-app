@@ -22,7 +22,8 @@ type EvaluationDetail = { id: string; order_no: string; predicted_completion_dat
 type RunStatus = { id?: string; status?: string; model?: string; trigger_type?: string; started_at?: string; finished_at?: string; target_count?: number; success_count?: number; failed_count?: number; error_message?: string; evaluation_count?: number; average_absolute_error?: number | null; cron_configured?: boolean; schedule_label?: string; latest_scheduled_run?: ScheduledRunStatus | null; evaluation_details?: EvaluationDetail[]; failure_details?: Array<{ order_no: string; process_name: string; reason: string }> };
 type ProductOption = { id: string; name: string };
 type ProcessOption = { id: string; name: string; sort: number };
-type ReferenceStart = { id: string; productId: string; productName: string; processId: string; processName: string; referenceStartDate: string };
+type SubcontractorOption = { id: string; name: string };
+type ReferenceStart = { id: string; productId: string; productName: string; processId: string; processName: string; pressNumber: string; subcontractorId: string; subcontractorName: string; referenceStartDate: string };
 type SettingsTab = "common" | "individual" | "status";
 
 const mapSettings = (row: Record<string, unknown>): AiPredictionSettings => ({
@@ -52,9 +53,13 @@ export default function AiPredictionSettingsPage() {
   const [editingKey, setEditingKey] = useState<NumberSettingKey | null>(null);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [processes, setProcesses] = useState<ProcessOption[]>([]);
+  const [pressNumbers, setPressNumbers] = useState<string[]>([]);
+  const [subcontractors, setSubcontractors] = useState<SubcontractorOption[]>([]);
   const [referenceStarts, setReferenceStarts] = useState<ReferenceStart[]>([]);
   const [referenceProductId, setReferenceProductId] = useState("");
   const [referenceProcessId, setReferenceProcessId] = useState("");
+  const [referencePressNumber, setReferencePressNumber] = useState("");
+  const [referenceSubcontractorId, setReferenceSubcontractorId] = useState("");
   const [referenceStartDate, setReferenceStartDate] = useState("");
   const [activeTab, setActiveTab] = useState<SettingsTab>("common");
 
@@ -66,16 +71,19 @@ export default function AiPredictionSettingsPage() {
   const fetchReferenceStarts = useCallback(async () => {
     const { data, error } = await supabase
       .from("ai_prediction_reference_starts")
-      .select("id,product_id,process_id,reference_start_date,product_master(product_name),process_master(name)")
+      .select("id,product_id,process_id,press_number,subcontractor_id,reference_start_date,product_master(product_name),process_master(name),subcontractors(name)")
       .order("reference_start_date", { ascending: false });
     if (error) throw error;
     setReferenceStarts((data || []).map((row) => {
       const product = Array.isArray(row.product_master) ? row.product_master[0] : row.product_master;
       const process = Array.isArray(row.process_master) ? row.process_master[0] : row.process_master;
+      const subcontractor = Array.isArray(row.subcontractors) ? row.subcontractors[0] : row.subcontractors;
       return {
         id: String(row.id), productId: String(row.product_id || ""),
         productName: String(product?.product_name || "-"), processId: String(row.process_id || ""),
-        processName: String(process?.name || "-"), referenceStartDate: String(row.reference_start_date || ""),
+        processName: String(process?.name || "-"), pressNumber: String(row.press_number || ""),
+        subcontractorId: String(row.subcontractor_id || ""), subcontractorName: String(subcontractor?.name || ""),
+        referenceStartDate: String(row.reference_start_date || ""),
       };
     }));
   }, []);
@@ -88,12 +96,16 @@ export default function AiPredictionSettingsPage() {
         setMessage("AI予測用SQLを実行してください。");
       }
       else if (data) setSettings(mapSettings(data));
-      const [productResponse, processResponse] = await Promise.all([
+      const [productResponse, processResponse, scheduleResponse, subcontractorResponse] = await Promise.all([
         supabase.from("product_master").select("id,product_name").order("product_name"),
         supabase.from("process_master").select("id,name,sort").eq("enabled", true).order("sort"),
+        supabase.from("production_schedules").select("press_number").eq("department", "製造G").not("press_number", "is", null),
+        supabase.from("subcontractors").select("id,name").order("name"),
       ]);
       if (!productResponse.error) setProducts((productResponse.data || []).map((row) => ({ id: String(row.id), name: String(row.product_name || "-") })));
       if (!processResponse.error) setProcesses((processResponse.data || []).map((row) => ({ id: String(row.id), name: String(row.name || "-"), sort: Number(row.sort || 0) })));
+      if (!scheduleResponse.error) setPressNumbers([...new Set((scheduleResponse.data || []).map((row) => String(row.press_number || "").trim()).filter(Boolean))].sort());
+      if (!subcontractorResponse.error) setSubcontractors((subcontractorResponse.data || []).map((row) => ({ id: String(row.id), name: String(row.name || "-") })));
       try { await fetchReferenceStarts(); } catch { setMessageType("error"); setMessage("参照開始日の取得に失敗しました。"); }
       await fetchRunStatus();
       setLoading(false);
@@ -105,13 +117,17 @@ export default function AiPredictionSettingsPage() {
     if (!referenceProductId || !referenceProcessId || !referenceStartDate) {
       setMessageType("error"); setMessage("製品・工程・参照開始日をすべて選択してください。"); return;
     }
+    if (referencePressNumber && referenceSubcontractorId) {
+      setMessageType("error"); setMessage("設備Noと外注先はどちらか一方だけ選択してください。"); return;
+    }
     const { error } = await supabase.from("ai_prediction_reference_starts").upsert({
       product_id: referenceProductId, process_id: referenceProcessId,
+      press_number: referencePressNumber || null, subcontractor_id: referenceSubcontractorId || null,
       reference_start_date: referenceStartDate, updated_at: new Date().toISOString(),
-    }, { onConflict: "product_id,process_id" });
+    }, { onConflict: "product_id,process_id,press_number,subcontractor_id" });
     if (error) { setMessageType("error"); setMessage(`参照開始日の保存に失敗しました: ${error.message}`); return; }
     setMessageType("success"); setMessage("参照開始日を保存しました。次回の予測から反映されます。");
-    setReferenceProductId(""); setReferenceProcessId(""); setReferenceStartDate("");
+    setReferenceProductId(""); setReferenceProcessId(""); setReferencePressNumber(""); setReferenceSubcontractorId(""); setReferenceStartDate("");
     await fetchReferenceStarts();
   };
 
@@ -208,14 +224,16 @@ export default function AiPredictionSettingsPage() {
       </div>
     </section>}
     {activeTab === "individual" && <section className={styles.card}>
-      <div className={styles.referenceHeader}><div><h2>個別設定：実績の参照開始日</h2><p className={styles.helpText}>製品と工程の組み合わせごとに設定します。未登録の組み合わせには共通設定が適用されます。</p><p className={styles.helpText}>登録した組み合わせでは、この日より前の実績を予測に使用しません。</p></div></div>
+      <div className={styles.referenceHeader}><div><h2>個別設定：実績の参照開始日</h2><p className={styles.helpText}>製品と工程の組み合わせごとに設定します。設備Noまたは外注先を選ぶと、その対象だけに適用できます。</p><p className={styles.helpText}>設備No・外注先を選ばない場合は工程全体の設定となり、未登録の組み合わせには共通設定が適用されます。</p></div></div>
       <div className={styles.referenceForm}>
         <label><span>製品</span><select value={referenceProductId} onChange={(event) => setReferenceProductId(event.target.value)}><option value="">選択してください</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>
         <label><span>工程</span><select value={referenceProcessId} onChange={(event) => setReferenceProcessId(event.target.value)}><option value="">選択してください</option>{processes.map((process) => <option key={process.id} value={process.id}>{process.name}</option>)}</select></label>
+        <label><span>設備No（任意）</span><select value={referencePressNumber} disabled={Boolean(referenceSubcontractorId)} onChange={(event) => setReferencePressNumber(event.target.value)}><option value="">工程全体</option>{pressNumbers.map((pressNumber) => <option key={pressNumber} value={pressNumber}>{pressNumber}</option>)}</select></label>
+        <label><span>外注先（任意）</span><select value={referenceSubcontractorId} disabled={Boolean(referencePressNumber)} onChange={(event) => setReferenceSubcontractorId(event.target.value)}><option value="">工程全体</option>{subcontractors.map((subcontractor) => <option key={subcontractor.id} value={subcontractor.id}>{subcontractor.name}</option>)}</select></label>
         <label><span>参照開始日</span><input type="date" value={referenceStartDate} onChange={(event) => setReferenceStartDate(event.target.value)} /></label>
         <button type="button" className={styles.addButton} onClick={saveReferenceStart}><Plus size={18} />追加・更新</button>
       </div>
-      <div className={styles.referenceTableWrap}><table className={styles.referenceTable}><thead><tr><th>製品</th><th>工程</th><th>参照開始日</th><th>操作</th></tr></thead><tbody>{referenceStarts.length === 0 ? <tr><td colSpan={4}>個別の参照開始日は登録されていません。</td></tr> : referenceStarts.map((item) => <tr key={item.id}><td>{item.productName}</td><td>{item.processName}</td><td>{item.referenceStartDate}</td><td><button type="button" className={styles.deleteButton} title="削除" onClick={() => deleteReferenceStart(item.id)}><Trash2 size={18} /></button></td></tr>)}</tbody></table></div>
+      <div className={styles.referenceTableWrap}><table className={styles.referenceTable}><thead><tr><th>製品</th><th>工程</th><th>適用範囲</th><th>参照開始日</th><th>操作</th></tr></thead><tbody>{referenceStarts.length === 0 ? <tr><td colSpan={5}>個別の参照開始日は登録されていません。</td></tr> : referenceStarts.map((item) => <tr key={item.id}><td>{item.productName}</td><td>{item.processName}</td><td>{item.pressNumber ? `設備: ${item.pressNumber}` : item.subcontractorName ? `外注先: ${item.subcontractorName}` : "工程全体"}</td><td>{item.referenceStartDate}</td><td><button type="button" className={styles.deleteButton} title="削除" onClick={() => deleteReferenceStart(item.id)}><Trash2 size={18} /></button></td></tr>)}</tbody></table></div>
     </section>}
     {activeTab === "status" && <section className={styles.card}><h2>最新の実行状況</h2>{runStatus ? <div className={styles.statusGrid}>
       <div><span>定期更新</span><strong>{runStatus.cron_configured ? "設定済み" : "未設定"}</strong></div><div><span>更新時刻</span><strong>{runStatus.schedule_label || "毎朝7:00（日本時間）"}</strong></div><div><span>最終定期更新</span><strong>{formatDateTime(runStatus.latest_scheduled_run?.finished_at || runStatus.latest_scheduled_run?.started_at)}</strong></div><div><span>定期更新の状態</span><strong>{formatRunStatus(runStatus.latest_scheduled_run?.status)}</strong></div><div><span>定期更新 成功 / 失敗</span><strong>{runStatus.latest_scheduled_run ? `${runStatus.latest_scheduled_run.success_count} / ${runStatus.latest_scheduled_run.failed_count}` : "-"}</strong></div>{runStatus.id && <><div><span>最新の実行状態</span><strong>{formatRunStatus(runStatus.status)}</strong></div><div><span>実行方法</span><strong>{runStatus.trigger_type === "manual" ? "手動" : "毎朝7時"}</strong></div><div><span>開始日時</span><strong>{formatDateTime(runStatus.started_at)}</strong></div><div><span>完了日時</span><strong>{formatDateTime(runStatus.finished_at)}</strong></div><div><span>対象注番</span><strong>{runStatus.target_count || 0}件</strong></div><div><span>成功 / 失敗</span><strong>{runStatus.success_count || 0} / {runStatus.failed_count || 0}</strong></div><div><span>評価済み予測</span><strong>{runStatus.evaluation_count || 0}件</strong></div><div><span>平均営業日誤差</span><strong>{runStatus.average_absolute_error == null ? "-" : `${runStatus.average_absolute_error.toFixed(1)}日`}</strong></div></>}

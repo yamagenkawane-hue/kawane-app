@@ -253,7 +253,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         supabaseAdmin.from("line_master").select("*").eq("enabled", true),
         supabaseAdmin.from("process_master").select("id,process_id,name,outsourcing"),
         supabaseAdmin.from("company_calendar").select("date,is_holiday").eq("is_holiday", true),
-        supabaseAdmin.from("ai_prediction_reference_starts").select("product_id,process_id,reference_start_date"),
+        supabaseAdmin.from("ai_prediction_reference_starts").select("product_id,process_id,press_number,subcontractor_id,reference_start_date"),
         supabaseAdmin.from("production_schedules").select("post_id,order_no,press_number,shipping_scheduled_start,department,created_at").eq("department", "製造G").order("created_at", { ascending: false }),
         supabaseAdmin.from("subcontractors").select("id,name"),
       ]);
@@ -361,11 +361,21 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
       const subcontractor = subcontractors.find(
         (item) => textValue(item.id) === subcontractorId,
       );
-      const configuredReferenceStart = referenceStarts.find(
-        (item) =>
-          textValue(item.product_id) === productId &&
-          textValue(item.process_id) === textValue(processMaster?.id),
-      );
+      const configuredReferenceStart = referenceStarts
+        .filter((item) => {
+          const configuredPressNumber = textValue(item.press_number);
+          const configuredSubcontractorId = textValue(item.subcontractor_id);
+          return textValue(item.product_id) === productId &&
+            textValue(item.process_id) === textValue(processMaster?.id) &&
+            (!configuredPressNumber || configuredPressNumber === pressNumber) &&
+            (!configuredSubcontractorId || configuredSubcontractorId === subcontractorId);
+        })
+        .sort((left, right) => {
+          const specificity = (item: DbRow) =>
+            Number(Boolean(textValue(item.press_number))) +
+            Number(Boolean(textValue(item.subcontractor_id)));
+          return specificity(right) - specificity(left);
+        })[0];
       const referenceStartDate = [
         cutoffDate,
         textValue(configuredReferenceStart?.reference_start_date).slice(0, 10),

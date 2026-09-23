@@ -44,4 +44,16 @@ where id = 'global'
   and priority_reference_days >= 1
   and max_reference_days >= priority_reference_days
   and manufacturing_min_business_days >= 1
-  and other_process_min_lots >= 1;
+  and other_process_min_lots >= 1
+
+union all
+
+select
+  'ai_prediction_reference_scope_columns',
+  case when count(*) = 2 then 'PASSED' else 'FAILED' end,
+  count(*),
+  'Press number and subcontractor reference scopes exist.'
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'ai_prediction_reference_starts'
+  and column_name in ('press_number', 'subcontractor_id');
