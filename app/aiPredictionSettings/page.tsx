@@ -117,12 +117,13 @@ export default function AiPredictionSettingsPage() {
     if (!referenceProductId || !referenceProcessId || !referenceStartDate) {
       setMessageType("error"); setMessage("製品・工程・参照開始日をすべて選択してください。"); return;
     }
-    if (referencePressNumber && referenceSubcontractorId) {
+    const normalizedPressNumber = referencePressNumber.trim();
+    if (normalizedPressNumber && referenceSubcontractorId) {
       setMessageType("error"); setMessage("設備Noと外注先はどちらか一方だけ選択してください。"); return;
     }
     const { error } = await supabase.from("ai_prediction_reference_starts").upsert({
       product_id: referenceProductId, process_id: referenceProcessId,
-      press_number: referencePressNumber || null, subcontractor_id: referenceSubcontractorId || null,
+      press_number: normalizedPressNumber || null, subcontractor_id: referenceSubcontractorId || null,
       reference_start_date: referenceStartDate, updated_at: new Date().toISOString(),
     }, { onConflict: "product_id,process_id,press_number,subcontractor_id" });
     if (error) { setMessageType("error"); setMessage(`参照開始日の保存に失敗しました: ${error.message}`); return; }
@@ -228,7 +229,7 @@ export default function AiPredictionSettingsPage() {
       <div className={styles.referenceForm}>
         <label><span>製品</span><select value={referenceProductId} onChange={(event) => setReferenceProductId(event.target.value)}><option value="">選択してください</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>
         <label><span>工程</span><select value={referenceProcessId} onChange={(event) => setReferenceProcessId(event.target.value)}><option value="">選択してください</option>{processes.map((process) => <option key={process.id} value={process.id}>{process.name}</option>)}</select></label>
-        <label><span>設備No（任意）</span><select value={referencePressNumber} disabled={Boolean(referenceSubcontractorId)} onChange={(event) => setReferencePressNumber(event.target.value)}><option value="">工程全体</option>{pressNumbers.map((pressNumber) => <option key={pressNumber} value={pressNumber}>{pressNumber}</option>)}</select></label>
+        <label><span>設備No（任意）</span><input type="text" list="ai-reference-press-numbers" value={referencePressNumber} disabled={Boolean(referenceSubcontractorId)} placeholder="工程全体" onChange={(event) => setReferencePressNumber(event.target.value)} /><datalist id="ai-reference-press-numbers">{pressNumbers.map((pressNumber) => <option key={pressNumber} value={pressNumber} />)}</datalist></label>
         <label><span>外注先（任意）</span><select value={referenceSubcontractorId} disabled={Boolean(referencePressNumber)} onChange={(event) => setReferenceSubcontractorId(event.target.value)}><option value="">工程全体</option>{subcontractors.map((subcontractor) => <option key={subcontractor.id} value={subcontractor.id}>{subcontractor.name}</option>)}</select></label>
         <label><span>参照開始日</span><input type="date" value={referenceStartDate} onChange={(event) => setReferenceStartDate(event.target.value)} /></label>
         <button type="button" className={styles.addButton} onClick={saveReferenceStart}><Plus size={18} />追加・更新</button>
