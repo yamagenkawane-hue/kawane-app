@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { RefreshCw, Save } from "lucide-react";
+import { Plus, RefreshCw, Save, Trash2 } from "lucide-react";
 import supabase from "@/lib/supabase";
 import Numpad from "@/app/components/Numpad/Numpad";
 import { AiPredictionSettings } from "@/app/type";
@@ -17,6 +17,9 @@ const DEFAULT_SETTINGS: AiPredictionSettings = {
 
 type NumberSettingKey = "priorityReferenceDays" | "maxReferenceDays" | "manufacturingMinBusinessDays" | "otherProcessMinLots";
 type RunStatus = { id: string; status: string; model: string; trigger_type: string; started_at: string; finished_at?: string; target_count: number; success_count: number; failed_count: number; error_message?: string };
+type ProductOption = { id: string; name: string };
+type ProcessOption = { id: string; name: string; sort: number };
+type ReferenceStart = { id: string; productId: string; productName: string; processId: string; processName: string; referenceStartDate: string };
 
 const mapSettings = (row: Record<string, unknown>): AiPredictionSettings => ({
   id: String(row.id || "global"), enabled: Boolean(row.enabled),
@@ -39,10 +42,33 @@ export default function AiPredictionSettingsPage() {
   const [messageType, setMessageType] = useState<"success" | "error">("success");
   const [runStatus, setRunStatus] = useState<RunStatus | null>(null);
   const [editingKey, setEditingKey] = useState<NumberSettingKey | null>(null);
+  const [products, setProducts] = useState<ProductOption[]>([]);
+  const [processes, setProcesses] = useState<ProcessOption[]>([]);
+  const [referenceStarts, setReferenceStarts] = useState<ReferenceStart[]>([]);
+  const [referenceProductId, setReferenceProductId] = useState("");
+  const [referenceProcessId, setReferenceProcessId] = useState("");
+  const [referenceStartDate, setReferenceStartDate] = useState("");
 
   const fetchRunStatus = useCallback(async () => {
     const response = await fetch("/api/ai-predictions/status", { cache: "no-store" });
     if (response.ok) setRunStatus((await response.json()) as RunStatus | null);
+  }, []);
+
+  const fetchReferenceStarts = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("ai_prediction_reference_starts")
+      .select("id,product_id,process_id,reference_start_date,product_master(product_name),process_master(name)")
+      .order("reference_start_date", { ascending: false });
+    if (error) throw error;
+    setReferenceStarts((data || []).map((row) => {
+      const product = Array.isArray(row.product_master) ? row.product_master[0] : row.product_master;
+      const process = Array.isArray(row.process_master) ? row.process_master[0] : row.process_master;
+      return {
+        id: String(row.id), productId: String(row.product_id || ""),
+        productName: String(product?.product_name || "-"), processId: String(row.process_id || ""),
+        processName: String(process?.name || "-"), referenceStartDate: String(row.reference_start_date || ""),
+      };
+    }));
   }, []);
 
   useEffect(() => {
@@ -53,11 +79,38 @@ export default function AiPredictionSettingsPage() {
         setMessage("AI予測用SQLを実行してください。");
       }
       else if (data) setSettings(mapSettings(data));
+      const [productResponse, processResponse] = await Promise.all([
+        supabase.from("product_master").select("id,product_name").order("product_name"),
+        supabase.from("process_master").select("id,name,sort").eq("enabled", true).order("sort"),
+      ]);
+      if (!productResponse.error) setProducts((productResponse.data || []).map((row) => ({ id: String(row.id), name: String(row.product_name || "-") })));
+      if (!processResponse.error) setProcesses((processResponse.data || []).map((row) => ({ id: String(row.id), name: String(row.name || "-"), sort: Number(row.sort || 0) })));
+      try { await fetchReferenceStarts(); } catch { setMessageType("error"); setMessage("参照開始日の取得に失敗しました。"); }
       await fetchRunStatus();
       setLoading(false);
     };
     void load();
-  }, [fetchRunStatus]);
+  }, [fetchReferenceStarts, fetchRunStatus]);
+
+  const saveReferenceStart = async () => {
+    if (!referenceProductId || !referenceProcessId || !referenceStartDate) {
+      setMessageType("error"); setMessage("製品・工程・参照開始日をすべて選択してください。"); return;
+    }
+    const { error } = await supabase.from("ai_prediction_reference_starts").upsert({
+      product_id: referenceProductId, process_id: referenceProcessId,
+      reference_start_date: referenceStartDate, updated_at: new Date().toISOString(),
+    }, { onConflict: "product_id,process_id" });
+    if (error) { setMessageType("error"); setMessage(`参照開始日の保存に失敗しました: ${error.message}`); return; }
+    setMessageType("success"); setMessage("参照開始日を保存しました。次回の予測から反映されます。");
+    setReferenceProductId(""); setReferenceProcessId(""); setReferenceStartDate("");
+    await fetchReferenceStarts();
+  };
+
+  const deleteReferenceStart = async (id: string) => {
+    const { error } = await supabase.from("ai_prediction_reference_starts").delete().eq("id", id);
+    if (error) { setMessageType("error"); setMessage(`削除に失敗しました: ${error.message}`); return; }
+    setReferenceStarts((current) => current.filter((item) => item.id !== id));
+  };
 
   const setNumber = (key: NumberSettingKey, value: string) => {
     const parsed = Math.max(0, Math.floor(Number(value || 0)));
@@ -127,6 +180,16 @@ export default function AiPredictionSettingsPage() {
         <button type="button" className={styles.saveButton} onClick={saveSettings} disabled={loading || saving || running}><Save size={18} />{saving ? "保存中..." : "設定を保存"}</button>
         {settings.validationMode && <button type="button" className={styles.runButton} onClick={runPrediction} disabled={loading || saving || running}><RefreshCw size={18} className={running ? styles.spinning : ""} />{running ? "予測中..." : "手動更新"}</button>}
       </div>
+    </section>
+    <section className={styles.statusCard}>
+      <div className={styles.referenceHeader}><div><h2>実績の参照開始日</h2><p className={styles.helpText}>選択した製品・工程では、この日より前の実績を予測に使用しません。</p></div></div>
+      <div className={styles.referenceForm}>
+        <label><span>製品</span><select value={referenceProductId} onChange={(event) => setReferenceProductId(event.target.value)}><option value="">選択してください</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>
+        <label><span>工程</span><select value={referenceProcessId} onChange={(event) => setReferenceProcessId(event.target.value)}><option value="">選択してください</option>{processes.map((process) => <option key={process.id} value={process.id}>{process.name}</option>)}</select></label>
+        <label><span>参照開始日</span><input type="date" value={referenceStartDate} onChange={(event) => setReferenceStartDate(event.target.value)} /></label>
+        <button type="button" className={styles.addButton} onClick={saveReferenceStart}><Plus size={18} />追加・更新</button>
+      </div>
+      <div className={styles.referenceTableWrap}><table className={styles.referenceTable}><thead><tr><th>製品</th><th>工程</th><th>参照開始日</th><th>操作</th></tr></thead><tbody>{referenceStarts.length === 0 ? <tr><td colSpan={4}>個別の参照開始日は登録されていません。</td></tr> : referenceStarts.map((item) => <tr key={item.id}><td>{item.productName}</td><td>{item.processName}</td><td>{item.referenceStartDate}</td><td><button type="button" className={styles.deleteButton} title="削除" onClick={() => deleteReferenceStart(item.id)}><Trash2 size={18} /></button></td></tr>)}</tbody></table></div>
     </section>
     <section className={styles.statusCard}><h2>最新の実行状況</h2>{runStatus ? <div className={styles.statusGrid}>
       <div><span>状態</span><strong>{runStatus.status}</strong></div><div><span>実行方法</span><strong>{runStatus.trigger_type === "manual" ? "手動" : "毎朝7時"}</strong></div><div><span>開始日時</span><strong>{formatDateTime(runStatus.started_at)}</strong></div><div><span>完了日時</span><strong>{formatDateTime(runStatus.finished_at)}</strong></div><div><span>対象注番</span><strong>{runStatus.target_count}件</strong></div><div><span>成功 / 失敗</span><strong>{runStatus.success_count} / {runStatus.failed_count}</strong></div>

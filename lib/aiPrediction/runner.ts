@@ -202,7 +202,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     cutoff.setUTCDate(cutoff.getUTCDate() - settings.max_reference_days);
     const cutoffDate = dateKey(cutoff);
 
-    const [postsResponse, processesResponse, resultsResponse, linesResponse, mastersResponse, calendarResponse] =
+    const [postsResponse, processesResponse, resultsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse] =
       await Promise.all([
         supabaseAdmin
           .from("posts")
@@ -216,9 +216,10 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         supabaseAdmin.from("line_master").select("*").eq("enabled", true),
         supabaseAdmin.from("process_master").select("id,process_id,name,outsourcing"),
         supabaseAdmin.from("company_calendar").select("date,is_holiday").eq("is_holiday", true),
+        supabaseAdmin.from("ai_prediction_reference_starts").select("product_id,process_id,reference_start_date"),
       ]);
 
-    const firstError = [postsResponse, processesResponse, resultsResponse, linesResponse, mastersResponse, calendarResponse]
+    const firstError = [postsResponse, processesResponse, resultsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse]
       .map((response) => response.error)
       .find(Boolean);
     if (firstError) throw firstError;
@@ -228,6 +229,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     const allResults = (resultsResponse.data || []) as DbRow[];
     const lines = (linesResponse.data || []) as DbRow[];
     const processMasters = (mastersResponse.data || []) as DbRow[];
+    const referenceStarts = (referenceStartsResponse.data || []) as DbRow[];
     const holidaySet = new Set(
       ((calendarResponse.data || []) as DbRow[]).map((row) => textValue(row.date).slice(0, 10)),
     );
@@ -255,31 +257,70 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
       const processName = textValue(process.process_name);
       const isManufacturing = processName.includes("製造");
       const productName = textValue(process.product_name) || textValue(post.product_name);
+      const productId = textValue(process.product_id) || textValue(post.product_id);
+      const processMaster = processMasters.find(
+        (master) => textValue(master.name) === processName,
+      );
+      const configuredReferenceStart = referenceStarts.find(
+        (item) =>
+          textValue(item.product_id) === productId &&
+          textValue(item.process_id) === textValue(processMaster?.id),
+      );
+      const referenceStartDate = [
+        cutoffDate,
+        textValue(configuredReferenceStart?.reference_start_date).slice(0, 10),
+      ].filter(Boolean).sort().at(-1) || cutoffDate;
+      const priorityCutoff = new Date();
+      priorityCutoff.setUTCDate(priorityCutoff.getUTCDate() - settings.priority_reference_days);
+      const priorityCutoffDate = [dateKey(priorityCutoff), referenceStartDate].sort().at(-1) || referenceStartDate;
 
       if (remainingAmount > 0) activePostIds.add(textValue(post.id));
 
       const matchingHistoricalProcesses = allProcesses.filter(
         (candidate) =>
-          textValue(candidate.product_name) === productName &&
-          textValue(candidate.process_name) === processName,
+          (productId
+            ? textValue(candidate.product_id) === productId
+            : textValue(candidate.product_name) === productName) &&
+          textValue(candidate.process_name) === processName &&
+          (!candidate.completed_date || textValue(candidate.completed_date).slice(0, 10) >= referenceStartDate),
       );
       const matchingResults = matchingHistoricalProcesses.flatMap(
         (candidate) => resultsByProcess.get(textValue(candidate.id)) || [],
-      );
-      const dailyTotals = new Map<string, number>();
+      ).filter((result) => textValue(result.date).slice(0, 10) >= referenceStartDate);
+      const allDailyTotals = new Map<string, number>();
       matchingResults.forEach((result) => {
         const day = textValue(result.date).slice(0, 10);
-        dailyTotals.set(day, (dailyTotals.get(day) || 0) + numberValue(result.amount));
+        allDailyTotals.set(day, (allDailyTotals.get(day) || 0) + numberValue(result.amount));
       });
-      const historyBusinessDays = dailyTotals.size;
-      const historySampleCount = matchingHistoricalProcesses.filter(
+      const sortedDailyTotals = [...allDailyTotals.entries()].sort(([left], [right]) => right.localeCompare(left));
+      const dailyTotals = sortedDailyTotals.filter(([day]) => day >= priorityCutoffDate);
+      if (dailyTotals.length < settings.manufacturing_min_business_days) {
+        for (const entry of sortedDailyTotals) {
+          if (dailyTotals.some(([day]) => day === entry[0])) continue;
+          dailyTotals.push(entry);
+          if (dailyTotals.length >= settings.manufacturing_min_business_days) break;
+        }
+      }
+      const historyBusinessDays = dailyTotals.length;
+      const completedHistoricalProcesses = matchingHistoricalProcesses.filter(
         (candidate) => Boolean(candidate.completed_date),
-      ).length;
-      const totalHistoricalAmount = [...dailyTotals.values()].reduce((sum, amount) => sum + amount, 0);
+      ).sort((left, right) => textValue(right.completed_date).localeCompare(textValue(left.completed_date)));
+      const selectedCompletedProcesses = completedHistoricalProcesses.filter(
+        (candidate) => textValue(candidate.completed_date).slice(0, 10) >= priorityCutoffDate,
+      );
+      if (selectedCompletedProcesses.length < settings.other_process_min_lots) {
+        for (const candidate of completedHistoricalProcesses) {
+          if (selectedCompletedProcesses.some((selected) => textValue(selected.id) === textValue(candidate.id))) continue;
+          selectedCompletedProcesses.push(candidate);
+          if (selectedCompletedProcesses.length >= settings.other_process_min_lots) break;
+        }
+      }
+      const historySampleCount = selectedCompletedProcesses.length;
+      const totalHistoricalAmount = dailyTotals.reduce((sum, [, amount]) => sum + amount, 0);
       const historicalDailyAmount = historyBusinessDays
         ? totalHistoricalAmount / historyBusinessDays
         : null;
-      const durationSamples = matchingHistoricalProcesses
+      const durationSamples = selectedCompletedProcesses
         .map((candidate) => {
           const created = textValue(candidate.created_at).slice(0, 10);
           const completed = textValue(candidate.completed_date).slice(0, 10);
@@ -294,9 +335,6 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         ? historyBusinessDays >= settings.manufacturing_min_business_days
         : historySampleCount >= settings.other_process_min_lots;
 
-      const processMaster = processMasters.find(
-        (master) => textValue(master.name) === processName,
-      );
       const capacityRows = lines.filter(
         (line) =>
           textValue(line.process_id) === textValue(processMaster?.process_id) ||
@@ -348,6 +386,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         subcontractorName: textValue(process.subcontractor_name) || null,
         outsourceSentDate: textValue(process.outsource_sent_date).slice(0, 10) || null,
         outsourceReturnedDate: textValue(process.outsource_returned_date).slice(0, 10) || null,
+        referenceStartDate,
         historySampleCount,
         historyBusinessDays,
         historicalDailyAmount,

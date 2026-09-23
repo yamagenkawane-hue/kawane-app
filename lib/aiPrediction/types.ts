@@ -25,6 +25,7 @@ export type PredictionProcessInput = {
   subcontractorName: string | null;
   outsourceSentDate: string | null;
   outsourceReturnedDate: string | null;
+  referenceStartDate: string;
   historySampleCount: number;
   historyBusinessDays: number;
   historicalDailyAmount: number | null;

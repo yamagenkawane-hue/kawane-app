@@ -280,6 +280,89 @@
   padding: 12px;
 }
 
+.referenceHeader h2 {
+  margin: 0;
+}
+
+.referenceForm {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1.3fr 1fr 220px auto;
+  margin-top: 18px;
+}
+
+.referenceForm label {
+  display: grid;
+  gap: 6px;
+}
+
+.referenceForm label span {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.referenceForm select,
+.referenceForm input {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #111827;
+  min-height: 44px;
+  padding: 8px 10px;
+}
+
+.addButton {
+  align-items: center;
+  background: #2563eb;
+  border: 0;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 900;
+  gap: 7px;
+  justify-content: center;
+  min-height: 44px;
+  padding: 9px 16px;
+}
+
+.referenceTableWrap {
+  margin-top: 18px;
+  overflow-x: auto;
+}
+
+.referenceTable {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.referenceTable th,
+.referenceTable td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 11px 12px;
+  text-align: left;
+}
+
+.referenceTable th {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.deleteButton {
+  align-items: center;
+  background: #fee2e2;
+  border: 0;
+  border-radius: 6px;
+  color: #b91c1c;
+  cursor: pointer;
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+
 .spinning {
   animation: spin 0.9s linear infinite;
 }
@@ -318,6 +401,10 @@
 
   .numberGrid,
   .statusGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .referenceForm {
     grid-template-columns: 1fr;
   }
 
