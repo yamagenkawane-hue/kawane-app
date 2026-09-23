@@ -12,10 +12,11 @@ const DEFAULT_SETTINGS: AiPredictionSettings = {
   id: "global", enabled: true, usePastResults: true,
   priorityReferenceDays: 90, maxReferenceDays: 730,
   manufacturingMinBusinessDays: 5, otherProcessMinLots: 5,
+  outsourceDefaultSentOffsetDays: 0, outsourceDefaultReturnOffsetDays: 3,
   validationMode: true,
 };
 
-type NumberSettingKey = "priorityReferenceDays" | "maxReferenceDays" | "manufacturingMinBusinessDays" | "otherProcessMinLots";
+type NumberSettingKey = "priorityReferenceDays" | "maxReferenceDays" | "manufacturingMinBusinessDays" | "otherProcessMinLots" | "outsourceDefaultSentOffsetDays" | "outsourceDefaultReturnOffsetDays";
 type RunStatus = { id?: string; status?: string; model?: string; trigger_type?: string; started_at?: string; finished_at?: string; target_count?: number; success_count?: number; failed_count?: number; error_message?: string; evaluation_count?: number; average_absolute_error?: number | null; cron_configured?: boolean; schedule_label?: string; failure_details?: Array<{ order_no: string; process_name: string; reason: string }> };
 type ProductOption = { id: string; name: string };
 type ProcessOption = { id: string; name: string; sort: number };
@@ -29,6 +30,8 @@ const mapSettings = (row: Record<string, unknown>): AiPredictionSettings => ({
   maxReferenceDays: Number(row.max_reference_days || 730),
   manufacturingMinBusinessDays: Number(row.manufacturing_min_business_days || 5),
   otherProcessMinLots: Number(row.other_process_min_lots || 5),
+  outsourceDefaultSentOffsetDays: Number(row.outsource_default_sent_offset_days ?? 0),
+  outsourceDefaultReturnOffsetDays: Number(row.outsource_default_return_offset_days ?? 3),
   validationMode: row.validation_mode !== false,
 });
 
@@ -118,8 +121,15 @@ export default function AiPredictionSettingsPage() {
     const parsed = Math.max(0, Math.floor(Number(value || 0)));
     setSettings((current) => ({ ...current, [key]: parsed }));
   };
-  const validate = () => settings.priorityReferenceDays < 1 || settings.maxReferenceDays < settings.priorityReferenceDays || settings.manufacturingMinBusinessDays < 1 || settings.otherProcessMinLots < 1
-    ? "各設定は1以上、最大参照期間は優先参照期間以上で入力してください。" : "";
+  const validate = () => {
+    if (settings.priorityReferenceDays < 1 || settings.maxReferenceDays < settings.priorityReferenceDays || settings.manufacturingMinBusinessDays < 1 || settings.otherProcessMinLots < 1) {
+      return "各設定は1以上、最大参照期間は優先参照期間以上で入力してください。";
+    }
+    if (settings.outsourceDefaultReturnOffsetDays < settings.outsourceDefaultSentOffsetDays) {
+      return "外注の戻り日は出し日以降になるように設定してください。";
+    }
+    return "";
+  };
 
   const saveSettings = async () => {
     const validationMessage = validate();
@@ -132,7 +142,10 @@ export default function AiPredictionSettingsPage() {
       id: "global", enabled: settings.enabled, use_past_results: settings.usePastResults,
       priority_reference_days: settings.priorityReferenceDays, max_reference_days: settings.maxReferenceDays,
       manufacturing_min_business_days: settings.manufacturingMinBusinessDays,
-      other_process_min_lots: settings.otherProcessMinLots, validation_mode: settings.validationMode,
+      other_process_min_lots: settings.otherProcessMinLots,
+      outsource_default_sent_offset_days: settings.outsourceDefaultSentOffsetDays,
+      outsource_default_return_offset_days: settings.outsourceDefaultReturnOffsetDays,
+      validation_mode: settings.validationMode,
       updated_at: new Date().toISOString(),
     });
     setMessageType(error ? "error" : "success");
@@ -166,6 +179,8 @@ export default function AiPredictionSettingsPage() {
     { key: "maxReferenceDays", label: "最大参照期間", unit: "日", help: "実績不足時に遡る上限" },
     { key: "manufacturingMinBusinessDays", label: "製造の基準生産日数", unit: "日分", help: "Gemini予測に必要な製造実績" },
     { key: "otherProcessMinLots", label: "その他工程の基準ロット数", unit: "ロット", help: "Gemini予測に必要な工程実績" },
+    { key: "outsourceDefaultSentOffsetDays", label: "外注の出し日（未登録時）", unit: "日後", help: "予測日から出し日までの日数（当日は0）" },
+    { key: "outsourceDefaultReturnOffsetDays", label: "外注の戻り日（未登録時）", unit: "日後", help: "予測日から戻り日までの日数" },
   ];
 
   return <div className={styles.container}>

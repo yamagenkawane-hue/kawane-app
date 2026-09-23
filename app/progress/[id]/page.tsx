@@ -79,6 +79,8 @@ const DEFAULT_AI_SETTINGS: AiPredictionSettings = {
   maxReferenceDays: 730,
   manufacturingMinBusinessDays: 5,
   otherProcessMinLots: 5,
+  outsourceDefaultSentOffsetDays: 0,
+  outsourceDefaultReturnOffsetDays: 3,
   validationMode: true,
 };
 
@@ -105,6 +107,8 @@ const mapAiSettings = (row: Record<string, unknown> | null): AiPredictionSetting
     maxReferenceDays: Number(row.max_reference_days || 730),
     manufacturingMinBusinessDays: Number(row.manufacturing_min_business_days || 5),
     otherProcessMinLots: Number(row.other_process_min_lots || 5),
+    outsourceDefaultSentOffsetDays: Number(row.outsource_default_sent_offset_days ?? 0),
+    outsourceDefaultReturnOffsetDays: Number(row.outsource_default_return_offset_days ?? 3),
     validationMode: row.validation_mode !== false,
     updatedAt: String(row.updated_at || ""),
   };

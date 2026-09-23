@@ -6,6 +6,8 @@ export type PredictionSettingsRow = {
   max_reference_days: number;
   manufacturing_min_business_days: number;
   other_process_min_lots: number;
+  outsource_default_sent_offset_days: number;
+  outsource_default_return_offset_days: number;
   validation_mode: boolean;
 };
 

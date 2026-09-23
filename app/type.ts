@@ -282,6 +282,8 @@ export type AiPredictionSettings = {
   maxReferenceDays: number;
   manufacturingMinBusinessDays: number;
   otherProcessMinLots: number;
+  outsourceDefaultSentOffsetDays: number;
+  outsourceDefaultReturnOffsetDays: number;
   validationMode: boolean;
   targetOutsourceDelay?: boolean;
   targetShippingDelay?: boolean;
