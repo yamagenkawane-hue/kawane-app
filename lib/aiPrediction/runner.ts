@@ -237,7 +237,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     cutoff.setUTCDate(cutoff.getUTCDate() - settings.max_reference_days);
     const cutoffDate = dateKey(cutoff);
 
-    const [postsResponse, processesResponse, resultsResponse, lotsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse, schedulesResponse, subcontractorsResponse] =
+    const [postsResponse, processesResponse, resultsResponse, lotsResponse, allocationsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse, schedulesResponse, subcontractorsResponse] =
       await Promise.all([
         supabaseAdmin
           .from("posts")
@@ -249,6 +249,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           .select("id,post_id,order_process_id,lot_id,process_name,date,amount")
           .gte("date", cutoffDate),
         supabaseAdmin.from("lots").select("id,post_id,quantity,deleted"),
+        supabaseAdmin.from("inventory_allocations").select("post_id,allocated_amount,shipped_amount"),
         supabaseAdmin.from("line_master").select("*").eq("enabled", true),
         supabaseAdmin.from("process_master").select("id,process_id,name,outsourcing"),
         supabaseAdmin.from("company_calendar").select("date,is_holiday").eq("is_holiday", true),
@@ -257,7 +258,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         supabaseAdmin.from("subcontractors").select("id,name"),
       ]);
 
-    const firstError = [postsResponse, processesResponse, resultsResponse, lotsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse, schedulesResponse, subcontractorsResponse]
+    const firstError = [postsResponse, processesResponse, resultsResponse, lotsResponse, allocationsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse, schedulesResponse, subcontractorsResponse]
       .map((response) => response.error)
       .find(Boolean);
     if (firstError) throw firstError;
@@ -279,6 +280,18 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           (producedLotAmountByPost.get(postId) || 0) + numberValue(lot.quantity),
         );
       });
+    const allocatedAmountByPost = new Map<string, number>();
+    ((allocationsResponse.data || []) as DbRow[]).forEach((allocation) => {
+      const postId = textValue(allocation.post_id);
+      const unshippedAmount = Math.max(
+        0,
+        numberValue(allocation.allocated_amount) - numberValue(allocation.shipped_amount),
+      );
+      allocatedAmountByPost.set(
+        postId,
+        (allocatedAmountByPost.get(postId) || 0) + unshippedAmount,
+      );
+    });
     const allResults = ((resultsResponse.data || []) as DbRow[]).filter(
       (result) => !result.lot_id || !deletedLotIds.has(textValue(result.lot_id)),
     );
@@ -308,10 +321,17 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     for (const process of targetProcesses) {
       const post = postMap.get(textValue(process.post_id));
       if (!post) continue;
-      const producedLotAmount = producedLotAmountByPost.get(textValue(post.id)) || 0;
-      const plannedAmount = Math.max(
+      const basePlannedAmount = Math.max(
         numberValue(process.planned_amount),
         numberValue(post.order_amount),
+      );
+      const allocatedAmount = Math.min(
+        basePlannedAmount,
+        allocatedAmountByPost.get(textValue(post.id)) || 0,
+      );
+      const producedLotAmount = producedLotAmountByPost.get(textValue(post.id)) || 0;
+      const plannedAmount = Math.max(
+        basePlannedAmount - allocatedAmount,
         producedLotAmount,
       );
       const completedAmount = numberValue(process.completed_amount);
@@ -484,6 +504,9 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           `受注数量を超える余剰生産 ${producedLotAmount - numberValue(post.order_amount)}個を含めて予測しています。`,
         );
       }
+      if (allocatedAmount > 0) {
+        comments.push(`未出荷の引当数量 ${allocatedAmount}個を必要生産数から差し引いています。`);
+      }
       if (isManufacturing && completedAmount <= 0 && (!plannedStartDate || plannedStartDate < getTodayInJapan())) {
         comments.push("製造開始予定日が未設定または過去日のため、更新日以降の営業日から予測しています。");
       }
@@ -506,6 +529,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         pressNumber,
         plannedStartDate,
         lastActualDate,
+        allocatedAmount,
         producedLotAmount,
         plannedAmount,
         completedAmount,
@@ -772,9 +796,15 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         .sort((left, right) => numberValue(right.process_order) - numberValue(left.process_order));
       const finalProcess = postProcesses[0];
       if (!finalProcess) return [];
-      const plannedAmount = Math.max(
+      const basePlannedAmount = Math.max(
         numberValue(finalProcess.planned_amount),
         numberValue(post.order_amount),
+      );
+      const plannedAmount = Math.max(
+        basePlannedAmount - Math.min(
+          basePlannedAmount,
+          allocatedAmountByPost.get(textValue(post.id)) || 0,
+        ),
         producedLotAmountByPost.get(textValue(post.id)) || 0,
       );
       const actualCompletionDate = textValue(
