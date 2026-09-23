@@ -8,10 +8,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   if (!supabaseAdmin) return res.status(500).json({ error: "Supabase admin configuration is missing" });
 
-  const [runResponse, evaluationResponse] = await Promise.all([
+  const [runResponse, scheduledRunResponse, evaluationResponse] = await Promise.all([
     supabaseAdmin
       .from("ai_prediction_runs")
       .select("id,status,model,trigger_type,started_at,finished_at,target_count,success_count,failed_count,skipped_count,error_code,error_message")
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("ai_prediction_runs")
+      .select("id,status,started_at,finished_at,target_count,success_count,failed_count,skipped_count,error_code,error_message")
+      .eq("trigger_type", "scheduled")
       .order("started_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -21,11 +28,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .not("business_day_error", "is", null),
   ]);
   if (runResponse.error) return res.status(500).json({ error: runResponse.error.message });
+  if (scheduledRunResponse.error) return res.status(500).json({ error: scheduledRunResponse.error.message });
   if (evaluationResponse.error) return res.status(500).json({ error: evaluationResponse.error.message });
   if (!runResponse.data) {
     return res.status(200).json({
       cron_configured: Boolean(process.env.CRON_SECRET),
       schedule_label: "毎朝7:00（日本時間）",
+      latest_scheduled_run: scheduledRunResponse.data,
     });
   }
   const { data: unavailableRows, error: unavailableError } = await supabaseAdmin
@@ -46,6 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     average_absolute_error: averageAbsoluteError,
     cron_configured: Boolean(process.env.CRON_SECRET),
     schedule_label: "毎朝7:00（日本時間）",
+    latest_scheduled_run: scheduledRunResponse.data,
     failure_details: unavailableRows || [],
   });
 }
