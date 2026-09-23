@@ -237,7 +237,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     cutoff.setUTCDate(cutoff.getUTCDate() - settings.max_reference_days);
     const cutoffDate = dateKey(cutoff);
 
-    const [postsResponse, processesResponse, resultsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse, schedulesResponse, subcontractorsResponse] =
+    const [postsResponse, processesResponse, resultsResponse, lotsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse, schedulesResponse, subcontractorsResponse] =
       await Promise.all([
         supabaseAdmin
           .from("posts")
@@ -246,8 +246,9 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         supabaseAdmin.from("order_processes").select("*"),
         supabaseAdmin
           .from("production_results")
-          .select("id,post_id,order_process_id,process_name,date,amount")
+          .select("id,post_id,order_process_id,lot_id,process_name,date,amount")
           .gte("date", cutoffDate),
+        supabaseAdmin.from("lots").select("id,deleted").eq("deleted", true),
         supabaseAdmin.from("line_master").select("*").eq("enabled", true),
         supabaseAdmin.from("process_master").select("id,process_id,name,outsourcing"),
         supabaseAdmin.from("company_calendar").select("date,is_holiday").eq("is_holiday", true),
@@ -256,14 +257,19 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         supabaseAdmin.from("subcontractors").select("id,name"),
       ]);
 
-    const firstError = [postsResponse, processesResponse, resultsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse, schedulesResponse, subcontractorsResponse]
+    const firstError = [postsResponse, processesResponse, resultsResponse, lotsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse, schedulesResponse, subcontractorsResponse]
       .map((response) => response.error)
       .find(Boolean);
     if (firstError) throw firstError;
 
     const posts = (postsResponse.data || []) as DbRow[];
     const allProcesses = (processesResponse.data || []) as DbRow[];
-    const allResults = (resultsResponse.data || []) as DbRow[];
+    const deletedLotIds = new Set(
+      ((lotsResponse.data || []) as DbRow[]).map((lot) => textValue(lot.id)),
+    );
+    const allResults = ((resultsResponse.data || []) as DbRow[]).filter(
+      (result) => !result.lot_id || !deletedLotIds.has(textValue(result.lot_id)),
+    );
     const lines = (linesResponse.data || []) as DbRow[];
     const processMasters = (mastersResponse.data || []) as DbRow[];
     const referenceStarts = (referenceStartsResponse.data || []) as DbRow[];
