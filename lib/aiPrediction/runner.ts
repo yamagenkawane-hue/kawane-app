@@ -561,6 +561,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
       let postUnavailable = false;
       for (const input of processInputs) {
         let startDate = cursor;
+        let defaultOutsourceScheduleShifted = false;
         let endDate: string | null = null;
         let status: SavedPrediction["status"] = "predicted";
         let reason = "";
@@ -569,7 +570,13 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         if (input.outsourcing && input.outsourceSentDate) {
           startDate = input.outsourceSentDate;
         } else if (input.outsourcing && input.subcontractorName) {
-          startDate = shiftBusinessDays(today, settings.outsource_default_sent_offset_days, holidaySet);
+          const configuredSentDate = shiftBusinessDays(
+            today,
+            settings.outsource_default_sent_offset_days,
+            holidaySet,
+          );
+          defaultOutsourceScheduleShifted = cursor > configuredSentDate;
+          startDate = defaultOutsourceScheduleShifted ? cursor : configuredSentDate;
         }
         if (isManufacturing && input.plannedStartDate && input.plannedStartDate > startDate) {
           startDate = input.plannedStartDate;
@@ -588,8 +595,16 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           status = "confirmed";
           reason = "完了実績日を使用しています。";
         } else if (input.outsourcing && !input.outsourceSentDate && input.subcontractorName) {
-          endDate = shiftBusinessDays(today, settings.outsource_default_return_offset_days, holidaySet);
+          const outsourceLeadDays = Math.max(
+            0,
+            settings.outsource_default_return_offset_days -
+              settings.outsource_default_sent_offset_days,
+          );
+          endDate = shiftBusinessDays(startDate, outsourceLeadDays, holidaySet);
           reason = `出し日未登録のため、予測条件（出し日${settings.outsource_default_sent_offset_days}営業日後・戻り日${settings.outsource_default_return_offset_days}営業日後）で予測しました。`;
+          if (defaultOutsourceScheduleShifted) {
+            comments.push("前工程の完了予測に合わせ、外注の出し日と戻り日を後ろへ調整しました。");
+          }
         } else if (input.sourceType === "unavailable" || postUnavailable || blockingOrder) {
           status = "unavailable";
           startDate = cursor;
