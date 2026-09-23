@@ -22,7 +22,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   ]);
   if (runResponse.error) return res.status(500).json({ error: runResponse.error.message });
   if (evaluationResponse.error) return res.status(500).json({ error: evaluationResponse.error.message });
-  if (!runResponse.data) return res.status(200).json(null);
+  if (!runResponse.data) {
+    return res.status(200).json({
+      cron_configured: Boolean(process.env.CRON_SECRET),
+      schedule_label: "毎朝7:00（日本時間）",
+    });
+  }
   const errors = (evaluationResponse.data || []).map((row) => Number(row.business_day_error || 0));
   const averageAbsoluteError = errors.length
     ? errors.reduce((sum, value) => sum + Math.abs(value), 0) / errors.length
@@ -31,5 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     ...runResponse.data,
     evaluation_count: errors.length,
     average_absolute_error: averageAbsoluteError,
+    cron_configured: Boolean(process.env.CRON_SECRET),
+    schedule_label: "毎朝7:00（日本時間）",
   });
 }
