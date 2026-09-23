@@ -838,10 +838,22 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
 
     const cutoffHistory = new Date();
     cutoffHistory.setUTCDate(cutoffHistory.getUTCDate() - 90);
-    await Promise.all([
+    const historyCleanupResults = await Promise.all([
       supabaseAdmin.from("ai_prediction_results").delete().lt("created_at", cutoffHistory.toISOString()),
       supabaseAdmin.from("ai_prediction_input_snapshots").delete().lt("created_at", cutoffHistory.toISOString()),
+      supabaseAdmin.from("ai_prediction_evaluations").delete().lt("created_at", cutoffHistory.toISOString()),
     ]);
+    const historyCleanupError = historyCleanupResults
+      .map((result) => result.error)
+      .find(Boolean);
+    if (historyCleanupError) throw historyCleanupError;
+
+    const { error: runCleanupError } = await supabaseAdmin
+      .from("ai_prediction_runs")
+      .delete()
+      .lt("started_at", cutoffHistory.toISOString())
+      .neq("status", "running");
+    if (runCleanupError) throw runCleanupError;
 
     const successCount = Math.max(0, activePostIds.size - failedPosts);
     const finalStatus = failedPosts === 0 ? "succeeded" : successCount > 0 ? "partial" : "failed";
