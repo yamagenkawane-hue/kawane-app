@@ -57,6 +57,12 @@ const nextDay = (date: string, holidaySet: Set<string>, useCalendarDays: boolean
   return dateKey(next);
 };
 
+const shiftCalendarDays = (date: string, days: number) => {
+  const shifted = parseDate(date);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return dateKey(shifted);
+};
+
 const countBusinessDays = (start: string, end: string, holidaySet: Set<string>) => {
   if (!start || !end) return null;
   const direction = end >= start ? 1 : -1;
@@ -445,7 +451,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         comments.push("外注先が未設定のため、予測できません。");
       }
       if (isOutsourcing && !process.outsource_sent_date) {
-        comments.push("出し日未登録のため、前工程の完了予測日を基準に外注日程を予測しています。");
+        comments.push("出し日未登録のため、翌日を出し日、その3日後を戻り日として予測しています。");
       }
 
       inputs.push({
@@ -543,6 +549,8 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         const isManufacturing = input.processName.includes("製造");
         if (input.outsourcing && input.outsourceSentDate) {
           startDate = input.outsourceSentDate;
+        } else if (input.outsourcing && input.subcontractorName) {
+          startDate = shiftCalendarDays(today, 1);
         }
         if (isManufacturing && input.plannedStartDate && input.plannedStartDate > startDate) {
           startDate = input.plannedStartDate;
@@ -560,6 +568,9 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           endDate = input.completedDate;
           status = "confirmed";
           reason = "完了実績日を使用しています。";
+        } else if (input.outsourcing && !input.outsourceSentDate && input.subcontractorName) {
+          endDate = shiftCalendarDays(startDate, 3);
+          reason = "出し日未登録のため、翌日を出し日、その3日後を戻り日として予測しました。";
         } else if (input.sourceType === "unavailable" || postUnavailable || blockingOrder) {
           status = "unavailable";
           startDate = cursor;
