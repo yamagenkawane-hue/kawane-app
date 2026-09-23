@@ -57,9 +57,22 @@ const nextDay = (date: string, holidaySet: Set<string>, useCalendarDays: boolean
   return dateKey(next);
 };
 
-const shiftCalendarDays = (date: string, days: number) => {
+const shiftBusinessDays = (date: string, days: number, holidaySet: Set<string>) => {
   const shifted = parseDate(date);
-  shifted.setUTCDate(shifted.getUTCDate() + days);
+  let remaining = Math.max(0, Math.floor(days));
+  const isBusinessDay = () =>
+    shifted.getUTCDay() !== 0 &&
+    shifted.getUTCDay() !== 6 &&
+    !holidaySet.has(dateKey(shifted));
+
+  if (remaining === 0) {
+    while (!isBusinessDay()) shifted.setUTCDate(shifted.getUTCDate() + 1);
+    return dateKey(shifted);
+  }
+  while (remaining > 0) {
+    shifted.setUTCDate(shifted.getUTCDate() + 1);
+    if (isBusinessDay()) remaining -= 1;
+  }
   return dateKey(shifted);
 };
 
@@ -451,7 +464,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         comments.push("外注先が未設定のため、予測できません。");
       }
       if (isOutsourcing && !process.outsource_sent_date) {
-        comments.push(`出し日未登録のため、予測条件（出し日${settings.outsource_default_sent_offset_days}日後・戻り日${settings.outsource_default_return_offset_days}日後）で予測しています。`);
+        comments.push(`出し日未登録のため、予測条件（出し日${settings.outsource_default_sent_offset_days}営業日後・戻り日${settings.outsource_default_return_offset_days}営業日後）で予測しています。`);
       }
 
       inputs.push({
@@ -550,7 +563,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         if (input.outsourcing && input.outsourceSentDate) {
           startDate = input.outsourceSentDate;
         } else if (input.outsourcing && input.subcontractorName) {
-          startDate = shiftCalendarDays(today, settings.outsource_default_sent_offset_days);
+          startDate = shiftBusinessDays(today, settings.outsource_default_sent_offset_days, holidaySet);
         }
         if (isManufacturing && input.plannedStartDate && input.plannedStartDate > startDate) {
           startDate = input.plannedStartDate;
@@ -569,8 +582,8 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           status = "confirmed";
           reason = "完了実績日を使用しています。";
         } else if (input.outsourcing && !input.outsourceSentDate && input.subcontractorName) {
-          endDate = shiftCalendarDays(today, settings.outsource_default_return_offset_days);
-          reason = `出し日未登録のため、予測条件（出し日${settings.outsource_default_sent_offset_days}日後・戻り日${settings.outsource_default_return_offset_days}日後）で予測しました。`;
+          endDate = shiftBusinessDays(today, settings.outsource_default_return_offset_days, holidaySet);
+          reason = `出し日未登録のため、予測条件（出し日${settings.outsource_default_sent_offset_days}営業日後・戻り日${settings.outsource_default_return_offset_days}営業日後）で予測しました。`;
         } else if (input.sourceType === "unavailable" || postUnavailable || blockingOrder) {
           status = "unavailable";
           startDate = cursor;

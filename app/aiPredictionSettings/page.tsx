@@ -179,8 +179,8 @@ export default function AiPredictionSettingsPage() {
     { key: "maxReferenceDays", label: "最大参照期間", unit: "日", help: "実績不足時に遡る上限" },
     { key: "manufacturingMinBusinessDays", label: "製造の基準生産日数", unit: "日分", help: "Gemini予測に必要な製造実績" },
     { key: "otherProcessMinLots", label: "その他工程の基準ロット数", unit: "ロット", help: "Gemini予測に必要な工程実績" },
-    { key: "outsourceDefaultSentOffsetDays", label: "外注の出し日（未登録時）", unit: "日後", help: "AI予測の実行日から出し日までの日数（当日は0）" },
-    { key: "outsourceDefaultReturnOffsetDays", label: "外注の戻り日（未登録時）", unit: "日後", help: "AI予測の実行日から戻り日までの日数" },
+    { key: "outsourceDefaultSentOffsetDays", label: "外注の出し日（未登録時）", unit: "営業日後", help: "AI予測の実行日から出し日まで（土日・会社休日を除く、当日は0）" },
+    { key: "outsourceDefaultReturnOffsetDays", label: "外注の戻り日（未登録時）", unit: "営業日後", help: "AI予測の実行日から戻り日まで（土日・会社休日を除く）" },
   ];
 
   return <div className={styles.container}>
