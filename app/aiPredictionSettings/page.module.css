@@ -69,6 +69,41 @@
   padding: 24px;
 }
 
+.tabNav {
+  align-items: end;
+  display: flex;
+  gap: 6px;
+  padding-left: 18px;
+}
+
+.tabNav button {
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
+  border-bottom: 0;
+  border-radius: 7px 7px 0 0;
+  color: #1e3a8a;
+  cursor: pointer;
+  font-weight: 900;
+  min-height: 44px;
+  padding: 10px 24px;
+}
+
+.tabNav button:hover {
+  background: #bfdbfe;
+}
+
+.tabNav .activeTab {
+  background: #fff;
+  color: #111827;
+  min-height: 50px;
+  position: relative;
+  top: 1px;
+}
+
+.tabNav + .card {
+  border-radius: 0 8px 8px 8px;
+}
+
 .cardHeader {
   align-items: center;
   border-bottom: 1px solid #e5e7eb;
@@ -397,6 +432,16 @@
   .cardHeader {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .tabNav {
+    overflow-x: auto;
+    padding-left: 0;
+  }
+
+  .tabNav button {
+    flex: 0 0 auto;
+    padding: 9px 16px;
   }
 
   .numberGrid,

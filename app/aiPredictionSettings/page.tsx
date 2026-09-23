@@ -20,6 +20,7 @@ type RunStatus = { id: string; status: string; model: string; trigger_type: stri
 type ProductOption = { id: string; name: string };
 type ProcessOption = { id: string; name: string; sort: number };
 type ReferenceStart = { id: string; productId: string; productName: string; processId: string; processName: string; referenceStartDate: string };
+type SettingsTab = "common" | "individual" | "status";
 
 const mapSettings = (row: Record<string, unknown>): AiPredictionSettings => ({
   id: String(row.id || "global"), enabled: Boolean(row.enabled),
@@ -48,6 +49,7 @@ export default function AiPredictionSettingsPage() {
   const [referenceProductId, setReferenceProductId] = useState("");
   const [referenceProcessId, setReferenceProcessId] = useState("");
   const [referenceStartDate, setReferenceStartDate] = useState("");
+  const [activeTab, setActiveTab] = useState<SettingsTab>("common");
 
   const fetchRunStatus = useCallback(async () => {
     const response = await fetch("/api/ai-predictions/status", { cache: "no-store" });
@@ -169,7 +171,12 @@ export default function AiPredictionSettingsPage() {
   return <div className={styles.container}>
     <div className={styles.headerArea}><Link href="/settings" className={styles.backButton}>← 設定へ戻る</Link><h1 className={styles.title}>AI予測設定</h1></div>
     {message && <div className={messageType === "error" ? styles.errorBanner : styles.message}>{message}</div>}
-    <section className={styles.card}>
+    <div className={styles.tabNav} role="tablist" aria-label="AI予測設定の表示切り替え">
+      <button type="button" role="tab" aria-selected={activeTab === "common"} className={activeTab === "common" ? styles.activeTab : ""} onClick={() => setActiveTab("common")}>共通設定</button>
+      <button type="button" role="tab" aria-selected={activeTab === "individual"} className={activeTab === "individual" ? styles.activeTab : ""} onClick={() => setActiveTab("individual")}>個別設定</button>
+      <button type="button" role="tab" aria-selected={activeTab === "status"} className={activeTab === "status" ? styles.activeTab : ""} onClick={() => setActiveTab("status")}>実行状況</button>
+    </div>
+    {activeTab === "common" && <section className={styles.card}>
       <div className={styles.cardHeader}><div><h2>予測条件</h2><p className={styles.helpText}>全製品・全工程に共通して適用します。</p></div><label className={styles.switchRow}><input type="checkbox" checked={settings.enabled} onChange={() => setSettings((current) => ({ ...current, enabled: !current.enabled }))} disabled={loading} />AI予測を使用する</label></div>
       <div className={styles.numberGrid}>{numberFields.map((field) => <button type="button" className={styles.numberField} key={field.key} onClick={() => setEditingKey(field.key)}><span className={styles.numberLabel}>{field.label}</span><strong>{settings[field.key].toLocaleString()} {field.unit}</strong><small>{field.help}</small></button>)}</div>
       <div className={styles.optionGrid}>
@@ -180,9 +187,9 @@ export default function AiPredictionSettingsPage() {
         <button type="button" className={styles.saveButton} onClick={saveSettings} disabled={loading || saving || running}><Save size={18} />{saving ? "保存中..." : "設定を保存"}</button>
         {settings.validationMode && <button type="button" className={styles.runButton} onClick={runPrediction} disabled={loading || saving || running}><RefreshCw size={18} className={running ? styles.spinning : ""} />{running ? "予測中..." : "手動更新"}</button>}
       </div>
-    </section>
-    <section className={styles.statusCard}>
-      <div className={styles.referenceHeader}><div><h2>実績の参照開始日</h2><p className={styles.helpText}>選択した製品・工程では、この日より前の実績を予測に使用しません。</p></div></div>
+    </section>}
+    {activeTab === "individual" && <section className={styles.card}>
+      <div className={styles.referenceHeader}><div><h2>個別設定：実績の参照開始日</h2><p className={styles.helpText}>製品と工程の組み合わせごとに設定します。未登録の組み合わせには共通設定が適用されます。</p><p className={styles.helpText}>登録した組み合わせでは、この日より前の実績を予測に使用しません。</p></div></div>
       <div className={styles.referenceForm}>
         <label><span>製品</span><select value={referenceProductId} onChange={(event) => setReferenceProductId(event.target.value)}><option value="">選択してください</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>
         <label><span>工程</span><select value={referenceProcessId} onChange={(event) => setReferenceProcessId(event.target.value)}><option value="">選択してください</option>{processes.map((process) => <option key={process.id} value={process.id}>{process.name}</option>)}</select></label>
@@ -190,10 +197,10 @@ export default function AiPredictionSettingsPage() {
         <button type="button" className={styles.addButton} onClick={saveReferenceStart}><Plus size={18} />追加・更新</button>
       </div>
       <div className={styles.referenceTableWrap}><table className={styles.referenceTable}><thead><tr><th>製品</th><th>工程</th><th>参照開始日</th><th>操作</th></tr></thead><tbody>{referenceStarts.length === 0 ? <tr><td colSpan={4}>個別の参照開始日は登録されていません。</td></tr> : referenceStarts.map((item) => <tr key={item.id}><td>{item.productName}</td><td>{item.processName}</td><td>{item.referenceStartDate}</td><td><button type="button" className={styles.deleteButton} title="削除" onClick={() => deleteReferenceStart(item.id)}><Trash2 size={18} /></button></td></tr>)}</tbody></table></div>
-    </section>
-    <section className={styles.statusCard}><h2>最新の実行状況</h2>{runStatus ? <div className={styles.statusGrid}>
+    </section>}
+    {activeTab === "status" && <section className={styles.card}><h2>最新の実行状況</h2>{runStatus ? <div className={styles.statusGrid}>
       <div><span>状態</span><strong>{runStatus.status}</strong></div><div><span>実行方法</span><strong>{runStatus.trigger_type === "manual" ? "手動" : "毎朝7時"}</strong></div><div><span>開始日時</span><strong>{formatDateTime(runStatus.started_at)}</strong></div><div><span>完了日時</span><strong>{formatDateTime(runStatus.finished_at)}</strong></div><div><span>対象注番</span><strong>{runStatus.target_count}件</strong></div><div><span>成功 / 失敗</span><strong>{runStatus.success_count} / {runStatus.failed_count}</strong></div>
-    </div> : <p className={styles.helpText}>まだAI予測は実行されていません。</p>}{runStatus?.error_message && <div className={styles.errorMessage}>{runStatus.error_message}</div>}</section>
+    </div> : <p className={styles.helpText}>まだAI予測は実行されていません。</p>}{runStatus?.error_message && <div className={styles.errorMessage}>{runStatus.error_message}</div>}</section>}
     {editingKey && <Numpad open replaceOnFirstInput value={String(settings[editingKey])} onChange={(value) => setNumber(editingKey, value)} onClose={() => setEditingKey(null)} />}
   </div>;
 }
