@@ -202,7 +202,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     cutoff.setUTCDate(cutoff.getUTCDate() - settings.max_reference_days);
     const cutoffDate = dateKey(cutoff);
 
-    const [postsResponse, processesResponse, resultsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse] =
+    const [postsResponse, processesResponse, resultsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse, schedulesResponse] =
       await Promise.all([
         supabaseAdmin
           .from("posts")
@@ -217,9 +217,10 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         supabaseAdmin.from("process_master").select("id,process_id,name,outsourcing"),
         supabaseAdmin.from("company_calendar").select("date,is_holiday").eq("is_holiday", true),
         supabaseAdmin.from("ai_prediction_reference_starts").select("product_id,process_id,reference_start_date"),
+        supabaseAdmin.from("production_schedules").select("post_id,order_no,press_number,shipping_scheduled_start,department,created_at").eq("department", "製造G").order("created_at", { ascending: false }),
       ]);
 
-    const firstError = [postsResponse, processesResponse, resultsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse]
+    const firstError = [postsResponse, processesResponse, resultsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse, schedulesResponse]
       .map((response) => response.error)
       .find(Boolean);
     if (firstError) throw firstError;
@@ -230,6 +231,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     const lines = (linesResponse.data || []) as DbRow[];
     const processMasters = (mastersResponse.data || []) as DbRow[];
     const referenceStarts = (referenceStartsResponse.data || []) as DbRow[];
+    const schedules = (schedulesResponse.data || []) as DbRow[];
     const holidaySet = new Set(
       ((calendarResponse.data || []) as DbRow[]).map((row) => textValue(row.date).slice(0, 10)),
     );
@@ -257,6 +259,19 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
       const processName = textValue(process.process_name);
       const isManufacturing = processName.includes("製造");
       const productName = textValue(process.product_name) || textValue(post.product_name);
+      const manufacturingSchedule = schedules.find(
+        (schedule) =>
+          textValue(schedule.post_id) === textValue(post.id) ||
+          (!schedule.post_id && textValue(schedule.order_no) === textValue(post.order_no)),
+      );
+      const pressNumber = textValue(manufacturingSchedule?.press_number) || null;
+      const plannedStartDate = textValue(manufacturingSchedule?.shipping_scheduled_start).slice(0, 10) || null;
+      const currentProcessResults = resultsByProcess.get(textValue(process.id)) || [];
+      const lastActualDate = currentProcessResults
+        .map((result) => textValue(result.date).slice(0, 10))
+        .filter(Boolean)
+        .sort()
+        .at(-1) || null;
       const productId = textValue(process.product_id) || textValue(post.product_id);
       const processMaster = processMasters.find(
         (master) => textValue(master.name) === processName,
@@ -277,12 +292,23 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
       if (remainingAmount > 0) activePostIds.add(textValue(post.id));
 
       const matchingHistoricalProcesses = allProcesses.filter(
-        (candidate) =>
+        (candidate) => {
+          const candidateSchedule = schedules.find(
+            (schedule) =>
+              textValue(schedule.post_id) === textValue(candidate.post_id) ||
+              (!schedule.post_id && textValue(schedule.order_no) === textValue(candidate.order_no)),
+          );
+          const machineMatches =
+            !isManufacturing ||
+            !pressNumber ||
+            textValue(candidateSchedule?.press_number) === pressNumber;
+          return machineMatches &&
           (productId
             ? textValue(candidate.product_id) === productId
             : textValue(candidate.product_name) === productName) &&
           textValue(candidate.process_name) === processName &&
-          (!candidate.completed_date || textValue(candidate.completed_date).slice(0, 10) >= referenceStartDate),
+          (!candidate.completed_date || textValue(candidate.completed_date).slice(0, 10) >= referenceStartDate);
+        },
       );
       const matchingResults = matchingHistoricalProcesses.flatMap(
         (candidate) => resultsByProcess.get(textValue(candidate.id)) || [],
@@ -335,11 +361,17 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         ? historyBusinessDays >= settings.manufacturing_min_business_days
         : historySampleCount >= settings.other_process_min_lots;
 
-      const capacityRows = lines.filter(
+      const processCapacityRows = lines.filter(
         (line) =>
           textValue(line.process_id) === textValue(processMaster?.process_id) ||
           textValue(line.process_id) === textValue(processMaster?.id),
       );
+      const matchingMachineCapacityRows = pressNumber
+        ? processCapacityRows.filter((line) => textValue(line.line_name) === pressNumber)
+        : [];
+      const capacityRows = matchingMachineCapacityRows.length > 0
+        ? matchingMachineCapacityRows
+        : processCapacityRows;
       const comments: string[] = [];
       let sourceType: PredictionProcessInput["sourceType"] = "gemini";
       let capacityDailyAmount: number | null = null;
@@ -366,8 +398,11 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         }
       }
 
-      if (isManufacturing && !textValue(process.press_number)) {
+      if (isManufacturing && !pressNumber) {
         comments.push("プレス機No未設定のため、設備の競合を考慮していません。");
+      }
+      if (isManufacturing && completedAmount <= 0 && (!plannedStartDate || plannedStartDate < getTodayInJapan())) {
+        comments.push("製造開始予定日が未設定または過去日のため、更新日以降の営業日から予測しています。");
       }
 
       inputs.push({
@@ -378,6 +413,9 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         deliveryDate: textValue(post.delivery_date).slice(0, 10),
         processName,
         processOrder: numberValue(process.process_order),
+        pressNumber,
+        plannedStartDate,
+        lastActualDate,
         plannedAmount,
         completedAmount,
         remainingAmount,
@@ -427,10 +465,27 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
       grouped.set(input.postId, list);
     });
 
+    const orderedGroups = [...grouped.values()].sort((left, right) => {
+      const leftManufacturing = left.find((item) => item.processName.includes("製造"));
+      const rightManufacturing = right.find((item) => item.processName.includes("製造"));
+      const leftInProgress = Boolean(leftManufacturing && leftManufacturing.completedAmount > 0 && leftManufacturing.remainingAmount > 0);
+      const rightInProgress = Boolean(rightManufacturing && rightManufacturing.completedAmount > 0 && rightManufacturing.remainingAmount > 0);
+      if (leftInProgress !== rightInProgress) return leftInProgress ? -1 : 1;
+      if (leftInProgress && rightInProgress) {
+        const actualComparison = (rightManufacturing?.lastActualDate || "").localeCompare(leftManufacturing?.lastActualDate || "");
+        if (actualComparison !== 0) return actualComparison;
+      }
+      const deliveryComparison = (left[0]?.deliveryDate || "").localeCompare(right[0]?.deliveryDate || "");
+      if (deliveryComparison !== 0) return deliveryComparison;
+      return (left[0]?.orderNo || "").localeCompare(right[0]?.orderNo || "");
+    });
+
     const saved: SavedPrediction[] = [];
     const today = getTodayInJapan();
+    const machineAvailableDate = new Map<string, string>();
+    const machineBlockedByOrder = new Map<string, string>();
     let failedPosts = 0;
-    for (const processInputs of grouped.values()) {
+    for (const processInputs of orderedGroups) {
       processInputs.sort((a, b) => a.processOrder - b.processOrder);
       let cursor = today;
       let postUnavailable = false;
@@ -440,16 +495,31 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         let status: SavedPrediction["status"] = "predicted";
         let reason = "";
         const comments = [...input.comments];
+        const isManufacturing = input.processName.includes("製造");
+        if (isManufacturing && input.plannedStartDate && input.plannedStartDate > startDate) {
+          startDate = input.plannedStartDate;
+        }
+        if (isManufacturing && input.pressNumber) {
+          const availableDate = machineAvailableDate.get(input.pressNumber);
+          if (availableDate && availableDate > startDate) startDate = availableDate;
+        }
+        const blockingOrder = isManufacturing && input.pressNumber
+          ? machineBlockedByOrder.get(input.pressNumber)
+          : undefined;
 
         if (input.sourceType === "actual" && input.completedDate) {
           startDate = input.completedDate;
           endDate = input.completedDate;
           status = "confirmed";
           reason = "完了実績日を使用しています。";
-        } else if (input.sourceType === "unavailable" || postUnavailable) {
+        } else if (input.sourceType === "unavailable" || postUnavailable || blockingOrder) {
           status = "unavailable";
           startDate = cursor;
-          reason = postUnavailable ? "前工程が予測不能のため予測できません。" : comments.at(-1) || "予測できません。";
+          reason = blockingOrder
+            ? `同じプレス機の先行注番 ${blockingOrder} が予測不能のため予測できません。`
+            : postUnavailable
+              ? "前工程が予測不能のため予測できません。"
+              : comments.at(-1) || "予測できません。";
           postUnavailable = true;
         } else {
           let durationDays = 1;
@@ -497,6 +567,16 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           comments,
           input_summary: input,
         });
+        if (isManufacturing && input.pressNumber) {
+          if (endDate) {
+            machineAvailableDate.set(
+              input.pressNumber,
+              nextDay(endDate, holidaySet, false),
+            );
+          } else if (status === "unavailable") {
+            machineBlockedByOrder.set(input.pressNumber, input.orderNo);
+          }
+        }
         if (endDate) cursor = nextDay(endDate, holidaySet, input.outsourcing);
       }
       if (postUnavailable) failedPosts += 1;

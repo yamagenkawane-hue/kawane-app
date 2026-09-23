@@ -17,6 +17,9 @@ export type PredictionProcessInput = {
   deliveryDate: string;
   processName: string;
   processOrder: number;
+  pressNumber: string | null;
+  plannedStartDate: string | null;
+  lastActualDate: string | null;
   plannedAmount: number;
   completedAmount: number;
   remainingAmount: number;
