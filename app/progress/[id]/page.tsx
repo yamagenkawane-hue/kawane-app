@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import supabase from "@/lib/supabase";
+import { calculateLegacyPredictions } from "@/lib/aiPrediction/legacy";
 import GanttChart from "../../components/GenttChart/GenttChart";
 import styles from "./page.module.css";
 import {
@@ -597,7 +598,8 @@ export default function ProgressDetail() {
 
         const { data: lineRows, error: lineError } = await supabase
           .from("line_master")
-          .select(LINE_SELECT_COLUMNS);
+          .select(LINE_SELECT_COLUMNS)
+          .order("id", { ascending: true });
 
         if (lineError) {
           console.warn("line_master取得失敗", lineError);
@@ -799,6 +801,26 @@ export default function ProgressDetail() {
         // =========================
 
         const ganttList: ProcessItem[] = [];
+        if (!aiSettings.enabled && orderProcessData.length > 0) {
+          const legacy = calculateLegacyPredictions({
+            referenceDate: new Intl.DateTimeFormat("en-CA", {
+              timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
+            }).format(new Date()),
+            orderAmount: Number(currentPost.orderAmount || 0),
+            processes: orderProcessData, results: resultData,
+            masters: processData, lines: lineData, calendar: calendarData,
+          });
+          setGanttCalendar(calendarData);
+          setGanttProcesses(legacy.map(item => ({
+            ...item,
+            actualStart: safeDate(item.actualStart),
+            actualEnd: item.actualEnd ? safeDate(item.actualEnd) : null,
+            predictedStart: safeDate(item.predictedStart),
+            predictedEnd: safeDate(item.predictedEnd),
+            isDelay: item.predictedEnd > currentPost.deliveryDate,
+          })));
+          return;
+        }
         const predictionCalendar =
           aiSettings.enabled && !aiSettings.useHolidays ? [] : calendarData;
         setGanttCalendar(predictionCalendar);

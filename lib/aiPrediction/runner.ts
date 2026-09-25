@@ -1,4 +1,5 @@
 import supabaseAdmin from "@/lib/supabaseAdmin";
+import { calculateLegacyPredictions } from "./legacy";
 import type {
   GeminiPrediction,
   PredictionProcessInput,
@@ -92,21 +93,21 @@ const countBusinessDays = (start: string, end: string, holidaySet: Set<string>) 
   return count * direction;
 };
 
-const getTodayInJapan = () => {
+const getTodayInJapan = (date = new Date()) => {
   const parts = new Intl.DateTimeFormat("en", {
     timeZone: "Asia/Tokyo",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).formatToParts(new Date());
+  }).formatToParts(date);
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}`;
 };
 
 const fetchGeminiPredictions = async (inputs: PredictionProcessInput[]) => {
+  if (inputs.length === 0) return new Map<string, GeminiPrediction>();
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
-  if (inputs.length === 0) return new Map<string, GeminiPrediction>();
 
   const payload = inputs.map((item) => ({
     orderProcessId: item.orderProcessId,
@@ -185,7 +186,7 @@ const fetchGeminiPredictions = async (inputs: PredictionProcessInput[]) => {
       .filter(
         (item) =>
           validIds.has(item.orderProcessId) &&
-          Number.isFinite(item.durationDays) &&
+          Number.isInteger(item.durationDays) &&
           item.durationDays >= 1,
       )
       .map((item) => [item.orderProcessId, item]),
@@ -237,34 +238,52 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     cutoff.setUTCDate(cutoff.getUTCDate() - settings.max_reference_days);
     const cutoffDate = dateKey(cutoff);
 
-    const [postsResponse, processesResponse, resultsResponse, lotsResponse, allocationsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse, schedulesResponse, subcontractorsResponse] =
+    // The legacy baseline needs older results too. Page through them so lifting the
+    // history cutoff does not push recent AI inputs past PostgREST's row limit.
+    const fetchProductionResults = async () => {
+      const rows: DbRow[] = [];
+      const pageSize = 1000;
+      for (let offset = 0; ; offset += pageSize) {
+        const response = await supabaseAdmin!
+          .from("production_results")
+          .select("id,post_id,order_process_id,process_id,lot_id,process_name,date,amount")
+          .order("id", { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (response.error) return { data: rows, error: response.error };
+        rows.push(...(response.data || []));
+        if ((response.data || []).length < pageSize) return { data: rows, error: null };
+      }
+    };
+
+    const [postsResponse, processesResponse, resultsResponse, lotsResponse, allocationsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse, schedulesResponse, subcontractorsResponse, productProcessesResponse] =
       await Promise.all([
         supabaseAdmin
           .from("posts")
           .select("id,order_no,product_id,product_name,order_amount,delivery_date,delete")
           .eq("delete", false),
         supabaseAdmin.from("order_processes").select("*"),
-        supabaseAdmin
-          .from("production_results")
-          .select("id,post_id,order_process_id,lot_id,process_name,date,amount")
-          .gte("date", cutoffDate),
+        fetchProductionResults(),
         supabaseAdmin.from("lots").select("id,post_id,quantity,deleted"),
         supabaseAdmin.from("inventory_allocations").select("post_id,allocated_amount,shipped_amount"),
-        supabaseAdmin.from("line_master").select("*").eq("enabled", true),
-        supabaseAdmin.from("process_master").select("id,process_id,name,outsourcing"),
-        supabaseAdmin.from("company_calendar").select("date,is_holiday").eq("is_holiday", true),
+        supabaseAdmin.from("line_master").select("*").eq("enabled", true).order("id", { ascending: true }),
+        supabaseAdmin.from("process_master").select("id,process_id,name,outsourcing,enabled"),
+        supabaseAdmin.from("company_calendar").select("date,is_holiday"),
         supabaseAdmin.from("ai_prediction_reference_starts").select("product_id,process_id,press_number,subcontractor_id,reference_start_date"),
         supabaseAdmin.from("production_schedules").select("post_id,order_no,press_number,shipping_scheduled_start,department,created_at").eq("department", "製造G").order("created_at", { ascending: false }),
         supabaseAdmin.from("subcontractors").select("id,name"),
+        supabaseAdmin.from("product_processes").select("id,overlap_days"),
       ]);
 
-    const firstError = [postsResponse, processesResponse, resultsResponse, lotsResponse, allocationsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse, schedulesResponse, subcontractorsResponse]
+    const firstError = [postsResponse, processesResponse, resultsResponse, lotsResponse, allocationsResponse, linesResponse, mastersResponse, calendarResponse, referenceStartsResponse, schedulesResponse, subcontractorsResponse, productProcessesResponse]
       .map((response) => response.error)
       .find(Boolean);
     if (firstError) throw firstError;
 
     const posts = (postsResponse.data || []) as DbRow[];
     const allProcesses = (processesResponse.data || []) as DbRow[];
+    const overlapByProductProcess = new Map(
+      ((productProcessesResponse.data || []) as DbRow[]).map(row => [textValue(row.id), row.overlap_days]),
+    );
     const deletedLotIds = new Set(
       ((lotsResponse.data || []) as DbRow[])
         .filter((lot) => Boolean(lot.deleted))
@@ -301,7 +320,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     const schedules = (schedulesResponse.data || []) as DbRow[];
     const subcontractors = (subcontractorsResponse.data || []) as DbRow[];
     const holidaySet = new Set(
-      ((calendarResponse.data || []) as DbRow[]).map((row) => textValue(row.date).slice(0, 10)),
+      ((calendarResponse.data || []) as DbRow[]).filter(row => row.is_holiday).map((row) => textValue(row.date).slice(0, 10)),
     );
     const postMap = new Map(posts.map((post) => [textValue(post.id), post]));
     const resultsByProcess = new Map<string, DbRow[]>();
@@ -781,15 +800,33 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           postPredictions.some((item) => item.status === "unavailable")
         ) return [];
         const orderNo = processInputs[0]?.orderNo || finalPrediction.order_no;
+        const legacy = calculateLegacyPredictions({
+          referenceDate: today,
+          orderAmount: numberValue(postMap.get(postId)?.order_amount),
+          processes: allProcesses.filter(row => textValue(row.post_id) === postId).map(row => ({
+            id: textValue(row.id), processName: textValue(row.process_name),
+            processOrder: numberValue(row.process_order),
+            overlapDays: numberValue(overlapByProductProcess.get(textValue(row.product_process_id)) ?? row.overlap_days),
+            plannedAmount: numberValue(row.planned_amount), completedAmount: numberValue(row.completed_amount),
+            completedDate: textValue(row.completed_date),
+          })),
+          results: ((resultsResponse.data || []) as DbRow[]).filter(row => textValue(row.post_id) === postId).map(row => ({
+            orderProcessId: textValue(row.order_process_id), processId: textValue(row.process_id),
+            date: textValue(row.date), amount: numberValue(row.amount),
+          })),
+          masters: processMasters.filter(row => row.enabled !== false).map(row => ({ name: textValue(row.name), processId: textValue(row.process_id) })),
+          lines: lines.map(row => ({ processId: textValue(row.process_id), dailyCapacity: numberValue(row.daily_capacity), enabled: row.enabled !== false })),
+          calendar: ((calendarResponse.data || []) as DbRow[]).map(row => ({ date: textValue(row.date), isHoliday: Boolean(row.is_holiday) })),
+        });
         return [{
           post_id: postId,
           order_no: orderNo,
           prediction_run_id: runId,
           predicted_completion_date: finalPrediction.predicted_end_date,
-          legacy_completion_date: null,
+          legacy_completion_date: legacy.at(-1)?.predictedEnd || null,
           actual_completion_date: null,
           business_day_error: null,
-          lead_business_days: countBusinessDays(today, finalPrediction.predicted_end_date, holidaySet),
+          lead_business_days: null,
         }];
       });
       if (evaluationRows.length > 0) {
@@ -827,7 +864,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     for (const completedOrder of completedOrders) {
       const { data: evaluations, error: evaluationFetchError } = await supabaseAdmin
         .from("ai_prediction_evaluations")
-        .select("id,predicted_completion_date")
+        .select("id,predicted_completion_date,created_at")
         .eq("post_id", completedOrder.postId)
         .is("actual_completion_date", null);
       if (evaluationFetchError) throw evaluationFetchError;
@@ -837,6 +874,13 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           .from("ai_prediction_evaluations")
           .update({
             actual_completion_date: completedOrder.actualCompletionDate,
+            lead_business_days: evaluation.created_at
+              ? countBusinessDays(
+                  getTodayInJapan(new Date(textValue(evaluation.created_at))),
+                  completedOrder.actualCompletionDate,
+                  holidaySet,
+                )
+              : null,
             business_day_error: predictedDate
               ? countBusinessDays(predictedDate, completedOrder.actualCompletionDate, holidaySet)
               : null,
@@ -851,7 +895,6 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     const historyCleanupResults = await Promise.all([
       supabaseAdmin.from("ai_prediction_results").delete().lt("created_at", cutoffHistory.toISOString()),
       supabaseAdmin.from("ai_prediction_input_snapshots").delete().lt("created_at", cutoffHistory.toISOString()),
-      supabaseAdmin.from("ai_prediction_evaluations").delete().lt("created_at", cutoffHistory.toISOString()),
     ]);
     const historyCleanupError = historyCleanupResults
       .map((result) => result.error)

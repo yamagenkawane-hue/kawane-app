@@ -28,7 +28,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .not("business_day_error", "is", null),
     supabaseAdmin
       .from("ai_prediction_evaluations")
-      .select("id,order_no,predicted_completion_date,actual_completion_date,business_day_error,lead_business_days,created_at")
+      .select("id,order_no,predicted_completion_date,legacy_completion_date,actual_completion_date,business_day_error,lead_business_days,created_at")
       .not("actual_completion_date", "is", null)
       .order("created_at", { ascending: false })
       .limit(20),
