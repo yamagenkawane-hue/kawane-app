@@ -204,10 +204,10 @@ export type Product = {
 export type ProcessItem = {
   id: string;
   name: string;
-  actualStart: Date;
+  actualStart: Date | null;
   actualEnd: Date | null;
-  predictedStart: Date;
-  predictedEnd: Date;
+  predictedStart: Date | null;
+  predictedEnd: Date | null;
   progress: number;
   isDelay: boolean;
   completedAmount: number;

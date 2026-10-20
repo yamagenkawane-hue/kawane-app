@@ -8,6 +8,7 @@ import ReservationList from "../components/ReservationList/ReservationList";
 import TableHeader from "../components/TableHeader/TableHeader";
 import Pagination from "../components/Pagination/Pagination";
 import DeleteIcon from "@mui/icons-material/Delete";
+import { actualDate } from "@/lib/aiPrediction/actuals";
 import supabase from "@/lib/supabase";
 import { LotProcessBalance, Post, ProgressGroupSummary } from "../type";
 import { useFetchPosts } from "../utills/useFetchPosts";
@@ -328,10 +329,18 @@ const Reservation = () => {
       reason = reasonText.trim();
     }
 
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    const enteredDate = window.prompt("実際に作業した日付を入力してください（YYYY-MM-DD）。過去の作業はその作業日を指定してください。", today);
+    if (enteredDate === null) return;
+    const workDate = actualDate(enteredDate.trim());
+    if (!workDate || enteredDate.trim() !== workDate || workDate > today) {
+      alert("作業日は本日以前の正しい日付（YYYY-MM-DD）で入力してください。");
+      return;
+    }
     const confirmed = window.confirm(
       `${balance.lotNo} / ${transferAmount.toLocaleString("ja-JP")} を${
         isPackaging ? "完了" : "次工程へ移動"
-      }します。よろしいですか？`,
+      }します。作業日: ${workDate}。よろしいですか？`,
     );
 
     if (!confirmed) return;
@@ -347,11 +356,14 @@ const Reservation = () => {
       p_amount: transferAmount,
       p_reason: reason,
       p_idempotency_key: idempotencyKey,
+      p_date: workDate,
     });
 
     if (error) {
       console.error(error);
-      alert(error.message || "次工程への移動に失敗しました。");
+      alert(error.code === "PGRST202"
+        ? "作業日を保存するためのシステム更新が未反映です。管理者に反映を依頼してください。"
+        : error.message || "次工程への移動に失敗しました。");
       return;
     }
 

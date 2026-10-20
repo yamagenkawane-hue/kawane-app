@@ -2,13 +2,21 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { createRequire } from 'node:module';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+const moduleRequire = createRequire(import.meta.url);
 import ts from 'typescript';
 import nextEnv from '@next/env';
 import { createClient } from '@supabase/supabase-js';
 const { loadEnvConfig } = nextEnv;
 
 const source = fs.readFileSync('lib/aiPrediction/runner.ts', 'utf8');
-const legacyContext = { exports: {} };
+const actualContext = { exports: {} };
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/aiPrediction/actuals.ts', 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText, actualContext);
+const legacyContext = { exports: {}, require: name => { assert.equal(name, './actuals'); return actualContext.exports; } };
 vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/aiPrediction/legacy.ts', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, legacyContext);
@@ -20,6 +28,7 @@ function loadRunner(db, fetchImpl, env = {}) {
   const context = {
     exports: {}, process: { env }, fetch: fetchImpl,
     require(name) {
+      if (name === './actuals') return actualContext.exports;
       if (name === './legacy') return legacyContext.exports;
       assert.equal(name, '@/lib/supabaseAdmin');
       return { __esModule: true, default: db };
@@ -119,6 +128,91 @@ async function offline() {
     input.results = [{ processId: 'p1', date: '2026-09-24', amount: 200 }];
     assert.equal(calculateLegacyPredictions(input)[0].predictedEnd, '2026-09-24');
   });
+  await test('completed without date remains completed without fabricated dates', () => {
+    const input = legacyInput(); input.processes[0].completedAmount = 200;
+    const output = calculateLegacyPredictions(input)[0];
+    assert.equal(output.progress, 100); assert.equal(output.actualStart, null);
+    assert.equal(output.actualEnd, null); assert.equal(output.predictedEnd, null);
+  });
+  await test('partial logs do not establish full completion date', () => {
+    const facts = actualContext.exports.processActuals(200, 200, '', [{date:'2026-09-01',amount:100}]);
+    assert.equal(facts.completionDate, null); assert.equal(facts.actualEnd, '2026-09-01');
+  });
+  await test('missing predecessor date blocks unstarted successor', () => {
+    const input = legacyInput(); input.processes[0].completedAmount = 200;
+    input.processes.push({...input.processes[0],id:'p2',processOrder:2,completedAmount:0});
+    assert.equal(calculateLegacyPredictions(input)[1].predictedEnd, null);
+    input.results.push({orderProcessId:'p2',date:'2026-09-24',amount:100});
+    assert.equal(calculateLegacyPredictions(input)[1].predictedEnd,'2026-09-25');
+  });
+  await test('invalid calendar dates are rejected', () => {
+    assert.equal(actualContext.exports.actualDate('2026-02-30'), null);
+    assert.equal(actualContext.exports.actualDate(''), null);
+  });
+  await test('completed unknown date never calls Gemini or consumes capacity', async () => {
+    const f = fixture(); f.tables.order_processes[0].completed_amount = 100;
+    f.tables.order_processes.push({...f.tables.order_processes[0],id:'next',process_order:2,completed_amount:0});
+    await loadRunner(f.db, noFetch).runAiPrediction('scheduled');
+    const rows = f.calls.find(c => c.table === 'ai_prediction_latest' && c.operation === 'upsert').payload;
+    assert.equal(rows[0].source_type,'actual'); assert.equal(rows[0].status,'confirmed');
+    assert.equal(rows[0].predicted_start_date,null); assert.equal(rows[0].predicted_end_date,null);
+    assert.equal(rows[1].status,'unavailable');
+    assert.equal(rows[0].input_summary.dateVersion,2);
+  });
+  await test('runner honors company working Saturday', async () => {
+    const f = fixture(); f.tables.company_calendar=[{date:'2026-09-26',is_holiday:false}];
+    const h=loadRunner(f.db,noFetch);
+    assert.equal(h.addDays('2026-09-25',2,new Map([['2026-09-26',false]]),false),'2026-09-26');
+  });
+  await test('internal history does not use record creation as start', async () => {
+    const f=fixture(); f.tables.ai_prediction_settings.use_past_results=true;
+    f.tables.ai_prediction_settings.other_process_min_lots=1;
+    f.tables.order_processes[0].process_name='梱包';
+    f.tables.process_master[0].name='梱包';
+    f.tables.order_processes.push({...f.tables.order_processes[0],id:'history',post_id:'old',completed_amount:100,created_at:'2026-08-01',completed_date:'2026-09-01'});
+    f.tables.production_results=[{id:'r',order_process_id:'history',date:'2026-09-01',amount:100}];
+    let payload;
+    const fetcher=async (_url, options) => {
+      payload=JSON.parse(JSON.parse(options.body).contents[0].parts[0].text.split('\n').at(-1));
+      return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({predictions:payload.map(row=>({orderProcessId:row.orderProcessId,durationDays:1,reason:'synthetic'}))})}]}}]})};
+    };
+    await loadRunner(f.db,fetcher,{GEMINI_API_KEY:'fake'}).runAiPrediction('scheduled');
+    assert.equal(payload[0].historicalDurationDays,null);
+    assert.equal(payload[0].historicalDailyAmount,100);
+    assert.equal(payload[0].durationUnit,'business_days');
+  });
+  await test('old snapshots and changed actual dates are rejected', () => {
+    const saved={dateVersion:2,registeredPlannedAmount:100,orderAmount:100,plannedAmount:100,completedAmount:50,completedDate:null,lastActualDate:'2026-09-01'};
+    const logs=[{date:'2026-09-01',amount:50}];
+    const matches=(input,results=logs)=>actualContext.exports.predictionMatchesActuals(input,100,100,50,'',results);
+    assert.equal(matches(saved),true);
+    assert.equal(matches({...saved,dateVersion:1}),false);
+    assert.equal(matches(saved,[{date:'2026-09-02',amount:50}]),false);
+    assert.equal(matches({...saved,registeredPlannedAmount:200}),false);
+  });
+  await test('gantt renders missing dates without fictitious actual bar', () => {
+    const context={exports:{},require:name=>name.endsWith('.css')?{default:{}}:moduleRequire(name)};
+    vm.runInNewContext(ts.transpileModule(fs.readFileSync('app/components/GenttChart/GenttChart.tsx','utf8'),{
+      compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true},
+    }).outputText,context);
+    const html=renderToStaticMarkup(createElement(context.exports.default,{
+      processes:[{id:'test',name:'梱包',actualStart:null,actualEnd:null,predictedStart:null,predictedEnd:null,progress:100,completedAmount:100,remainingAmount:0}],deliveryDate:'',calendar:[],
+    }));
+    assert.ok(html.includes('完了日未登録'));
+    assert.ok(!html.includes('実績 100'));
+  });
+  await test('invalid outsourcing date range cannot qualify as history', async () => {
+    const f=fixture(); f.tables.ai_prediction_settings.use_past_results=true;
+    f.tables.ai_prediction_settings.other_process_min_lots=1;
+    f.tables.order_processes[0].subcontractor_id='vendor';
+    f.tables.order_processes[0].outsource_sent_date='2026-09-01';
+    f.tables.subcontractors=[{id:'vendor',name:'Synthetic'}];
+    f.tables.order_processes.push({...f.tables.order_processes[0],id:'history',post_id:'old',outsource_sent_date:'2026-09-10',outsource_returned_date:'2026-09-01'});
+    await loadRunner(f.db,noFetch).runAiPrediction('scheduled');
+    const inputs=f.calls.find(c=>c.table==='ai_prediction_input_snapshots'&&c.operation==='insert').payload;
+    assert.equal(inputs[0].aggregate_data.historicalDurationDays,null);
+    assert.equal(inputs[0].aggregate_data.sourceType,'capacity');
+  });
   await test('runner saves separate AI and legacy dates', async () => {
     const f = fixture(); f.tables.line_master[0].operation_rate = 50;
     await loadRunner(f.db, noFetch).runAiPrediction('scheduled');
@@ -130,8 +224,8 @@ async function offline() {
     f.tables.production_results = Array.from({ length: 1000 }, (_, i) => ({ id: String(i), post_id: 'other', order_process_id: 'other', date: '2020-01-01', amount: 1 }));
     f.tables.production_results.push({ id: 'last', post_id: 'synthetic-order', order_process_id: 'synthetic-process', date: '2020-01-02', amount: 100 });
     await loadRunner(f.db, noFetch).runAiPrediction('scheduled');
-    const row = f.calls.find(c => c.table === 'ai_prediction_evaluations' && c.operation === 'insert').payload[0];
-    assert.equal(row.legacy_completion_date, '2020-01-02');
+    assert.ok(!f.calls.some(c => c.table === 'ai_prediction_evaluations' && c.operation === 'insert'));
+    assert.equal(calculateLegacyPredictions({...legacyInput(), orderAmount:100, processes:[{...legacyInput().processes[0], id:'synthetic-process',plannedAmount:100}],results:f.tables.production_results.map(row=>({orderProcessId:row.order_process_id,date:row.date,amount:row.amount}))})[0].predictedEnd, '2020-01-02');
     assert.equal(f.calls.filter(c => c.table === 'production_results').length, 2);
   });
   await test('weekend and company holiday excluded', () => {
@@ -162,11 +256,11 @@ async function offline() {
     assert.ok(!f.calls.some(c => c.table === 'ai_prediction_evaluations' && c.operation === 'delete'));
     assert.ok(f.calls.some(c => c.table === 'ai_prediction_results' && c.operation === 'delete'));
   });
-  await test('zero capacity reports unavailable without replacing latest', async () => {
+  await test('zero capacity replaces stale latest with unavailable', async () => {
     const f = fixture(); f.tables.line_master[0].operation_rate = 0;
     const result = await loadRunner(f.db, noFetch, { GEMINI_API_KEY: 'fake' }).runAiPrediction('scheduled');
     assert.equal(result.failedCount, 1);
-    assert.ok(!f.calls.some(c => c.table === 'ai_prediction_latest' && c.operation === 'upsert'));
+    assert.equal(f.calls.find(c => c.table === 'ai_prediction_latest' && c.operation === 'upsert').payload[0].status, 'unavailable');
   });
   await test('evaluation lead time uses actual completion and Japanese prediction date', async () => {
     const f = fixture();

@@ -20,7 +20,20 @@ const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
   "id,post_id,order_no,lot_id,lot_no,material_lot_no,order_process_id,process_name,process_order,quantity,subcontractor_name";
 
 const STOCK_IN_HISTORY_SELECT_COLUMNS =
-  "id,post_id,order_no,lot_id,lot_no,material_lot_no,from_order_process_id,to_order_process_id,from_process_name,to_process_name,from_process_order,to_process_order,quantity,created_at";
+  "id,post_id,order_no,lot_id,lot_no,material_lot_no,from_order_process_id,to_order_process_id,from_process_name,to_process_name,from_process_order,to_process_order,quantity,source_result_id,created_at";
+
+// History may refer to an older result outside Supabase's first page.
+const fetchProductionResults = async () => {
+  const rows: { id: string; post_id: string; process_name: string; date: string; amount: number }[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const response = await supabase.from("v_production_results_with_master")
+      .select("id,post_id,process_name,date,amount")
+      .order("id", { ascending: true }).range(offset, offset + 999);
+    if (response.error) return { data: rows, error: response.error };
+    rows.push(...(response.data || []));
+    if ((response.data || []).length < 1000) return { data: rows, error: null };
+  }
+};
 
 const mapLotProcessBalance = (
   row: Record<string, unknown>,
@@ -122,9 +135,7 @@ export const useFetchPosts = () => {
             .select(
               "post_id,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,outsource_status,outsource_sent_date,outsource_returned_date",
             ),
-          supabase
-            .from("v_production_results_with_master")
-            .select("post_id,process_name,date,amount"),
+          fetchProductionResults(),
           supabase
             .from("v_lot_process_balance_with_master")
             .select(LOT_PROCESS_BALANCE_SELECT_COLUMNS)
@@ -210,6 +221,7 @@ export const useFetchPosts = () => {
           });
         }
 
+        const resultDates = new Map((productionResult.data || []).map(row => [String(row.id), String(row.date || "").slice(0, 10)]));
         const quantityAdjustmentByPost = new Map<string, number>();
         const completedBalancesByPost = new Map<string, LotProcessBalance[]>();
         const historyOnlyBalancesByPost = new Map<string, LotProcessBalance[]>();
@@ -223,7 +235,7 @@ export const useFetchPosts = () => {
           if (!postId) continue;
 
           const movementType = String(row.movement_type || "");
-          const transferDate = String(row.created_at || "").slice(0, 10);
+          const transferDate = resultDates.get(String(row.source_result_id || "")) || "";
           const lotId = String(row.lot_id || "");
           const fromOrderProcessId = String(row.from_order_process_id || "");
           const toLogKey = getProcessLogKey(
@@ -283,10 +295,10 @@ export const useFetchPosts = () => {
               processName: String(row.from_process_name || "梱包"),
               processOrder: Number(row.from_process_order || 0),
               quantity: Number(row.quantity || 0),
-              processDate: String(row.created_at || "").slice(0, 10),
+              processDate: transferDate,
               subcontractorName: "",
               isCompleted: true,
-              completedDate: String(row.created_at || "").slice(0, 10),
+              completedDate: transferDate,
             };
 
             completedBalancesByPost.set(postId, [

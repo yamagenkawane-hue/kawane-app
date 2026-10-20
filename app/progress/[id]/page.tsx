@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import supabase from "@/lib/supabase";
+import { predictionMatchesActuals, processActuals, actualDate } from "@/lib/aiPrediction/actuals";
 import { calculateLegacyPredictions } from "@/lib/aiPrediction/legacy";
 import GanttChart from "../../components/GenttChart/GenttChart";
 import styles from "./page.module.css";
@@ -813,11 +814,11 @@ export default function ProgressDetail() {
           setGanttCalendar(calendarData);
           setGanttProcesses(legacy.map(item => ({
             ...item,
-            actualStart: safeDate(item.actualStart),
+            actualStart: item.actualStart ? safeDate(item.actualStart) : null,
             actualEnd: item.actualEnd ? safeDate(item.actualEnd) : null,
-            predictedStart: safeDate(item.predictedStart),
-            predictedEnd: safeDate(item.predictedEnd),
-            isDelay: item.predictedEnd > currentPost.deliveryDate,
+            predictedStart: item.predictedStart ? safeDate(item.predictedStart) : null,
+            predictedEnd: item.predictedEnd ? safeDate(item.predictedEnd) : null,
+            isDelay: Boolean(item.predictedEnd && item.predictedEnd > currentPost.deliveryDate),
           })));
           return;
         }
@@ -825,215 +826,46 @@ export default function ProgressDetail() {
           aiSettings.enabled && !aiSettings.useHolidays ? [] : calendarData;
         setGanttCalendar(predictionCalendar);
         let currentDate = getBusinessDayOnOrAfter(new Date(), predictionCalendar);
-        let previousPredictedStart: Date | null = null;
-        let previousPredictedEnd: Date | null = null;
         const orderAmount = Number(currentPost.orderAmount || 0);
 
         if (orderProcessData.length > 0) {
-          orderProcessData.forEach((process, processIndex) => {
-            if (previousPredictedStart && previousPredictedEnd) {
-              currentDate = getOverlappedProcessStart(
-                previousPredictedStart,
-                previousPredictedEnd,
-                process.overlapDays,
-                predictionCalendar,
-              );
-            }
-
-            const processMaster = processData.find(
-              (item) =>
-                item.name === process.processName ||
-                item.processId === process.processName,
-            );
-            const line = lineData.find(
-              (item) =>
-                processMaster &&
-                item.processId === processMaster.processId &&
-                item.enabled !== false,
-            );
-
-            const processKeys = [
-              process.id,
-              process.processName,
-              processMaster?.processId || "",
-            ].filter(Boolean);
-            const actualCapacity = getActualCapacity(
-              line,
-              aiSettings,
-              processKeys,
-              averageDailyAmountMap,
-            );
-            const processResults = getOrderProcessLogs(
-              process.id,
-              resultData,
-            );
-            processResults.sort((a, b) => a.date.localeCompare(b.date));
-
-            const resultTotal = processResults.reduce(
-              (sum, item) => sum + Number(item.amount || 0),
-              0,
-            );
-            const plannedAmount = Number(process.plannedAmount || orderAmount);
-            const totalActual = Math.max(
-              Number(process.completedAmount || 0),
-              resultTotal,
-            );
-
-            let actualStart = new Date(currentDate);
-            let actualEnd: Date | null = null;
-            let predictedStart = new Date(currentDate);
-            let predictedEnd = new Date(currentDate);
-            let progress = 0;
-            const remainingAmount = Math.max(0, plannedAmount - totalActual);
-            const extraDays = getPredictionExtraDays(
-              Boolean(process.subcontractorId || processMaster?.outsourcing),
-              processIndex === orderProcessData.length - 1,
-              aiSettings,
-            );
-
-            if (processResults.length > 0) {
-              actualStart = safeDate(processResults[0].date);
-              progress =
-                plannedAmount > 0
-                  ? Math.min(
-                      100,
-                      Math.floor((totalActual / plannedAmount) * 100),
-                    )
-                  : 0;
-
-              const lastActualDate = safeDate(
-                processResults[processResults.length - 1].date,
-              );
-              actualEnd = lastActualDate;
-
-              if (remainingAmount <= 0) {
-                predictedStart = lastActualDate;
-                predictedEnd = lastActualDate;
-              } else {
-                const remainingDays = Math.max(
-                  1,
-                  Math.ceil(remainingAmount / actualCapacity),
-                );
-                predictedStart = getPredictionStart(
-                  getNextBusinessDay(lastActualDate, predictionCalendar),
-                  predictionCalendar,
-                  aiSettings,
-                );
-                predictedEnd = getPredictedEnd(
-                  predictedStart,
-                  remainingDays,
-                  extraDays,
-                  predictionCalendar,
-                );
-              }
-            } else if (totalActual > 0) {
-              actualStart = process.completedDate
-                ? safeDate(process.completedDate)
-                : new Date(currentDate);
-              progress =
-                plannedAmount > 0
-                  ? Math.min(
-                      100,
-                      Math.floor((totalActual / plannedAmount) * 100),
-                    )
-                  : 0;
-              actualEnd = process.completedDate ? safeDate(process.completedDate) : null;
-              predictedStart = actualEnd
-                ? getPredictionStart(
-                    getNextBusinessDay(actualEnd, predictionCalendar),
-                    predictionCalendar,
-                    aiSettings,
-                  )
-                : getPredictionStart(currentDate, predictionCalendar, aiSettings);
-              predictedEnd =
-                remainingAmount <= 0
-                  ? new Date(actualStart)
-                  : getPredictedEnd(
-                      predictedStart,
-                      Math.max(1, Math.ceil(remainingAmount / actualCapacity)),
-                      extraDays,
-                      predictionCalendar,
-                    );
-            } else {
-              const requiredDays = Math.max(
-                1,
-                Math.ceil(plannedAmount / actualCapacity),
-              );
-              predictedStart = getPredictionStart(
-                currentDate,
-                predictionCalendar,
-                aiSettings,
-              );
-              actualStart = predictedStart;
-              predictedEnd = getPredictedEnd(
-                predictedStart,
-                requiredDays,
-                extraDays,
-                predictionCalendar,
-              );
-              progress = 0;
-            }
-
-            const delivery = safeDate(currentPost.deliveryDate);
-            const savedPrediction = latestPredictionMap.get(process.id);
-            if (
-              aiSettings.enabled &&
-              savedPrediction?.predicted_start_date &&
-              savedPrediction?.predicted_end_date
-            ) {
-              predictedStart = safeDate(savedPrediction.predicted_start_date);
-              predictedEnd = safeDate(savedPrediction.predicted_end_date);
-            }
-            const savedInput = savedPrediction?.input_summary as
-              | Record<string, unknown>
-              | null
-              | undefined;
-            const displayCompletedAmount = savedInput
-              ? Number(savedInput.completedAmount || 0)
-              : totalActual;
-            const displayRemainingAmount = savedInput
-              ? Number(savedInput.remainingAmount || 0)
-              : remainingAmount;
-            if (savedInput) {
-              const displayPlannedAmount = Number(savedInput.plannedAmount || 0);
-              progress = displayPlannedAmount > 0
-                ? Math.min(
-                    100,
-                    Math.floor((displayCompletedAmount / displayPlannedAmount) * 100),
-                  )
-                : 100;
-            }
-            const isDelay = predictedEnd.getTime() > delivery.getTime();
-            if (progress >= 100) {
-              actualEnd = predictedEnd;
-            }
-
-            ganttList.push({
-              id: process.id,
-              name: process.processName,
-              actualStart,
-              actualEnd,
-              predictedStart,
-              predictedEnd,
-              progress,
-              isDelay,
-              completedAmount: displayCompletedAmount,
-              remainingAmount: displayRemainingAmount,
-              predictionSource: savedPrediction?.source_type,
-              predictionReason: savedPrediction?.reason,
-              predictionComments: Array.isArray(savedPrediction?.comments)
-                ? savedPrediction.comments.map(String)
-                : [],
-              predictionUpdatedAt: savedPrediction?.last_success_at,
-            });
-
-            previousPredictedStart = predictedStart;
-            previousPredictedEnd = predictedEnd;
-            currentDate = getNextBusinessDay(predictedEnd, predictionCalendar);
+          const baseline = calculateLegacyPredictions({
+            referenceDate: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()),
+            orderAmount, processes: orderProcessData, results: resultData,
+            masters: processData, lines: lineData, calendar: predictionCalendar,
           });
-
-          console.log("ganttList", ganttList);
-          setGanttProcesses(ganttList);
+          const snapshotsCurrent = orderProcessData.every(process => predictionMatchesActuals(
+            latestPredictionMap.get(process.id)?.input_summary as Record<string, unknown> | undefined,
+            Number(process.plannedAmount || 0), orderAmount, Number(process.completedAmount || 0),
+            process.outsourceReturnedDate || process.completedDate, getOrderProcessLogs(process.id, resultData),
+          ));
+          setGanttProcesses(baseline.map(item => {
+            const process = orderProcessData.find(row => row.id === item.id)!;
+            const logs = getOrderProcessLogs(process.id, resultData);
+            const saved = latestPredictionMap.get(process.id);
+            const input = saved?.input_summary as Record<string, unknown> | undefined;
+            const fresh = snapshotsCurrent;
+            const effectivePlanned = fresh ? Number(input?.plannedAmount) : Number(process.plannedAmount || orderAmount);
+            const facts = processActuals(effectivePlanned, Number(process.completedAmount || 0), process.outsourceReturnedDate || process.completedDate, logs);
+            const completed = facts.remaining <= 0;
+            const start = completed ? facts.completionDate : fresh ? actualDate(saved?.predicted_start_date) : null;
+            const end = completed ? facts.completionDate : fresh ? actualDate(saved?.predicted_end_date) : null;
+            return {
+              ...item,
+              completedAmount: facts.completed,
+              remainingAmount: facts.remaining,
+              progress: effectivePlanned > 0 ? Math.min(100, Math.floor(facts.completed / effectivePlanned * 100)) : 100,
+              actualStart: facts.actualStart ? safeDate(facts.actualStart) : null,
+              actualEnd: facts.actualEnd ? safeDate(facts.actualEnd) : null,
+              predictedStart: start ? safeDate(start) : null,
+              predictedEnd: end ? safeDate(end) : null,
+              isDelay: Boolean(end && end > currentPost.deliveryDate),
+              predictionSource: completed ? "actual" : fresh ? saved?.source_type : "unavailable",
+              predictionReason: completed ? (facts.completionDate ? "完了実績日" : "完了日未登録") : fresh ? saved?.reason : "実績が変更されたか、現在の計算方式で未更新です。手動更新を実行してください。",
+              predictionComments: fresh && Array.isArray(saved?.comments) ? saved.comments.map(String) : [],
+              predictionUpdatedAt: fresh ? saved?.last_success_at : undefined,
+            };
+          }));
           return;
         }
 
@@ -1058,7 +890,7 @@ export default function ProgressDetail() {
             0,
           );
 
-          let actualStart = new Date(currentDate);
+          let actualStart: Date | null = null;
           let actualEnd: Date | null = null;
           let predictedStart = new Date(currentDate);
           let predictedEnd = new Date(currentDate);
@@ -1112,7 +944,7 @@ export default function ProgressDetail() {
               predictionCalendar,
               aiSettings,
             );
-            actualStart = predictedStart;
+
             predictedEnd = getPredictedEnd(
               predictedStart,
               requiredDays,
@@ -1124,9 +956,6 @@ export default function ProgressDetail() {
 
           const delivery = safeDate(currentPost.deliveryDate);
           const isDelay = predictedEnd.getTime() > delivery.getTime();
-          if (progress >= 100) {
-            actualEnd = predictedEnd;
-          }
 
           ganttList.push({
             id: process.processId,

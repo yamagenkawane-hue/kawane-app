@@ -1,3 +1,4 @@
+import { processActuals } from "./actuals";
 import type { CompanyCalendar, LineMaster, OrderProcess, ProcessMaster, ProcessResult } from "@/app/type";
 
 type LegacyProcess = Pick<OrderProcess, "id" | "processName" | "processOrder" | "overlapDays" | "plannedAmount" | "completedAmount" | "completedDate">;
@@ -9,10 +10,10 @@ type LegacyCalendar = Pick<CompanyCalendar, "date" | "isHoliday">;
 export type LegacyPrediction = {
   id: string;
   name: string;
-  actualStart: string;
+  actualStart: string | null;
   actualEnd: string | null;
-  predictedStart: string;
-  predictedEnd: string;
+  predictedStart: string | null;
+  predictedEnd: string | null;
   progress: number;
   completedAmount: number;
   remainingAmount: number;
@@ -53,7 +54,7 @@ export function calculateLegacyPredictions(input: {
   let previous: LegacyPrediction | undefined;
 
   return [...input.processes].sort((a, b) => a.processOrder - b.processOrder).map(process => {
-    if (previous) {
+    if (previous?.predictedStart && previous.predictedEnd) {
       const overlap = Math.max(0, Math.floor(process.overlapDays || 0));
       const candidate = shift(parseDate(previous.predictedEnd), 1 - overlap);
       cursor = overlap > 0 && dateKey(candidate) < previous.predictedStart
@@ -67,38 +68,23 @@ export function calculateLegacyPredictions(input: {
     const planned = Number(process.plannedAmount || orderAmount);
     const completed = Math.max(Number(process.completedAmount || 0), logs.reduce((sum, row) => sum + Number(row.amount || 0), 0));
     const remaining = Math.max(0, planned - completed);
-    let actualStart = new Date(cursor);
-    let actualEnd: Date | null = null;
-    let start = new Date(cursor);
-    let end = new Date(cursor);
-    let progress = 0;
-    const finish = (from: Date, quantity: number) => shift(from, Math.max(1, Math.ceil(quantity / capacity)) - 1);
-
-    if (logs.length > 0) {
-      actualStart = parseDate(logs[0].date);
-      actualEnd = parseDate(logs[logs.length - 1].date);
-      progress = planned > 0 ? Math.min(100, Math.floor(completed / planned * 100)) : 0;
-      start = remaining <= 0 ? actualEnd : shift(actualEnd, 1);
-      end = remaining <= 0 ? actualEnd : finish(start, remaining);
-    } else if (completed > 0) {
-      actualStart = process.completedDate ? parseDate(process.completedDate) : new Date(cursor);
-      actualEnd = process.completedDate ? parseDate(process.completedDate) : null;
-      progress = planned > 0 ? Math.min(100, Math.floor(completed / planned * 100)) : 0;
-      start = actualEnd ? shift(actualEnd, 1) : onOrAfter(cursor);
-      end = remaining <= 0 ? actualStart : finish(start, remaining);
-    } else {
-      start = onOrAfter(cursor);
-      actualStart = start;
-      end = finish(start, planned);
-    }
-    if (progress >= 100) actualEnd = end;
+    const facts = processActuals(planned, completed, process.completedDate, logs);
+    const actualStart = facts.actualStart ? parseDate(facts.actualStart) : null;
+    const actualEnd = facts.actualEnd ? parseDate(facts.actualEnd) : null;
+    const start = actualEnd ? shift(actualEnd, 1) : onOrAfter(cursor);
+    const end = shift(start, Math.max(1, Math.ceil(remaining / capacity)) - 1);
+    const progress = planned > 0 ? Math.min(100, Math.floor(completed / planned * 100)) : 100;
+    const blocked = Boolean(previous && !previous.predictedEnd && !facts.actualEnd);
+    const finished = remaining <= 0;
+    const predictedStart = finished ? facts.completionDate : blocked ? null : dateKey(start);
+    const predictedEnd = finished ? facts.completionDate : blocked ? null : dateKey(end);
     previous = {
       id: process.id, name: process.processName,
-      actualStart: dateKey(actualStart), actualEnd: actualEnd ? dateKey(actualEnd) : null,
-      predictedStart: dateKey(start), predictedEnd: dateKey(end),
-      progress, completedAmount: completed, remainingAmount: remaining,
+      actualStart: actualStart ? dateKey(actualStart) : null, actualEnd: actualEnd ? dateKey(actualEnd) : null,
+      predictedStart, predictedEnd,
+      progress: remaining <= 0 ? 100 : progress, completedAmount: completed, remainingAmount: remaining,
     };
-    cursor = shift(end, 1);
+    if (predictedEnd) cursor = shift(parseDate(predictedEnd), 1);
     return previous;
   });
 }

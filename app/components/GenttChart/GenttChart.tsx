@@ -44,19 +44,17 @@ export default function GanttChart({ processes, deliveryDate, calendar = [] }: P
   const allDates: number[] = [];
 
   processes.forEach((p) => {
-    allDates.push(p.actualStart.getTime());
-    allDates.push(p.predictedStart.getTime());
-    allDates.push(p.predictedEnd.getTime());
-
-    if (p.actualEnd) {
-      allDates.push(p.actualEnd.getTime());
-    }
+    [p.actualStart, p.actualEnd, p.predictedStart, p.predictedEnd].forEach(date => {
+      if (date && Number.isFinite(date.getTime())) allDates.push(date.getTime());
+    });
   });
 
   const delivery = new Date(deliveryDate);
   if (!Number.isNaN(delivery.getTime())) {
     allDates.push(delivery.getTime());
   }
+
+  if (allDates.length === 0) allDates.push(new Date().setHours(0, 0, 0, 0));
 
   const minDate = new Date(Math.min(...allDates));
   const maxDate = new Date(Math.max(...allDates));
@@ -168,13 +166,13 @@ export default function GanttChart({ processes, deliveryDate, calendar = [] }: P
         // 実績バー
         // =========================
 
-        const actualStartIndex = getDateIndex(process.actualStart);
+        const actualStartIndex = process.actualStart ? getDateIndex(process.actualStart) : 0;
         const actualEndIndex = process.actualEnd
           ? getDateIndex(process.actualEnd)
           : actualStartIndex;
         const actualOffset = actualStartIndex * DAY_WIDTH;
 
-        const actualWidth = process.actualEnd
+        const actualWidth = process.actualStart && process.actualEnd
           ? Math.max(
               40,
               (actualEndIndex - actualStartIndex + 1) * DAY_WIDTH,
@@ -185,12 +183,12 @@ export default function GanttChart({ processes, deliveryDate, calendar = [] }: P
         // 予測バー
         // =========================
 
-        const predictedStartIndex = getDateIndex(process.predictedStart);
-        const predictedEndIndex = getDateIndex(process.predictedEnd);
+        const predictedStartIndex = process.predictedStart ? getDateIndex(process.predictedStart) : 0;
+        const predictedEndIndex = process.predictedEnd ? getDateIndex(process.predictedEnd) : 0;
         const predictedOffset = predictedStartIndex * DAY_WIDTH;
         const predictedDays = predictedEndIndex - predictedStartIndex + 1;
         const predictedWidth =
-          process.remainingAmount > 0
+          process.remainingAmount > 0 && process.predictedStart && process.predictedEnd
             ? Math.max(DAY_WIDTH, predictedDays * DAY_WIDTH)
             : 0;
 
@@ -204,13 +202,16 @@ export default function GanttChart({ processes, deliveryDate, calendar = [] }: P
               <div>{process.name}</div>
 
               <div className={styles.subInfo}>{process.progress}%</div>
+              {process.remainingAmount <= 0 && !process.predictedEnd && <div className={styles.predictionNote}>完了日未登録</div>}
+              {process.remainingAmount > 0 && !process.predictedEnd && <div className={styles.predictionNote}>予測日未確定</div>}
+              {process.completedAmount > 0 && !process.actualStart && <div className={styles.predictionNote}>実績日未登録</div>}
               {process.predictionSource && (
                 <div className={styles.predictionSource}>
                   {process.predictionSource === "gemini"
                     ? "Gemini予測"
                     : process.predictionSource === "capacity"
                       ? "工程能力計算"
-                      : "実績確定"}
+                      : process.predictionSource === "unavailable" ? "予測未確定" : "完了"}
                 </div>
               )}
               {(process.predictionReason || process.predictionComments?.length) && (

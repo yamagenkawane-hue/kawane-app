@@ -279,7 +279,7 @@ const getDisplayDatesByGroup = (
         balance.processDates?.length
           ? balance.processDates
           : [balance.processDate || balance.completedDate || ""],
-      ),
+      ) || (balance.isCompleted ? "完了日未登録" : "実績日未登録"),
     );
   }
 

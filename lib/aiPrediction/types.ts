@@ -25,6 +25,8 @@ export type PredictionProcessInput = {
   allocatedAmount: number;
   producedLotAmount: number;
   plannedAmount: number;
+  registeredPlannedAmount: number;
+  orderAmount: number;
   completedAmount: number;
   remainingAmount: number;
   completedDate: string | null;

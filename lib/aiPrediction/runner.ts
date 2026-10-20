@@ -1,3 +1,4 @@
+import { actualDate, processActuals, PREDICTION_DATE_VERSION } from "./actuals";
 import supabaseAdmin from "@/lib/supabaseAdmin";
 import { calculateLegacyPredictions } from "./legacy";
 import type {
@@ -27,10 +28,16 @@ const dateKey = (date: Date) => {
 
 const parseDate = (value: string) => new Date(`${value.slice(0, 10)}T00:00:00Z`);
 
+type PredictionCalendar = Set<string> | Map<string, boolean>;
+const isHoliday = (date: Date, calendar: PredictionCalendar) =>
+  "get" in calendar
+    ? (calendar.get(dateKey(date)) ?? [0, 6].includes(date.getUTCDay()))
+    : calendar.has(dateKey(date)) || [0, 6].includes(date.getUTCDay());
+
 const addDays = (
   start: string,
   days: number,
-  holidaySet: Set<string>,
+  holidaySet: PredictionCalendar,
   useCalendarDays: boolean,
 ) => {
   const date = parseDate(start);
@@ -38,7 +45,7 @@ const addDays = (
   while (remaining > 0) {
     if (
       useCalendarDays ||
-      (!holidaySet.has(dateKey(date)) && date.getUTCDay() !== 0 && date.getUTCDay() !== 6)
+      !isHoliday(date, holidaySet)
     ) {
       remaining -= 1;
     }
@@ -47,24 +54,22 @@ const addDays = (
   return dateKey(date);
 };
 
-const nextDay = (date: string, holidaySet: Set<string>, useCalendarDays: boolean) => {
+const nextDay = (date: string, holidaySet: PredictionCalendar, useCalendarDays: boolean) => {
   const next = parseDate(date);
   do {
     next.setUTCDate(next.getUTCDate() + 1);
   } while (
     !useCalendarDays &&
-    (holidaySet.has(dateKey(next)) || next.getUTCDay() === 0 || next.getUTCDay() === 6)
+    isHoliday(next, holidaySet)
   );
   return dateKey(next);
 };
 
-const shiftBusinessDays = (date: string, days: number, holidaySet: Set<string>) => {
+const shiftBusinessDays = (date: string, days: number, holidaySet: PredictionCalendar) => {
   const shifted = parseDate(date);
   let remaining = Math.max(0, Math.floor(days));
   const isBusinessDay = () =>
-    shifted.getUTCDay() !== 0 &&
-    shifted.getUTCDay() !== 6 &&
-    !holidaySet.has(dateKey(shifted));
+    !isHoliday(shifted, holidaySet);
 
   if (remaining === 0) {
     while (!isBusinessDay()) shifted.setUTCDate(shifted.getUTCDate() + 1);
@@ -77,7 +82,7 @@ const shiftBusinessDays = (date: string, days: number, holidaySet: Set<string>) 
   return dateKey(shifted);
 };
 
-const countBusinessDays = (start: string, end: string, holidaySet: Set<string>) => {
+const countBusinessDays = (start: string, end: string, holidaySet: PredictionCalendar) => {
   if (!start || !end) return null;
   const direction = end >= start ? 1 : -1;
   const cursor = parseDate(direction === 1 ? start : end);
@@ -85,8 +90,7 @@ const countBusinessDays = (start: string, end: string, holidaySet: Set<string>) 
   let count = 0;
   while (dateKey(cursor) < target) {
     cursor.setUTCDate(cursor.getUTCDate() + 1);
-    const key = dateKey(cursor);
-    if (!holidaySet.has(key) && cursor.getUTCDay() !== 0 && cursor.getUTCDay() !== 6) {
+    if (!isHoliday(cursor, holidaySet)) {
       count += 1;
     }
   }
@@ -118,6 +122,7 @@ const fetchGeminiPredictions = async (inputs: PredictionProcessInput[]) => {
     historicalDailyAmount: item.historicalDailyAmount,
     historicalDurationDays: item.historicalDurationDays,
     outsourcing: item.outsourcing,
+    durationUnit: item.outsourcing ? "calendar_days" : "business_days",
   }));
 
   const response = await fetch(
@@ -134,6 +139,7 @@ const fetchGeminiPredictions = async (inputs: PredictionProcessInput[]) => {
                 text: [
                   "You estimate Japanese factory process durations.",
                   "Return only the requested JSON. Use the supplied aggregated history; never invent IDs.",
+                  "For internal processes estimate business days from remainingAmount / historicalDailyAmount. For outsourcing use historicalDurationDays in calendar days. Never interpret missing history as elapsed time.",
                   "durationDays must be an integer of at least 1. Keep reason concise in Japanese.",
                   JSON.stringify(payload),
                 ].join("\n"),
@@ -319,8 +325,8 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     const referenceStarts = (referenceStartsResponse.data || []) as DbRow[];
     const schedules = (schedulesResponse.data || []) as DbRow[];
     const subcontractors = (subcontractorsResponse.data || []) as DbRow[];
-    const holidaySet = new Set(
-      ((calendarResponse.data || []) as DbRow[]).filter(row => row.is_holiday).map((row) => textValue(row.date).slice(0, 10)),
+    const holidaySet = new Map(
+      ((calendarResponse.data || []) as DbRow[]).map(row => [textValue(row.date).slice(0, 10), Boolean(row.is_holiday)]),
     );
     const postMap = new Map(posts.map((post) => [textValue(post.id), post]));
     const resultsByProcess = new Map<string, DbRow[]>();
@@ -353,7 +359,10 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         basePlannedAmount - allocatedAmount,
         producedLotAmount,
       );
-      const completedAmount = numberValue(process.completed_amount);
+      const facts = processActuals(plannedAmount, numberValue(process.completed_amount),
+        process.outsource_returned_date || process.completed_date,
+        (resultsByProcess.get(textValue(process.id)) || []).map(row => ({date: row.date, amount: numberValue(row.amount)})));
+      const completedAmount = facts.completed;
       const remainingAmount = Math.max(0, plannedAmount - completedAmount);
       const processName = textValue(process.process_name);
       const isManufacturing = processName.includes("製造");
@@ -368,7 +377,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
       const currentProcessResults = resultsByProcess.get(textValue(process.id)) || [];
       const lastActualDate = currentProcessResults
         .map((result) => textValue(result.date).slice(0, 10))
-        .filter(Boolean)
+        .filter(day => actualDate(day))
         .sort()
         .at(-1) || null;
       const productId = textValue(process.product_id) || textValue(post.product_id);
@@ -433,7 +442,10 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
       );
       const matchingResults = matchingHistoricalProcesses.flatMap(
         (candidate) => resultsByProcess.get(textValue(candidate.id)) || [],
-      ).filter((result) => textValue(result.date).slice(0, 10) >= referenceStartDate);
+      ).filter((result) => {
+        const day = actualDate(result.date);
+        return day && day >= referenceStartDate && day <= getTodayInJapan() && numberValue(result.amount) > 0;
+      });
       const allDailyTotals = new Map<string, number>();
       matchingResults.forEach((result) => {
         const day = textValue(result.date).slice(0, 10);
@@ -450,7 +462,11 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
       }
       const historyBusinessDays = dailyTotals.length;
       const completedHistoricalProcesses = matchingHistoricalProcesses.filter(
-        (candidate) => Boolean(isOutsourcing ? candidate.outsource_returned_date : candidate.completed_date),
+        (candidate) => {
+          const end = actualDate(isOutsourcing ? candidate.outsource_returned_date : candidate.completed_date);
+          const start = actualDate(candidate.outsource_sent_date);
+          return Boolean(end && end <= getTodayInJapan() && (!isOutsourcing || (start && start <= end)));
+        },
       ).sort((left, right) =>
         textValue(isOutsourcing ? right.outsource_returned_date : right.completed_date)
           .localeCompare(textValue(isOutsourcing ? left.outsource_returned_date : left.completed_date)),
@@ -465,25 +481,30 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           if (selectedCompletedProcesses.length >= settings.other_process_min_lots) break;
         }
       }
-      const historySampleCount = selectedCompletedProcesses.length;
+      const internalSampleCount = new Set(matchingResults.map(row => textValue(row.order_process_id))).size;
+      const historySampleCount = isOutsourcing ? selectedCompletedProcesses.length : internalSampleCount;
       const totalHistoricalAmount = dailyTotals.reduce((sum, [, amount]) => sum + amount, 0);
       const historicalDailyAmount = historyBusinessDays
         ? totalHistoricalAmount / historyBusinessDays
         : null;
       const durationSamples = selectedCompletedProcesses
         .map((candidate) => {
-          const started = textValue(isOutsourcing ? candidate.outsource_sent_date : candidate.created_at).slice(0, 10);
-          const completed = textValue(isOutsourcing ? candidate.outsource_returned_date : candidate.completed_date).slice(0, 10);
-          if (!started || !completed) return null;
+          // Internal work uses actual daily output, not elapsed time since record creation.
+          if (!isOutsourcing) return null;
+          const started = actualDate(candidate.outsource_sent_date);
+          const completed = actualDate(candidate.outsource_returned_date);
+          if (!started || !completed || completed < started || completed > getTodayInJapan()) return null;
           return Math.max(1, Math.ceil((parseDate(completed).getTime() - parseDate(started).getTime()) / 86_400_000) + 1);
         })
         .filter((value): value is number => value != null);
       const historicalDurationDays = durationSamples.length
         ? durationSamples.reduce((sum, value) => sum + value, 0) / durationSamples.length
         : null;
-      const historySufficient = isManufacturing
-        ? historyBusinessDays >= settings.manufacturing_min_business_days
-        : durationSamples.length >= settings.other_process_min_lots;
+      const historySufficient = isOutsourcing
+        ? durationSamples.length >= settings.other_process_min_lots
+        : isManufacturing
+          ? historyBusinessDays >= settings.manufacturing_min_business_days
+          : internalSampleCount >= settings.other_process_min_lots && historyBusinessDays > 0;
 
       const processCapacityRows = lines.filter(
         (line) =>
@@ -502,10 +523,10 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
       let capacityOperationRate: number | null = null;
 
       if (
-        (isOutsourcing && process.outsource_returned_date) ||
-        (remainingAmount <= 0 && process.completed_date)
+        remainingAmount <= 0
       ) {
         sourceType = "actual";
+        if (!facts.completionDate) comments.push("完了日未登録。完了数量は確認済みです。");
       } else if (!settings.use_past_results || !historySufficient) {
         sourceType = "capacity";
         comments.push(FALLBACK_COMMENT);
@@ -539,7 +560,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
       if (isManufacturing && completedAmount <= 0 && (!plannedStartDate || plannedStartDate < getTodayInJapan())) {
         comments.push("製造開始予定日が未設定または過去日のため、更新日以降の営業日から予測しています。");
       }
-      if (isOutsourcing && !subcontractorId) {
+      if (sourceType !== "actual" && isOutsourcing && !subcontractorId) {
         sourceType = "unavailable";
         comments.push("外注先が未設定のため、予測できません。");
       }
@@ -561,13 +582,11 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         allocatedAmount,
         producedLotAmount,
         plannedAmount,
+        registeredPlannedAmount: numberValue(process.planned_amount),
+        orderAmount: numberValue(post.order_amount),
         completedAmount,
         remainingAmount,
-        completedDate: textValue(
-          isOutsourcing
-            ? process.outsource_returned_date || process.completed_date
-            : process.completed_date,
-        ).slice(0, 10) || null,
+        completedDate: facts.completionDate,
         outsourcing: isOutsourcing,
         subcontractorName: textValue(subcontractor?.name) || null,
         outsourceSentDate: textValue(process.outsource_sent_date).slice(0, 10) || null,
@@ -656,6 +675,12 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           defaultOutsourceScheduleShifted = cursor > configuredSentDate;
           startDate = defaultOutsourceScheduleShifted ? cursor : configuredSentDate;
         }
+        if (!input.outsourcing && input.sourceType !== "actual") {
+          const earliest = input.lastActualDate
+            ? nextDay(input.lastActualDate, holidaySet, false)
+            : shiftBusinessDays(today, 0, holidaySet);
+          startDate = [startDate, earliest, shiftBusinessDays(today, 0, holidaySet)].sort().at(-1)!;
+        }
         if (isManufacturing && input.plannedStartDate && input.plannedStartDate > startDate) {
           startDate = input.plannedStartDate;
         }
@@ -663,16 +688,19 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           const availableDate = machineAvailableDate.get(input.pressNumber);
           if (availableDate && availableDate > startDate) startDate = availableDate;
         }
+        if (input.lastActualDate || input.outsourceSentDate || (isManufacturing && input.plannedStartDate)) {
+          postUnavailable = false;
+        }
         const blockingOrder = isManufacturing && input.pressNumber
           ? machineBlockedByOrder.get(input.pressNumber)
           : undefined;
 
-        if (input.sourceType === "actual" && input.completedDate) {
-          startDate = input.completedDate;
+        if (input.sourceType === "actual") {
+          startDate = input.completedDate || cursor;
           endDate = input.completedDate;
           status = "confirmed";
-          reason = "完了実績日を使用しています。";
-        } else if (input.outsourcing && !input.outsourceSentDate && input.subcontractorName) {
+          reason = input.completedDate ? "完了実績日を使用しています。" : "完了日未登録（数量は完了）。";
+        } else if (!postUnavailable && input.outsourcing && !input.outsourceSentDate && input.subcontractorName) {
           const outsourceLeadDays = Math.max(
             0,
             settings.outsource_default_return_offset_days -
@@ -745,15 +773,16 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           order_no: input.orderNo,
           process_name: input.processName,
           process_order: input.processOrder,
-          predicted_start_date: status === "unavailable" ? null : startDate,
+          predicted_start_date: status === "unavailable" || (status === "confirmed" && !endDate) ? null : startDate,
           predicted_end_date: endDate,
           source_type: status === "unavailable" ? "unavailable" : input.sourceType,
           status,
           reason,
           comments,
-          input_summary: input,
+          input_summary: { ...input, dateVersion: PREDICTION_DATE_VERSION },
         });
-        if (isManufacturing && input.pressNumber) {
+        if (status === "confirmed") postUnavailable = !endDate;
+        if (isManufacturing && input.pressNumber && input.sourceType !== "actual") {
           if (endDate) {
             machineAvailableDate.set(
               input.pressNumber,
@@ -776,7 +805,6 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
       if (historyError) throw historyError;
 
       const latestRows = saved
-        .filter((item) => item.status !== "unavailable")
         .map((item) => ({
           ...item,
           run_id: runId,
