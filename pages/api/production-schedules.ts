@@ -1,5 +1,6 @@
+import { requireApiUser } from "@/lib/auth/server";
 import type { NextApiRequest, NextApiResponse } from "next";
-import supabase from "@/lib/supabase";
+
 
 const SCHEDULE_SELECT_COLUMNS =
   "id,post_id,order_no,customer_name,product_name,press_number,lot_no,plan_amount,press_completed_amount,press_completed_date,shipping_scheduled_start,shipping_scheduled_end,delivery_date,created_at,updated_at,department";
@@ -59,6 +60,10 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
+  const auth=await requireApiUser(req,res,req.method === "DELETE");
+  if(!auth) return;
+  const supabase=auth.client;
+
   try {
     if (req.method === "GET") {
       const departmentQuery =

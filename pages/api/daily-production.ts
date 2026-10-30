@@ -1,5 +1,6 @@
+import { requireApiUser } from "@/lib/auth/server";
 import type { NextApiRequest, NextApiResponse } from "next";
-import supabase from "@/lib/supabase";
+
 
 const DAILY_PRODUCTION_SELECT_COLUMNS =
   "id,delete,order_no,lot_no,product_code,product_name,customer_name,order_amount,remaining_amount,status,delivery_date,completion_scheduled_date,remark,created_at,updated_at,shipping_scheduled_start,shipping_scheduled_end";
@@ -53,6 +54,10 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
+  const auth=await requireApiUser(req,res,req.method === "DELETE");
+  if(!auth) return;
+  const supabase=auth.client;
+
   try {
     if (req.method === "GET") {
       const today = String(req.query.date || toToday());

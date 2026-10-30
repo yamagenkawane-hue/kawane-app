@@ -1,6 +1,8 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useEffect, useState } from "react";
 import supabase from "../../lib/supabase";
 import { LotProcessBalance, Post } from "../type";
+import { buildProcessDisplayMap } from "@/lib/progressProcess";
 import {
   buildOrderProcessProgressMap,
   buildOrderProcessStatusMap,
@@ -69,40 +71,6 @@ const mergeLogDates = (
   return [...logsByDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 };
 
-const getLatestDate = (dates?: string[]) =>
-  [...(dates || [])].filter(Boolean).sort((a, b) => b.localeCompare(a))[0] ||
-  "";
-
-const getSortedDates = (dates?: string[]) =>
-  Array.from(new Set((dates || []).filter(Boolean))).sort((a, b) =>
-    a.localeCompare(b),
-  );
-
-const upsertHistoryOnlyBalance = (
-  balanceMap: Map<string, LotProcessBalance>,
-  balance: LotProcessBalance,
-) => {
-  const current = balanceMap.get(balance.id);
-
-  if (!current) {
-    balanceMap.set(balance.id, balance);
-    return;
-  }
-
-  balanceMap.set(balance.id, {
-    ...current,
-    quantity: current.quantity + balance.quantity,
-    processDates: getSortedDates([
-      ...(current.processDates || []),
-      ...(balance.processDates || []),
-    ]),
-    processDate: getLatestDate([
-      ...(current.processDates || []),
-      ...(balance.processDates || []),
-    ]),
-  });
-};
-
 export const useFetchPosts = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [shouldFetch, setShouldFetch] = useState(true);
@@ -121,36 +89,39 @@ export const useFetchPosts = () => {
           inventoryResult,
           allocationResult,
           transferHistoryResult,
+          productProcessResult,
         ] = await Promise.all([
-          supabase
-            .from("posts")
+          fetchAllRows((from, to) => supabase
+            .from("v_posts_with_master")
             .select(POST_SELECT_COLUMNS)
-            .order("created_at", { ascending: true }),
-          supabase
+            .order("id").range(from, to)),
+          fetchAllRows((from, to) => supabase
             .from("shipments")
-            .select("post_id,quantity")
-            .eq("cancelled", false),
-          supabase
+            .select("post_id,order_no,quantity")
+            .or("cancelled.is.null,cancelled.eq.false").order("id").range(from, to)),
+          fetchAllRows((from, to) => supabase
             .from("v_order_processes_with_master")
             .select(
-              "post_id,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,outsource_status,outsource_sent_date,outsource_returned_date",
-            ),
+              "id,post_id,product_process_id,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,outsource_status,outsource_sent_date,outsource_returned_date",
+            ).order("id").range(from, to)),
           fetchProductionResults(),
-          supabase
+          fetchAllRows((from, to) => supabase
             .from("v_lot_process_balance_with_master")
             .select(LOT_PROCESS_BALANCE_SELECT_COLUMNS)
-            .order("process_order", { ascending: true }),
-          supabase
+            .order("id").range(from, to)),
+          fetchAllRows((from, to) => supabase
             .from("v_inventory_items_with_master")
-            .select("product_code,product_name,current_stock,allocated_stock"),
-          supabase
+            .select("product_code,product_name,current_stock,allocated_stock").order("id").range(from, to)),
+          fetchAllRows((from, to) => supabase
             .from("v_inventory_allocations_with_master")
-            .select("post_id,allocated_amount,shipped_amount"),
-          supabase
+            .select("post_id,allocated_amount,shipped_amount").order("id").range(from, to)),
+          fetchAllRows((from, to) => supabase
             .from("v_process_transfer_history_with_master")
             .select(
               `${STOCK_IN_HISTORY_SELECT_COLUMNS},movement_type,before_from_quantity,after_from_quantity,correction_quantity`,
-            ),
+            ).order("id").range(from, to)),
+          fetchAllRows((from, to) => supabase.from("product_processes")
+            .select("id,process_master(process_id,name,outsourcing)").order("id").range(from, to)),
         ]);
 
         const { data, error } = postResult;
@@ -163,10 +134,11 @@ export const useFetchPosts = () => {
         if (inventoryResult.error) throw inventoryResult.error;
         if (allocationResult.error) throw allocationResult.error;
         if (transferHistoryResult.error) throw transferHistoryResult.error;
+        if (productProcessResult.error) throw productProcessResult.error;
 
         const shippedMap = new Map<string, number>();
         for (const row of shipmentResult.data || []) {
-          const postId = row.post_id || "";
+          const postId = row.post_id || data?.find(post => post.order_no === row.order_no)?.id || "";
           shippedMap.set(
             postId,
             (shippedMap.get(postId) || 0) + Number(row.quantity || 0),
@@ -174,9 +146,11 @@ export const useFetchPosts = () => {
         }
 
         const lotBalancesByPost = new Map<string, LotProcessBalance[]>();
+        const processDisplayMap = buildProcessDisplayMap(orderProcessResult.data || [], productProcessResult.data || []);
         for (const row of lotBalanceResult.data || []) {
-          const balance = mapLotProcessBalance(row as Record<string, unknown>);
-          if (!balance.postId) continue;
+          const mapped = mapLotProcessBalance(row as Record<string, unknown>);
+          const balance = { ...mapped, ...processDisplayMap.get(mapped.orderProcessId) };
+          if (!balance.postId || balance.quantity <= 0) continue;
           lotBalancesByPost.set(balance.postId, [
             ...(lotBalancesByPost.get(balance.postId) || []),
             balance,
@@ -223,9 +197,6 @@ export const useFetchPosts = () => {
 
         const resultDates = new Map((productionResult.data || []).map(row => [String(row.id), String(row.date || "").slice(0, 10)]));
         const quantityAdjustmentByPost = new Map<string, number>();
-        const completedBalancesByPost = new Map<string, LotProcessBalance[]>();
-        const historyOnlyBalancesByPost = new Map<string, LotProcessBalance[]>();
-        const historyOnlyBalanceMap = new Map<string, LotProcessBalance>();
         const transferDateProgressMap = new Map<
           string,
           ReturnType<typeof createEmptyProcessProgress>
@@ -236,8 +207,6 @@ export const useFetchPosts = () => {
 
           const movementType = String(row.movement_type || "");
           const transferDate = resultDates.get(String(row.source_result_id || "")) || "";
-          const lotId = String(row.lot_id || "");
-          const fromOrderProcessId = String(row.from_order_process_id || "");
           const toLogKey = getProcessLogKey(
             String(row.to_process_name || ""),
             Number(row.to_process_order || 0),
@@ -246,25 +215,6 @@ export const useFetchPosts = () => {
             String(row.from_process_name || ""),
             Number(row.from_process_order || 0),
           );
-
-          if (transferDate && lotId && movementType === "process_transfer") {
-            upsertHistoryOnlyBalance(historyOnlyBalanceMap, {
-              id: `history-${postId}-${lotId}-${fromOrderProcessId}`,
-              postId,
-              orderNo: String(row.order_no || ""),
-              lotId,
-              lotNo: String(row.lot_no || ""),
-              materialLotNo: String(row.material_lot_no || ""),
-              orderProcessId: fromOrderProcessId,
-              processName: String(row.from_process_name || ""),
-              processOrder: Number(row.from_process_order || 0),
-              quantity: Number(row.quantity || 0),
-              processDates: [transferDate],
-              processDate: transferDate,
-              subcontractorName: "",
-              isHistoryOnly: true,
-            });
-          }
 
           if (
             transferDate &&
@@ -281,30 +231,6 @@ export const useFetchPosts = () => {
               });
               transferDateProgressMap.set(postId, progress);
             }
-          }
-
-          if (movementType === "stock_in") {
-            const completedBalance: LotProcessBalance = {
-              id: String(row.id || ""),
-              postId,
-              orderNo: String(row.order_no || ""),
-              lotId: String(row.lot_id || ""),
-              lotNo: String(row.lot_no || ""),
-              materialLotNo: String(row.material_lot_no || ""),
-              orderProcessId: String(row.from_order_process_id || ""),
-              processName: String(row.from_process_name || "梱包"),
-              processOrder: Number(row.from_process_order || 0),
-              quantity: Number(row.quantity || 0),
-              processDate: transferDate,
-              subcontractorName: "",
-              isCompleted: true,
-              completedDate: transferDate,
-            };
-
-            completedBalancesByPost.set(postId, [
-              ...(completedBalancesByPost.get(postId) || []),
-              completedBalance,
-            ]);
           }
 
           const beforeQuantity = Number(row.before_from_quantity || 0);
@@ -326,13 +252,6 @@ export const useFetchPosts = () => {
             postId,
             (quantityAdjustmentByPost.get(postId) || 0) + adjustmentAmount,
           );
-        }
-
-        for (const balance of historyOnlyBalanceMap.values()) {
-          historyOnlyBalancesByPost.set(balance.postId, [
-            ...(historyOnlyBalancesByPost.get(balance.postId) || []),
-            balance,
-          ]);
         }
 
         const processProgressMap = buildOrderProcessProgressMap(
@@ -419,10 +338,10 @@ export const useFetchPosts = () => {
           // =========================
           // 注残
           // =========================
-          const remainingAmount = orderAmount - packagingAmount;
+
           const allocationSummary = allocationByPost.get(row.id);
           const shippedAmount =
-            shippedMap.get(row.id) || allocationSummary?.shippedAmount || 0;
+            shippedMap.get(row.id) || 0;
           const productInventory =
             inventoryByProduct.get(row.product_code || "") ||
             inventoryByProduct.get(row.product_name || "") ||
@@ -483,10 +402,8 @@ export const useFetchPosts = () => {
             quantityAdjustmentAmount,
             lotProcessBalances: [
               ...(lotBalancesByPost.get(row.id) || []),
-              ...(historyOnlyBalancesByPost.get(row.id) || []),
-              ...(completedBalancesByPost.get(row.id) || []),
             ],
-            remainingAmount,
+            remainingAmount: Math.max(0, orderAmount - shippedAmount),
             deliveryDate: row.delivery_date || "",
             completionScheduledDate:
               row.completion_scheduled_date || row.delivery_date || "",

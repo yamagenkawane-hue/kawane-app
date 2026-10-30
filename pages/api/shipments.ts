@@ -1,16 +1,17 @@
+import { requireApiUser } from "@/lib/auth/server";
 import type { NextApiRequest, NextApiResponse } from "next";
-import supabase from "@/lib/supabase";
+
 import supabaseAdmin, { hasSupabaseAdminConfig } from "@/lib/supabaseAdmin";
+
+import { fetchAllRows } from "@/lib/fetchAllRows";
 
 const SHIPMENT_SELECT_COLUMNS =
   "id,post_id,order_no,customer_name,product_code,product_name,lot_id,lot_no,scheduled_date,delivery_date,order_amount,quantity,cancelled,cancelled_at,cancelled_reason,created_at,updated_at";
 
 const requiredFields = [
   "post_id",
-  "order_no",
-  "customer_name",
-  "product_name",
-  "lot_no",
+  "lot_id",
+  "idempotency_key",
   "scheduled_date",
   "quantity",
 ];
@@ -19,13 +20,17 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
+  const auth=await requireApiUser(req,res,req.method === "DELETE");
+  if(!auth) return;
+  const supabase=auth.client;
+
   try {
     if (req.method === "GET") {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllRows((from, to) => supabase
         .from("v_shipments_with_master")
         .select(SHIPMENT_SELECT_COLUMNS)
-        .eq("cancelled", false)
-        .order("customer_name", { ascending: true });
+        .or("cancelled.is.null,cancelled.eq.false")
+        .order("id", { ascending: true }).range(from, to));
 
       if (error) throw error;
       return res.status(200).json(data || []);
@@ -44,81 +49,31 @@ export default async function handler(
       }
 
       const quantity = Number(body.quantity);
-      if (!Number.isFinite(quantity) || quantity <= 0) {
-        return res.status(400).json({ error: "出荷数は1以上で入力してください" });
+      if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 2147483647) {
+        return res.status(400).json({ error: "出荷数は1以上の整数で入力してください" });
       }
 
-      const { error: deductError } = await supabase.rpc("ship_inventory_for_post", {
+      if (!hasSupabaseAdminConfig || !supabaseAdmin) {
+        return res.status(500).json({ error: "Supabase管理用キーがサーバーに設定されていません" });
+      }
+      const { data, error } = await supabase.rpc("register_shipment", {
         p_post_id: body.post_id,
+        p_lot_id: body.lot_id,
         p_quantity: quantity,
+        p_scheduled_date: body.scheduled_date,
+        p_idempotency_key: body.idempotency_key,
       });
-
-      if (deductError) throw deductError;
-
-      const now = new Date().toISOString();
-      const { data, error } = await supabase
-        .from("shipments")
-        .insert({
-          post_id: body.post_id,
-          order_no: body.order_no,
-          customer_name: body.customer_name,
-          product_name: body.product_name,
-          lot_id: body.lot_id || null,
-          lot_no: body.lot_no || "",
-          scheduled_date: body.scheduled_date,
-          delivery_date: body.delivery_date || null,
-          order_amount: Number(body.order_amount || 0),
-          quantity,
-          created_at: now,
-          updated_at: now,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      if (error) return res.status(error.code === "P0001" ? 409 : 500).json({ error: error.message });
       return res.status(201).json(data);
     }
 
     if (req.method === "DELETE") {
       const body = req.body || {};
       const shipmentId = String(body.id || req.query.id || "");
-      const isManager = body.is_manager === true || req.headers["x-manager"] === "true";
-      const reason = String(body.reason || "出荷取消");
-      const cancelPassword = String(body.cancel_password || "");
-
-      if (!shipmentId) {
-        return res.status(400).json({ error: "出荷履歴IDを指定してください" });
-      }
-
-      if (!isManager) {
-        return res.status(403).json({ error: "出荷取消は管理者のみ操作できます" });
-      }
-
-      if (!hasSupabaseAdminConfig || !supabaseAdmin) {
-        return res.status(500).json({
-          error: "Supabase管理用キーがサーバーに設定されていません",
-        });
-      }
-
-      if (!cancelPassword.trim()) {
-        return res.status(400).json({ error: "管理者パスワードを入力してください" });
-      }
-
-      const { data: managerUsers, error: managerError } = await supabaseAdmin
-        .from("user")
-        .select("id")
-        .eq("manager", true)
-        .eq("delete", false)
-        .eq("pass", cancelPassword.trim())
-        .limit(1);
-
-      if (managerError) throw managerError;
-
-      if (!managerUsers || managerUsers.length === 0) {
-        return res.status(403).json({ error: "管理者パスワードが違います" });
-      }
-
-      const { error } = await supabaseAdmin.rpc("cancel_shipment_and_restore_inventory", {
+      const reason = String(body.reason || "出荷取消").trim();
+      if(!shipmentId||!reason) return res.status(400).json({error:"出荷履歴IDと取消理由を指定してください"});
+      if(!auth.profile.manager) return res.status(403).json({error:"出荷取消は管理者のみ操作できます"});
+      const { error } = await supabase.rpc("cancel_shipment_and_restore_inventory", {
         p_shipment_id: shipmentId,
         p_reason: reason,
       });

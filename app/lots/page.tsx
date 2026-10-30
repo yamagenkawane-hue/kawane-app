@@ -3,6 +3,7 @@
 import type { PointerEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useAppAuth } from "@/app/components/AuthProvider/AuthProvider";
 import supabase from "@/lib/supabase";
 import styles from "./page.module.css";
 
@@ -39,7 +40,7 @@ type LotFlowRow = {
   updatedAt: string;
 };
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 30;
 
 const LOT_SELECT_COLUMNS = [
   "id",
@@ -99,6 +100,7 @@ const formatDate = (value: string) => {
 };
 
 export default function LotsPage() {
+  const {profile}=useAppAuth();
   const [lots, setLots] = useState<LotFlowRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -318,6 +320,8 @@ export default function LotsPage() {
                     className={styles.deleteButton}
                     onPointerDown={(event) => event.stopPropagation()}
                     onClick={() => void softDeleteLot(lot)}
+                    disabled={!profile?.manager}
+                    title={!profile?.manager?"管理者のみ操作できます":undefined}
                   >
                     削除
                   </button>

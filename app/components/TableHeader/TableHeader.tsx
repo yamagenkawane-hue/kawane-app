@@ -26,36 +26,28 @@ const TableHeader = () => {
           納期
         </th>
 
-        <th colSpan={3} className={styles.processHeader}>
+        <th colSpan={2} className={styles.processHeader}>
           製造
         </th>
 
-        <th colSpan={3} className={styles.processHeader}>
-          洗浄
+        <th colSpan={2} className={styles.processHeader}>
+          洗浄・外注
         </th>
 
-        <th colSpan={3} className={styles.processHeader}>
+        <th colSpan={2} className={styles.processHeader}>
           検査
         </th>
 
-        <th colSpan={3} className={styles.processHeader}>
+        <th colSpan={2} className={styles.processHeader}>
           計量
         </th>
 
-        <th colSpan={3} className={styles.processHeader}>
-          梱包
+        <th rowSpan={2} className={styles.stockHeader}>
+          梱包在庫
         </th>
 
         <th rowSpan={2} className={styles.totalHeader}>
-          合計
-        </th>
-
-        <th rowSpan={2} className={styles.stockHeader}>
-          在庫数
-        </th>
-
-        <th rowSpan={2} className={styles.stockHeader}>
-          引当数
+          在庫合計
         </th>
 
         <th rowSpan={2} className={styles.stockHeader}>
@@ -78,23 +70,16 @@ const TableHeader = () => {
       <tr className={styles.headerBottom}>
         <th className={styles.lotHeader}>ロット</th>
         <th className={styles.amountHeader}>数量</th>
-        <th className={styles.dateHeader}>日付</th>
 
         <th className={styles.lotHeader}>ロット</th>
         <th className={styles.amountHeader}>数量</th>
-        <th className={styles.dateHeader}>日付</th>
 
         <th className={styles.lotHeader}>ロット</th>
         <th className={styles.amountHeader}>数量</th>
-        <th className={styles.dateHeader}>日付</th>
 
         <th className={styles.lotHeader}>ロット</th>
         <th className={styles.amountHeader}>数量</th>
-        <th className={styles.dateHeader}>日付</th>
 
-        <th className={styles.lotHeader}>ロット</th>
-        <th className={styles.amountHeader}>数量</th>
-        <th className={styles.dateHeader}>日付</th>
       </tr>
     </thead>
   );

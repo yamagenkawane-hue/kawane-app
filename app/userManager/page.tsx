@@ -3,11 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Pencil, Trash2, RotateCcw, User, Shield, Lock } from "lucide-react"; // Lock追加
-import supabase from "@/lib/supabase";
+import { authFetch } from "@/lib/auth/client";
+import { useAppAuth } from "@/app/components/AuthProvider/AuthProvider";
 import styles from "./page.module.css";
 import { User as UserType } from "../type";
 
-const USER_SELECT_COLUMNS = "id,name,pass,manager,delete";
 
 export default function UserManagerPage() {
   const [users, setUsers] = useState<UserType[]>([]);
@@ -18,30 +18,20 @@ export default function UserManagerPage() {
   const [editManager, setEditManager] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const managerName = process.env.NEXT_PUBLIC_MANAGER_ID;
-  const managerPass = process.env.NEXT_PUBLIC_MANAGER_PASSWORD;
-
-  const isLocked = (user: UserType) =>
-    user.name === managerName && user.pass === managerPass;
-
+  const {profile}=useAppAuth();
+  const isLocked=(user:UserType)=>user.id===profile?.id;
+  const updateAccount=async(values:Record<string,unknown>)=>{
+    const response=await authFetch("/api/auth/users",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(values)});
+    if(!response.ok) {const result=await response.json();throw new Error(result.error);}
+  };
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase
-        .from("user")
-        .select(USER_SELECT_COLUMNS);
-
-      if (error) throw error;
-
-      const mapped: UserType[] = (data || []).map((row) => ({
-        id: row.id,
-        name: row.name,
-        pass: row.pass,
-        manager: row.manager,
-        delete: row.delete,
-      }));
-
+      const response=await authFetch("/api/auth/users");
+      if(!response.ok) throw new Error("ユーザー情報を取得できません");
+      const data=await response.json() as {id:string;login_id:string;manager:boolean;active:boolean}[];
+      const mapped:UserType[]=data.map(row=>({id:row.id,name:row.login_id,pass:"",manager:row.manager,delete:!row.active}));
       setUsers(mapped.filter((item) => !item.delete));
       setTrashUsers(mapped.filter((item) => item.delete));
     } catch (error) {
@@ -62,7 +52,7 @@ export default function UserManagerPage() {
     if (isLocked(user)) return; // ロック時は何もしない
     setEditingUser(user);
     setEditName(user.name);
-    setEditPass(user.pass);
+    setEditPass("");
     setEditManager(user.manager);
   };
 
@@ -70,13 +60,7 @@ export default function UserManagerPage() {
     if (!editingUser) return;
 
     try {
-      const { error } = await supabase
-        .from("user")
-        .update({ name: editName, pass: editPass, manager: editManager })
-        .eq("id", editingUser.id);
-
-      if (error) throw error;
-
+      await updateAccount({id:editingUser.id,name:editName,password:editPass,manager:editManager});
       setEditingUser(null);
       setEditName("");
       setEditPass("");
@@ -84,57 +68,29 @@ export default function UserManagerPage() {
 
       await fetchUsers();
     } catch (error) {
-      console.error("更新エラー", error);
+      alert(error instanceof Error?error.message:"更新できません");
     }
   };
 
   const moveTrash = async (user: UserType) => {
     if (isLocked(user)) return;
     try {
-      const { error } = await supabase
-        .from("user")
-        .update({ delete: true })
-        .eq("id", user.id);
-
-      if (error) throw error;
-
+      await updateAccount({id:user.id,active:false});
       await fetchUsers();
     } catch (error) {
-      console.error("削除エラー", error);
+      alert(error instanceof Error?error.message:"無効化できません");
     }
   };
 
   const restoreUser = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("user")
-        .update({ delete: false })
-        .eq("id", id);
-
-      if (error) throw error;
-
+      await updateAccount({id,active:true});
       await fetchUsers();
     } catch (error) {
-      console.error("復元エラー", error);
+      alert(error instanceof Error?error.message:"復元できません");
     }
   };
 
-  const fullDelete = async (id: string) => {
-    const confirmDelete = window.confirm(
-      "完全削除しますか？\nこの操作は元に戻せません。",
-    );
-    if (!confirmDelete) return;
-
-    try {
-      const { error } = await supabase.from("user").delete().eq("id", id);
-
-      if (error) throw error;
-
-      await fetchUsers();
-    } catch (error) {
-      console.error("完全削除エラー", error);
-    }
-  };
 
   return (
     <div className={styles.container}>
@@ -171,11 +127,11 @@ export default function UserManagerPage() {
 
                   <div className={styles.cardBody}>
                     <h3>{user.name}</h3>
-                    <p>パスワード :{user.pass}</p>
+                    <p>パスワード：非表示</p>
                     <p>権限 :{user.manager ? "管理者" : "一般"}</p>
                     {isLocked(user) && (
                       <p style={{ color: "gray", fontSize: "0.8rem" }}>
-                        🔒 このユーザーは編集・削除できません
+                        🔒 ログイン中の自分自身はここでは変更できません
                       </p>
                     )}
                   </div>
@@ -230,7 +186,7 @@ export default function UserManagerPage() {
 
                   <div className={styles.cardBody}>
                     <h3>{user.name}</h3>
-                    <p>パスワード :{user.pass}</p>
+                    <p>パスワード：非表示</p>
                   </div>
 
                   <div className={styles.actions}>
@@ -239,13 +195,6 @@ export default function UserManagerPage() {
                       onClick={() => restoreUser(user.id)}
                     >
                       <RotateCcw size={18} />
-                    </button>
-
-                    <button
-                      className={styles.deleteButton}
-                      onClick={() => fullDelete(user.id)}
-                    >
-                      <Trash2 size={18} />
                     </button>
                   </div>
                 </div>
@@ -270,8 +219,9 @@ export default function UserManagerPage() {
             <input
               className={styles.input}
               value={editPass}
+                      placeholder="変更する場合のみ6文字以上"
               onChange={(e) => setEditPass(e.target.value)}
-              placeholder="パスワード"
+              type="password" autoComplete="new-password"
             />
 
             <label className={styles.checkboxRow}>

@@ -57,18 +57,21 @@ const Confirmation = () => {
   const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
 
   const handleBulkDelete = async () => {
-    if (window.confirm("本当に選択した予約を削除しますか？")) {
+    if (window.confirm("選択した注番の誤登録を取り消します。実績などがある注番は取消できません。在庫は減算されません。よろしいですか？")) {
       const deleteTargets = selectedIndexes.map(
         (index) => filteredPosts[index],
       );
 
       const ids = deleteTargets.map((post) => post.id);
 
-      const { error } = await supabase.from("posts").delete().in("id", ids);
-
-      if (error) {
-        console.error("一括削除エラー", error);
-        return;
+      for (const id of ids) {
+        const { error } = await supabase.rpc("soft_delete_order_post", { p_post_id: id });
+        if (error) {
+          alert(`取消処理を中断しました。先に処理した注番の取消は完了しています。${error.message}`);
+          setSelectedIndexes([]);
+          setShouldFetch(true);
+          return;
+        }
       }
 
       setSelectedIndexes([]);

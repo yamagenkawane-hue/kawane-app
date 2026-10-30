@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local database inspection/rollback snapshots and CLI cache
+/supabase/.temp/
+/docs/auth_permissions_before_20261030.json
+/docs/auth_table_schema_before_20261030.json

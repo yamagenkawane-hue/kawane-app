@@ -1,4 +1,5 @@
 "use client";
+import { authFetch } from "@/lib/auth/client";
 
 import { type MouseEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -356,7 +357,7 @@ export default function ProductionSchedulesPage() {
           .from("shipments")
           .select("post_id,quantity")
           .eq("cancelled", false),
-        fetch("/api/daily-production"),
+        authFetch("/api/daily-production"),
         supabase
           .from("v_product_master_with_customer")
           .select("product_code,product_name,customer_name,plan_amount"),

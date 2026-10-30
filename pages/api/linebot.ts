@@ -1,3 +1,4 @@
+import { requireApiUser } from "@/lib/auth/server";
 import { NextApiRequest, NextApiResponse } from "next";
 import * as line from "@line/bot-sdk";
 
@@ -12,6 +13,9 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  const auth=await requireApiUser(req,res,true);
+  if(!auth) return;
+
   try {
     const message = req.body.message;
     const userId = req.body.userId;

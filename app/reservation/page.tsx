@@ -6,16 +6,17 @@ import React, { type MouseEvent, useRef, useState } from "react";
 import SearchForm from "../components/SearchForm/SearchForm";
 import ReservationList from "../components/ReservationList/ReservationList";
 import TableHeader from "../components/TableHeader/TableHeader";
-import Pagination from "../components/Pagination/Pagination";
+import OutsourceTransferDialog, { type OutsourceTransferRequest } from "../components/OutsourceTransferDialog/OutsourceTransferDialog";
+import { isOutsourceTransfer, validateOutsourceTransferDates, type OutsourceTransferDates } from "@/lib/outsourceTransfer";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { actualDate } from "@/lib/aiPrediction/actuals";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { mapOutsourceRemainder, REMAINDER_COLUMNS, availableRemainderAmount } from "@/lib/outsourceRemainders";
+import { getWeightedProcessProgress, isCompletionProcess } from "@/lib/progressProcess";
 import supabase from "@/lib/supabase";
 import { LotProcessBalance, Post, ProgressGroupSummary } from "../type";
 import { useFetchPosts } from "../utills/useFetchPosts";
-import { usePagination } from "../utills/usePagination";
 import { useReservationDelete } from "../utills/useReservationDelete";
-
-const itemsPerPage = 7;
 
 const customerNameCollator = new Intl.Collator("ja", {
   numeric: true,
@@ -32,32 +33,8 @@ const getCustomerSortKey = (customerName: string) =>
     .replaceAll("合資会社", "ごうしがいしゃ")
     .replaceAll("合名会社", "ごうめいがいしゃ");
 
-const getProgressGroupKey = (post: { customerName: string; productName: string }) =>
-  `${getCustomerSortKey(post.customerName)}::${post.productName.trim().toLowerCase()}`;
-
-const getWeightedProcessProgress = (
-  balances: LotProcessBalance[],
-  orderAmount: number,
-) => {
-  if (orderAmount <= 0) {
-    return 0;
-  }
-
-  const weightedProgressAmount = balances.reduce((total, balance) => {
-    if (balance.isHistoryOnly) {
-      return total;
-    }
-
-    const quantity = Math.max(0, Number(balance.quantity || 0));
-    const processRate = balance.isCompleted
-      ? 100
-      : Math.min(Math.max(balance.processOrder - 1, 0), 4) * 20;
-
-    return total + quantity * processRate;
-  }, 0);
-
-  return Math.min(100, Math.round(weightedProgressAmount / orderAmount));
-};
+const getProgressGroupKey = (post: { customerName: string; productName: string; productCode?: string }) =>
+  `${getCustomerSortKey(post.customerName)}::${post.productCode || post.productName.trim().toLowerCase()}`;
 
 const getTotalInProcessAmount = (post: Post) =>
   (post.lotProcessBalances || []).reduce(
@@ -91,7 +68,7 @@ const buildProgressGroupSummaryMap = (rows: Post[]) => {
     summaryMap.set(groupKey, {
       totalInProcessAmount:
         current.totalInProcessAmount + getTotalInProcessAmount(post),
-      orderAmount: current.orderAmount + Number(post.orderAmount || 0),
+      orderAmount: current.orderAmount + Math.max(0, Number(post.orderAmount || 0) - Number(post.shippedAmount || 0)),
       inventoryAmount: Math.max(
         current.inventoryAmount,
         Number(post.inventoryAmount || 0),
@@ -109,13 +86,13 @@ const buildProgressGroupSummaryMap = (rows: Post[]) => {
     [...summaryMap].map(([groupKey, summary]) => [
       groupKey,
       {
-        totalInProcessAmount: summary.totalInProcessAmount,
+        totalInProcessAmount: summary.totalInProcessAmount + summary.inventoryAmount,
         orderAmount: summary.orderAmount,
         inventoryAmount: summary.inventoryAmount,
         allocatedAmount: summary.allocatedAmount,
         quantityAdjustmentAmount: summary.quantityAdjustmentAmount,
         processProgress: getWeightedProcessProgress(
-          summary.balances,
+          [...summary.balances, { quantity: summary.inventoryAmount, isCompleted: true } as LotProcessBalance],
           summary.orderAmount,
         ),
       },
@@ -123,7 +100,7 @@ const buildProgressGroupSummaryMap = (rows: Post[]) => {
   );
 };
 
-const buildGroupedPageRows = <T extends { customerName: string; productName: string }>(
+const buildGroupedPageRows = <T extends { customerName: string; productName: string; productCode?: string }>(
   rows: T[],
   summaryMap: Map<string, ProgressGroupSummary>,
 ) =>
@@ -151,14 +128,11 @@ const buildGroupedPageRows = <T extends { customerName: string; productName: str
     };
   });
 
-const isPackagingProcess = (balance: LotProcessBalance) =>
-  balance.processName.includes("梱包") ||
-  balance.processName.includes("包装") ||
-  balance.processOrder >= 5;
-
 const Reservation = () => {
   const { posts, setShouldFetch } = useFetchPosts();
   const [search, setSearch] = useState("");
+  const [outsourceTransfer, setOutsourceTransfer] = useState<OutsourceTransferRequest | null>(null);
+  const transferBusyRef = useRef(false);
   const [isDraggingList, setIsDraggingList] = useState(false);
   const listScrollRef = useRef<HTMLDivElement>(null);
   const dragStartXRef = useRef(0);
@@ -240,8 +214,8 @@ const Reservation = () => {
 
     .sort((a, b) => {
       const customerCompare = customerNameCollator.compare(
-        getCustomerSortKey(a.customerName),
-        getCustomerSortKey(b.customerName),
+        String(a.customerName || "").trim(),
+        String(b.customerName || "").trim(),
       );
 
       if (customerCompare !== 0) {
@@ -257,6 +231,9 @@ const Reservation = () => {
         return productCompare;
       }
 
+      const codeCompare = String(a.productCode || "").localeCompare(String(b.productCode || ""));
+      if (codeCompare !== 0) return codeCompare;
+
       const deliveryCompare =
         new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime();
 
@@ -271,104 +248,152 @@ const Reservation = () => {
       );
     });
 
-  const { paginatedPosts, currentPage, setCurrentPage } = usePagination(
-    filteredPosts,
-    itemsPerPage,
-  );
   const progressGroupSummaryMap = buildProgressGroupSummaryMap(filteredPosts);
   const groupedPageRows = buildGroupedPageRows(
-    paginatedPosts,
+    filteredPosts,
     progressGroupSummaryMap,
   );
 
   const handleDelete = useReservationDelete(setShouldFetch);
 
+  const registerOutsourceAndTransfer = async (request: OutsourceTransferRequest, amount: number, dates: OutsourceTransferDates, scheduleId?: string) => {
+    const { error } = await supabase.rpc(request.isRemainder?"transfer_outsource_remainder_lot":"transfer_outsource_lot_with_dates", {
+      ...(request.isRemainder?{p_schedule_id:scheduleId||null}:{}),
+      p_lot_id: request.lotId, p_from_order_process_id: request.orderProcessId, p_amount: amount,
+      p_sent_date: dates.sentDate, p_expected_date: dates.expectedDate, p_returned_date: dates.returnedDate,
+      p_idempotency_key: request.idempotencyKey,
+    });
+    if (error) throw new Error(error.code === "PGRST202"
+      ? "外注日程の登録・工程移動のシステム更新が未反映です。"
+      : error.message || "外注日程の登録・工程移動に失敗しました。");
+    setOutsourceTransfer(null);
+    setShouldFetch(true);
+    alert("外注日程を登録し、次工程へ移動しました。");
+  };
+
   const handleTransferLot = async (balance: LotProcessBalance) => {
-    const currentQuantity = Number(balance.quantity || 0);
-    const isPackaging = isPackagingProcess(balance);
-    if (currentQuantity <= 0) {
-      alert("移動できる数量がありません。");
-      return;
-    }
-
-    const amountText = window.prompt(
-      `${balance.lotNo} を${isPackaging ? "完了" : "次工程へ移動"}します。${
-        isPackaging ? "完了数量" : "移動数量"
-      }を入力してください。`,
-      String(currentQuantity),
-    );
-
-    if (amountText === null) return;
-
-    const transferAmount = Number(amountText.replaceAll(",", "").trim());
-
-    if (!Number.isInteger(transferAmount) || transferAmount <= 0) {
-      alert(`${isPackaging ? "完了数量" : "移動数量"}は1以上の整数で入力してください。`);
-      return;
-    }
-
-    if (transferAmount > currentQuantity) {
-      alert(`現在数量を超えて処理できません。処理可能数量は${currentQuantity}です。`);
-      return;
-    }
-
-    let reason = isPackaging
-      ? "Progress screen packaging complete"
-      : "Progress screen transfer";
-    if (transferAmount < currentQuantity) {
-      const reasonText = window.prompt(
-        `現在数量より少なく${isPackaging ? "完了" : "移動"}する理由を入力してください。`,
-      );
-
-      if (reasonText === null) return;
-      if (!reasonText.trim()) {
-        alert(`数量を減らして${isPackaging ? "完了" : "移動"}する場合は理由を入力してください。`);
+    if (transferBusyRef.current || outsourceTransfer) return;
+    transferBusyRef.current = true;
+    try {
+      const currentQuantity = Number(balance.quantity || 0);
+      if(currentQuantity<=0) {alert("移動できる数量がありません。");return;}
+      const { data: source, error: sourceError } = await supabase.from("order_processes")
+        .select("id,process_name,planned_amount,completed_amount,subcontractor_id,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,product_processes(process_master(outsourcing))")
+        .eq("id", balance.orderProcessId).single();
+      if (sourceError) throw sourceError;
+      if (!source) throw new Error("工程情報が見つかりません。");
+      const outsourced = isOutsourceTransfer(source);
+      const isPackaging = isCompletionProcess({ processName: source.process_name, processKind: balance.processKind, isOutsource: outsourced });
+      const dates: OutsourceTransferDates = {
+        sentDate: source.outsource_sent_date || "",
+        expectedDate: source.outsource_expected_return_date || "",
+        returnedDate: source.outsource_returned_date || "",
+      };
+      if (outsourced) {
+        const {data: scheduleRows,error: scheduleError}=await fetchAllRows((from,to)=>supabase.from("outsource_remainder_schedules")
+          .select(REMAINDER_COLUMNS).eq("order_process_id",balance.orderProcessId).eq("cancelled",false)
+          .order("created_at").order("id").range(from,to));
+        if(scheduleError) throw new Error(['PGRST205','42P01','42703','PGRST204'].includes(scheduleError.code||'')?"残数分の外注日程を管理するDB更新が未反映です。更新後に再実行してください。":scheduleError.message);
+        const schedules=(scheduleRows||[]).map(row=>mapOutsourceRemainder(row as Record<string,unknown>));
+        const pending=schedules.filter(row=>row.quantity>row.movedAmount);
+        const remaining=Math.max(0,Number(source.planned_amount||0)-Number(source.completed_amount||0));
+        if(pending.length>0 || (Number(source.completed_amount)>0 && source.outsource_returned_date)) {
+          const first=pending[0];
+          const available=availableRemainderAmount(remaining,schedules);
+          if(!first&&available<=0) {alert("移動できる残数量がありません。");return;}
+          setOutsourceTransfer({lotId:balance.lotId,lotNo:balance.lotNo,orderProcessId:balance.orderProcessId,
+            processName:source.process_name,quantity:currentQuantity,
+            dates:first?{sentDate:first.sentDate,expectedDate:first.expectedDate,returnedDate:first.returnedDate}:{sentDate:"",expectedDate:"",returnedDate:""},
+            isRemainder:true,schedules:pending,availableNewQuantity:available,idempotencyKey:crypto.randomUUID()});
+          return;
+        }
+      }
+      if (outsourced && Object.values(dates).some(date => !date)) {
+        setOutsourceTransfer({lotId: balance.lotId, lotNo: balance.lotNo,
+          orderProcessId: balance.orderProcessId, processName: source.process_name,
+          quantity: currentQuantity, dates, idempotencyKey: crypto.randomUUID()});
+        return;
+      }
+      if (currentQuantity <= 0) {
+        alert("移動できる数量がありません。");
         return;
       }
 
-      reason = reasonText.trim();
+      const amountText = window.prompt(
+        `${balance.lotNo} を${isPackaging ? "完了" : "次工程へ移動"}します。${
+          isPackaging ? "完了数量" : "移動数量"
+        }を入力してください。`,
+        String(currentQuantity),
+      );
+
+      if (amountText === null) return;
+
+      const transferAmount = Number(amountText.replaceAll(",", "").trim());
+
+      if (!Number.isInteger(transferAmount) || transferAmount <= 0) {
+        alert(`${isPackaging ? "完了数量" : "移動数量"}は1以上の整数で入力してください。`);
+        return;
+      }
+
+      if (transferAmount > currentQuantity) {
+        alert(`現在数量を超えて処理できません。処理可能数量は${currentQuantity}です。`);
+        return;
+      }
+
+      const reason = isPackaging ? "進捗管理から計量・梱包完了" : "進捗管理から工程移動（数量補正を含む）";
+
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+      let workDate = dates.returnedDate;
+      if (outsourced) {
+        const dateError = validateOutsourceTransferDates(dates, today);
+        if (dateError) { alert(`${dateError} 外注日程画面で確認してください。`); return; }
+      } else {
+        const enteredDate = window.prompt("実際に作業した日付を入力してください（YYYY-MM-DD）。過去の作業はその作業日を指定してください。", today);
+        if (enteredDate === null) return;
+        workDate = actualDate(enteredDate.trim()) || "";
+        if (!workDate || enteredDate.trim() !== workDate || workDate > today) {
+          alert("作業日は本日以前の正しい日付（YYYY-MM-DD）で入力してください。");
+          return;
+        }
+      }
+      const confirmed = window.confirm(
+        `${balance.lotNo} / ${transferAmount.toLocaleString("ja-JP")} を${
+          isPackaging ? "完了" : "次工程へ移動"
+        }します。作業日: ${workDate}。よろしいですか？`,
+      );
+
+      if (!confirmed) return;
+
+      const idempotencyKey =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`;
+
+      const { error } = await supabase.rpc(outsourced ? "transfer_outsource_lot_with_dates" : isPackaging ? "complete_lot_from_progress" : "transfer_lot_to_next_process", {
+        p_lot_id: balance.lotId,
+        p_from_order_process_id: balance.orderProcessId,
+        p_amount: transferAmount,
+        p_idempotency_key: idempotencyKey,
+        ...(outsourced ? {p_sent_date: dates.sentDate, p_expected_date: dates.expectedDate, p_returned_date: dates.returnedDate}
+          : {p_reason: reason, p_date: workDate}),
+      });
+
+      if (error) {
+        console.error(error);
+        alert(error.code === "PGRST202"
+          ? "作業日を保存するためのシステム更新が未反映です。管理者に反映を依頼してください。"
+          : error.message || "次工程への移動に失敗しました。");
+        return;
+      }
+
+      alert(isPackaging ? "完了しました。" : "次工程へ移動しました。");
+      setShouldFetch(true);
+    } catch (error) {
+      alert(typeof error === "object" && error !== null && "message" in error
+        ? String(error.message) : "工程情報の取得・移動に失敗しました。");
+    } finally {
+      transferBusyRef.current = false;
     }
-
-    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-    const enteredDate = window.prompt("実際に作業した日付を入力してください（YYYY-MM-DD）。過去の作業はその作業日を指定してください。", today);
-    if (enteredDate === null) return;
-    const workDate = actualDate(enteredDate.trim());
-    if (!workDate || enteredDate.trim() !== workDate || workDate > today) {
-      alert("作業日は本日以前の正しい日付（YYYY-MM-DD）で入力してください。");
-      return;
-    }
-    const confirmed = window.confirm(
-      `${balance.lotNo} / ${transferAmount.toLocaleString("ja-JP")} を${
-        isPackaging ? "完了" : "次工程へ移動"
-      }します。作業日: ${workDate}。よろしいですか？`,
-    );
-
-    if (!confirmed) return;
-
-    const idempotencyKey =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random()}`;
-
-    const { error } = await supabase.rpc("transfer_lot_to_next_process", {
-      p_lot_id: balance.lotId,
-      p_from_order_process_id: balance.orderProcessId,
-      p_amount: transferAmount,
-      p_reason: reason,
-      p_idempotency_key: idempotencyKey,
-      p_date: workDate,
-    });
-
-    if (error) {
-      console.error(error);
-      alert(error.code === "PGRST202"
-        ? "作業日を保存するためのシステム更新が未反映です。管理者に反映を依頼してください。"
-        : error.message || "次工程への移動に失敗しました。");
-      return;
-    }
-
-    alert(isPackaging ? "完了しました。" : "次工程へ移動しました。");
-    setShouldFetch(true);
   };
 
   const handleEditLotBalance = async (balance: LotProcessBalance) => {
@@ -392,16 +417,6 @@ const Reservation = () => {
       return;
     }
 
-    const reasonText = window.prompt(
-      "数量を直接編集する理由を入力してください。",
-    );
-
-    if (reasonText === null) return;
-    if (!reasonText.trim()) {
-      alert("数量を直接編集する場合は理由を入力してください。");
-      return;
-    }
-
     const confirmed = window.confirm(
       `${balance.lotNo} / ${balance.processName} の数量を ${currentQuantity.toLocaleString(
         "ja-JP",
@@ -418,7 +433,7 @@ const Reservation = () => {
     const { error } = await supabase.rpc("edit_lot_process_balance", {
       p_balance_id: balance.id,
       p_after_quantity: editedAmount,
-      p_reason: reasonText.trim(),
+      p_reason: "進捗管理から数量編集",
       p_idempotency_key: idempotencyKey,
     });
 
@@ -434,14 +449,14 @@ const Reservation = () => {
 
   return (
     <>
+      {outsourceTransfer && <OutsourceTransferDialog request={outsourceTransfer}
+        today={new Intl.DateTimeFormat("en-CA", {timeZone: "Asia/Tokyo",year: "numeric",month: "2-digit",day: "2-digit"}).format(new Date())}
+        onCancel={() => setOutsourceTransfer(null)}
+        onSubmit={(amount, dates, scheduleId) => registerOutsourceAndTransfer(outsourceTransfer, amount, dates, scheduleId)} />}
       <div className={styles.reservationImg}>
         <Link href="/" className={styles.topPageLink}>
           <button className={styles.topPageButton}>トップページに戻る</button>
         </Link>
-
-        <div className={styles.center}>
-          <h1>進捗管理</h1>
-        </div>
 
         <div className={styles.searchDelete}>
           <SearchForm search={search} setSearch={setSearch} />
@@ -450,6 +465,10 @@ const Reservation = () => {
             <DeleteIcon className={styles.deleteIcon} />
           </Link>
         </div>
+        <div className={styles.center}>
+          <h1>進捗管理</h1>
+        </div>
+
       </div>
 
       <div
@@ -495,14 +514,6 @@ const Reservation = () => {
         </table>
       </div>
 
-      <div className={styles.reservationPagination}>
-        <Pagination
-          totalItems={filteredPosts.length}
-          itemsPerPage={itemsPerPage}
-          currentPage={currentPage}
-          onPageChange={setCurrentPage}
-        />
-      </div>
     </>
   );
 };

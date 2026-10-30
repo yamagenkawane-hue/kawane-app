@@ -1,7 +1,11 @@
+import { requireApiUser } from "@/lib/auth/server";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { subDays } from "date-fns";
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const auth=await requireApiUser(req,res,req.method === "DELETE");
+  if(!auth) return;
+
   if (req.method !== "POST") {
     res.setHeader("Allow", ["POST"]);
     return res.status(405).end("Method Not Allowed");

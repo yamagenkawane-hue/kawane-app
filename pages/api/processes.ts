@@ -1,5 +1,6 @@
+import { requireApiUser } from "@/lib/auth/server";
 import type { NextApiRequest, NextApiResponse } from "next";
-import supabase from "@/lib/supabase";
+
 
 const PROCESS_SELECT_COLUMNS =
   "id,process_id,name,sort,enabled,outsourcing";
@@ -8,6 +9,10 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
+  const auth=await requireApiUser(req,res,req.method !== "GET");
+  if(!auth) return;
+  const supabase=auth.client;
+
   try {
     if (req.method === "GET") {
       const { data, error } = await supabase

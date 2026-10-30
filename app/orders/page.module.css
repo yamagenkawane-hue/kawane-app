@@ -146,6 +146,25 @@
 .table tr:hover {
   background: #f9fafb;
 }
+.lotList {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  min-width: 140px;
+  padding: 0;
+  text-align: left;
+}
+.lotList a {
+  color: #2563eb;
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+.lotList small {
+  color: #475569;
+  display: block;
+  overflow-wrap: anywhere;
+}
 .remaining {
   color: #dc2626;
   font-weight: bold;
@@ -219,5 +238,13 @@
 .noInventoryText {
   color: #64748b;
   font-weight: bold;
+  white-space: nowrap;
+}
+
+.allocationBlocked {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: #64748b;
   white-space: nowrap;
 }

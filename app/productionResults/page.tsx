@@ -1,4 +1,5 @@
 "use client";
+import { authFetch } from "@/lib/auth/client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -317,7 +318,7 @@ export default function ProductionResultsPage() {
             .from("v_production_schedules_with_master")
             .select(SCHEDULE_SELECT_COLUMNS)
             .order("created_at", { ascending: false }),
-          fetch("/api/daily-production"),
+          authFetch("/api/daily-production"),
           supabase
             .from("v_order_processes_with_master")
             .select(ORDER_PROCESS_SELECT_COLUMNS)

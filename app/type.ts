@@ -34,6 +34,10 @@ export type LotProcessBalance = {
   orderProcessId: string;
   processName: string;
   processOrder: number;
+  processKind?: "manufacturing" | "cleaning" | "inspection" | "measurement" | "packaging" | "other";
+  isOutsource?: boolean;
+  processPosition?: number;
+  processCount?: number;
   quantity: number;
   processDates?: string[];
   processDate?: string;
@@ -157,8 +161,7 @@ export type UserRowProps = {
 };
 
 export type LoginFormProps = {
-  posts: User[];
-  onLoginSuccess: (isManager: boolean) => void;
+  onLoginSuccess: () => void;
 };
 
 export type ProcessLog = {

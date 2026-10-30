@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useSyncExternalStore, useState } from "react";
+import React from "react";
 import supabase from "../../../lib/supabase";
 import styles from "./page.module.css";
 import Link from "next/link";
@@ -12,10 +12,10 @@ import {
   LogOut,
 } from "lucide-react";
 import SigninManager from "../SigninManager/SigninManager";
-import LoginForm from "../LoginForm/LoginForm";
-import { User } from "@/app/type";
+import { useAppAuth } from "../AuthProvider/AuthProvider";
 
-const USER_SELECT_COLUMNS = "id,name,pass,manager,delete";
+
+
 
 const menus = [
   {
@@ -40,93 +40,11 @@ const menus = [
   },
 ];
 
-const authChangeEventName = "auth-state-change";
-
-function subscribe(callback: () => void) {
-  window.addEventListener("storage", callback);
-  window.addEventListener(authChangeEventName, callback);
-
-  return () => {
-    window.removeEventListener("storage", callback);
-    window.removeEventListener(authChangeEventName, callback);
-  };
-}
-
-function getLoggedInUser() {
-  return localStorage.getItem("loggedInUser");
-}
-
-function getManagerIn() {
-  return localStorage.getItem("isManagerIn");
-}
-
-function getServerSnapshot() {
-  return null;
-}
-
 const Signin = () => {
-  const [posts, setPosts] = useState<User[]>([]);
-
-  const loggedInUser = useSyncExternalStore(
-    subscribe,
-    getLoggedInUser,
-    getServerSnapshot,
-  );
-
-  const managerInValue = useSyncExternalStore(
-    subscribe,
-    getManagerIn,
-    getServerSnapshot,
-  );
-
-  const isLoggedIn = loggedInUser !== null;
-  const isManagerIn = managerInValue === "true";
-
-  // Supabaseからユーザー取得
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("user")
-          .select(USER_SELECT_COLUMNS);
-
-        if (error) throw error;
-
-        const usersArray: User[] = (data || []).map((row) => ({
-          id: row.id,
-          name: row.name,
-          pass: row.pass,
-          manager: row.manager,
-          delete: row.delete,
-        }));
-
-        setPosts(usersArray);
-      } catch (error) {
-        console.error("ユーザー取得エラー:", error);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  // サインアウト（localStorageをクリアしてstorageイベントを発火）
-  const handleSignoutClick = async () => {
-    try {
-      localStorage.removeItem("loggedInUser");
-      localStorage.removeItem("isManagerIn");
-      window.dispatchEvent(new Event(authChangeEventName));
-    } catch (error) {
-      console.error("サインアウトエラー:", error);
-    }
-  };
-
-  // ログイン成功時
-  const handleLoginSuccess = (isManager: boolean) => {
-    localStorage.setItem("loggedInUser", "true");
-    localStorage.setItem("isManagerIn", String(isManager));
-    window.dispatchEvent(new Event(authChangeEventName));
-  };
-
+  const {profile}=useAppAuth();
+  const isLoggedIn=Boolean(profile);
+  const isManagerIn=Boolean(profile?.manager);
+  const handleSignoutClick=async()=>{await supabase.auth.signOut();};
   return (
     <>
       {isLoggedIn ? (
@@ -167,7 +85,7 @@ const Signin = () => {
           </button>
         </div>
       ) : (
-        <LoginForm posts={posts} onLoginSuccess={handleLoginSuccess} />
+        null
       )}
     </>
   );

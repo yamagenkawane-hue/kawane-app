@@ -1,22 +1,15 @@
 "use client";
+import { useAppAuth } from "@/app/components/AuthProvider/AuthProvider";
 
 import Link from "next/link";
 import React from "react";
 import { LotProcessBalance, ReservationRowProps } from "@/app/type";
 import styles from "./page.module.css";
+import { getProcessKind, getProgressDisplayGroup, getWeightedProcessProgress, isCompletionProcess, isOutsourceProcess } from "@/lib/progressProcess";
 
-type ProcessGroup = {
-  label: "manufacturing" | "cleaning" | "inspection" | "measurement" | "packaging";
-  processOrder: number;
-  names: string[];
-};
-
+type ProcessGroup = { label: "manufacturing" | "cleaning" | "inspection" | "measurement" };
 const processGroups: ProcessGroup[] = [
-  { label: "manufacturing", processOrder: 1, names: ["製造", "プレス"] },
-  { label: "cleaning", processOrder: 2, names: ["洗浄", "メッキ", "外注"] },
-  { label: "inspection", processOrder: 3, names: ["検査", "品質"] },
-  { label: "measurement", processOrder: 4, names: ["計量"] },
-  { label: "packaging", processOrder: 5, names: ["梱包", "包装"] },
+  {label: "manufacturing"}, {label: "cleaning"}, {label: "inspection"}, {label: "measurement"},
 ];
 
 const cellClassMap: Record<ProcessGroup["label"], string> = {
@@ -24,7 +17,6 @@ const cellClassMap: Record<ProcessGroup["label"], string> = {
   cleaning: styles.cleaningCell,
   inspection: styles.inspectionCell,
   measurement: styles.measurementCell,
-  packaging: styles.packagingCell,
 };
 
 const amountClassMap: Record<ProcessGroup["label"], string> = {
@@ -32,15 +24,6 @@ const amountClassMap: Record<ProcessGroup["label"], string> = {
   cleaning: styles.cleaningAmountCell,
   inspection: styles.inspectionAmountCell,
   measurement: styles.measurementAmountCell,
-  packaging: styles.packagingAmountCell,
-};
-
-const dateClassMap: Record<ProcessGroup["label"], string> = {
-  manufacturing: styles.averageCell,
-  cleaning: styles.cleaningAverageCell,
-  inspection: styles.inspectionAverageCell,
-  measurement: styles.measurementAverageCell,
-  packaging: styles.packagingAverageCell,
 };
 
 const formatAmount = (value?: number) =>
@@ -49,23 +32,13 @@ const formatAmount = (value?: number) =>
 const formatAdjustmentAmount = (value?: number) =>
   `-${formatAmount(value)}個`;
 
-const matchesProcessGroup = (
-  balance: LotProcessBalance,
-  group: ProcessGroup,
-) => {
-  if (balance.processOrder === group.processOrder) {
-    return true;
-  }
-
-  return group.names.some((name) => balance.processName.includes(name));
-};
-
 const getGroupBalances = (
   balances: LotProcessBalance[],
   group: ProcessGroup,
 ) =>
   balances
-    .filter((balance) => matchesProcessGroup(balance, group))
+    .filter((balance) => !balance.isHistoryOnly && !balance.isCompleted && balance.quantity > 0 &&
+      getProgressDisplayGroup(balance) === group.label)
     .sort(
       (a, b) =>
         a.processOrder - b.processOrder ||
@@ -75,30 +48,6 @@ const getGroupBalances = (
         }) ||
         a.lotId.localeCompare(b.lotId),
     );
-
-const getWeightedProcessProgress = (
-  balances: LotProcessBalance[],
-  orderAmount: number,
-) => {
-  if (orderAmount <= 0) {
-    return 0;
-  }
-
-  const weightedProgressAmount = balances.reduce((total, balance) => {
-    if (balance.isHistoryOnly) {
-      return total;
-    }
-
-    const quantity = Math.max(0, Number(balance.quantity || 0));
-    const processRate = balance.isCompleted
-      ? 100
-      : Math.min(Math.max(balance.processOrder - 1, 0), 4) * 20;
-
-    return total + quantity * processRate;
-  }, 0);
-
-  return Math.min(100, Math.round(weightedProgressAmount / orderAmount));
-};
 
 const renderRows = (
   values: React.ReactNode[],
@@ -120,25 +69,15 @@ const renderRows = (
   ));
 };
 
-const isOutsourceBalance = (balance: LotProcessBalance) =>
-  Boolean(balance.subcontractorName) ||
-  balance.processName.includes("外注") ||
-  balance.processName.includes("メッキ");
-
-const isPackagingBalance = (balance: LotProcessBalance) =>
-  balance.processName.includes("梱包") ||
-  balance.processName.includes("包装") ||
-  balance.processOrder >= 5;
-
 const hasLotActionButtons = (balance: LotProcessBalance) =>
   !balance.isCompleted &&
   !balance.isHistoryOnly &&
-  balance.processOrder > 1 &&
+  (isOutsourceProcess(balance) || getProcessKind(balance) !== "manufacturing") &&
   balance.quantity > 0;
 
 const hasLotDetailLines = (balance: LotProcessBalance) =>
   Boolean(balance.materialLotNo) ||
-  isOutsourceBalance(balance) ||
+  isOutsourceProcess(balance) ||
   Boolean(balance.isCompleted);
 
 const getBalanceRowClassName = (balance?: LotProcessBalance) => {
@@ -170,7 +109,7 @@ const renderProcessLot = (
         材料: {balance.materialLotNo}
       </span>
     )}
-    {isOutsourceBalance(balance) && (
+    {isOutsourceProcess(balance) && (
       <Link
         className={styles.outsourceBadge}
         href={`/outsourcing?orderNo=${encodeURIComponent(
@@ -190,7 +129,7 @@ const renderProcessLot = (
         className={styles.transferButton}
         onClick={() => void handleTransferLot(balance)}
       >
-        {isPackagingBalance(balance) ? "完了" : "次工程へ移動"}
+        {isCompletionProcess(balance) ? "完了" : "次工程へ移動"}
       </button>
     )}
     {handleEditLotBalance &&
@@ -205,89 +144,6 @@ const renderProcessLot = (
     )}
   </span>
 );
-
-const uniqueSortedDates = (dates: string[]) =>
-  Array.from(new Set(dates.filter(Boolean))).sort((a, b) =>
-    a.localeCompare(b),
-  );
-
-const getLogDates = (logs?: { date: string; amount: number }[]) =>
-  uniqueSortedDates((logs || []).map((log) => log.date));
-
-const getDatesByGroup = (
-  post: ReservationRowProps["post"],
-  group: ProcessGroup,
-) => {
-  if (group.label === "manufacturing") {
-    return getLogDates(post.manufacturingLogs);
-  }
-  if (group.label === "cleaning") {
-    return getLogDates(post.cleaningLogs);
-  }
-  if (group.label === "inspection") {
-    return getLogDates(post.inspectionLogs);
-  }
-  if (group.label === "measurement") {
-    return getLogDates(post.measurementLogs);
-  }
-
-  return getLogDates(post.packagingLogs);
-};
-
-const getCompletedDatesByGroup = (
-  balances: LotProcessBalance[],
-  group: ProcessGroup,
-) =>
-  uniqueSortedDates(
-    balances
-      .filter(
-        (balance) =>
-          balance.isCompleted &&
-          balance.completedDate &&
-          matchesProcessGroup(balance, group),
-      )
-      .map((balance) => balance.completedDate || ""),
-  );
-
-const renderDateValue = (dates: string[]) => {
-  const displayDates = uniqueSortedDates(dates);
-  if (displayDates.length <= 1) {
-    return displayDates[0] || "";
-  }
-
-  return (
-    <span className={styles.dateStack}>
-      {displayDates.map((date) => (
-        <span key={date}>{date}</span>
-      ))}
-    </span>
-  );
-};
-
-const getDisplayDatesByGroup = (
-  post: ReservationRowProps["post"],
-  group: ProcessGroup,
-  groupBalances: LotProcessBalance[],
-) => {
-  if (group.label === "manufacturing") {
-    return getDatesByGroup(post, group);
-  }
-
-  if (groupBalances.length > 0) {
-    return groupBalances.map((balance) =>
-      renderDateValue(
-        balance.processDates?.length
-          ? balance.processDates
-          : [balance.processDate || balance.completedDate || ""],
-      ) || (balance.isCompleted ? "完了日未登録" : "実績日未登録"),
-    );
-  }
-
-  return uniqueSortedDates([
-    ...getDatesByGroup(post, group),
-    ...getCompletedDatesByGroup(groupBalances, group),
-  ]);
-};
 
 const getDeliveryClass = (deliveryDate: string) => {
   if (!deliveryDate) return "";
@@ -317,31 +173,28 @@ const ReservationList: React.FC<ReservationRowProps> = ({
   progressGroupSummary,
   isLastInCustomerProductGroup = true,
 }) => {
-  const balances = post.lotProcessBalances || [];
+  const {profile}=useAppAuth();
+  const canManage=Boolean(profile?.manager);
+  const balances = (post.lotProcessBalances || []).filter(balance => !balance.isHistoryOnly && !balance.isCompleted && balance.quantity > 0);
   const totalInProcessAmount = balances.reduce(
     (total, balance) =>
       balance.isHistoryOnly ? total : total + Number(balance.quantity || 0),
     0,
   );
   const displayTotalInProcessAmount =
-    progressGroupSummary?.totalInProcessAmount ?? totalInProcessAmount;
+    progressGroupSummary?.totalInProcessAmount ?? (totalInProcessAmount + Number(post.inventoryAmount || 0));
   const displayOrderAmount =
-    progressGroupSummary?.orderAmount ?? Number(post.orderAmount || 0);
+    progressGroupSummary?.orderAmount ?? Math.max(0, Number(post.orderAmount || 0) - Number(post.shippedAmount || 0));
   const displayInventoryAmount =
     progressGroupSummary?.inventoryAmount ?? Number(post.inventoryAmount || 0);
-  const allocatedAmount =
-    progressGroupSummary?.allocatedAmount ?? Number(post.allocatedAmount || 0);
   const quantityAdjustmentAmount =
     progressGroupSummary?.quantityAdjustmentAmount ??
     Number(post.quantityAdjustmentAmount || 0);
   const remainingInProcessAmount =
-    displayTotalInProcessAmount +
-    allocatedAmount +
-    quantityAdjustmentAmount -
-    displayOrderAmount;
+    displayTotalInProcessAmount - displayOrderAmount;
   const processProgress =
     progressGroupSummary?.processProgress ??
-    getWeightedProcessProgress(balances, Number(post.orderAmount || 0));
+    getWeightedProcessProgress([...balances, { quantity: displayInventoryAmount, isCompleted: true }], displayOrderAmount);
   const deliveryClass = getDeliveryClass(post.deliveryDate);
 
   return (
@@ -383,7 +236,6 @@ const ReservationList: React.FC<ReservationRowProps> = ({
 
       {processGroups.map((group) => {
         const groupBalances = getGroupBalances(balances, group);
-        const groupDates = getDisplayDatesByGroup(post, group, groupBalances);
         const getGroupRowClassName = (index: number) =>
           getBalanceRowClassName(groupBalances[index]);
 
@@ -412,23 +264,17 @@ const ReservationList: React.FC<ReservationRowProps> = ({
                 getGroupRowClassName,
               )}
             </td>
-            <td className={dateClassMap[group.label]}>
-              {renderRows(groupDates, styles.averageRow, "-", getGroupRowClassName)}
-            </td>
           </React.Fragment>
         );
       })}
 
       {showGroupedProgressTotals && (
         <>
+          <td className={styles.stockCell} rowSpan={progressTotalsRowSpan}>
+            <Link href="/shipping">{formatAmount(displayInventoryAmount)}</Link>
+          </td>
           <td className={styles.totalCell} rowSpan={progressTotalsRowSpan}>
             {formatAmount(displayTotalInProcessAmount)}
-          </td>
-          <td className={styles.stockCell} rowSpan={progressTotalsRowSpan}>
-            {formatAmount(displayInventoryAmount)}
-          </td>
-          <td className={styles.stockCell} rowSpan={progressTotalsRowSpan}>
-            {formatAmount(allocatedAmount)}
           </td>
           <td className={styles.stockCell} rowSpan={progressTotalsRowSpan}>
             <span className={styles.remainingAmountValue}>
@@ -460,8 +306,8 @@ const ReservationList: React.FC<ReservationRowProps> = ({
       <td>{post.remark || "-"}</td>
 
       <td>
-        <button className={styles.deleteButton} onClick={handleDelete}>
-          削除
+        <button className={styles.deleteButton} onClick={handleDelete} disabled={!canManage} title={!canManage?"管理者のみ操作できます":undefined}>
+          誤登録取消
         </button>
       </td>
     </tr>

@@ -1,7 +1,11 @@
+import { requireApiUser } from "@/lib/auth/server";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { runAiPrediction } from "@/lib/aiPrediction/runner";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const auth=await requireApiUser(req,res,true);
+  if(!auth) return;
+
   if (req.method !== "POST") {
     res.setHeader("Allow", ["POST"]);
     return res.status(405).json({ error: "Method Not Allowed" });

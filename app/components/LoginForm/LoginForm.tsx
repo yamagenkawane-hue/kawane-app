@@ -3,45 +3,29 @@
 import React, { useState } from "react";
 import { LockKeyhole, User, LogIn } from "lucide-react";
 import styles from "./page.module.css";
-import { LoginFormProps } from "@/app/type";
+import supabase from "@/lib/supabase";
 
-const LoginForm: React.FC<LoginFormProps> = ({ posts, onLoginSuccess }) => {
+const LoginForm = ({ onLoginSuccess }: { onLoginSuccess: () => void }) => {
+  const [loading,setLoading]=useState(false);
   const [user, setUser] = useState("");
 
   const [pass, setPass] = useState("");
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleClick = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    setErrorMessage(null);
-
-    if (!user || !pass) {
-      setErrorMessage("ユーザー名とパスワードを入力してください");
-
-      return;
-    }
-
-    const foundUser = posts.find(
-      (post) => post.name === user && post.pass === pass,
-    );
-
-    if (foundUser) {
-      localStorage.setItem("loggedInUser", JSON.stringify(foundUser));
-
-      const isManager = !!foundUser.manager;
-
-      localStorage.setItem("isManagerIn", String(isManager));
-
-      onLoginSuccess(isManager);
-    } else {
-      setErrorMessage("ユーザー名またはパスワードが違います");
-    }
-
-    setUser("");
-
-    setPass("");
+    if(loading) return;
+    setLoading(true);setErrorMessage(null);
+    try {
+      const response=await fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({loginId:user,password:pass})});
+      const result=await response.json();
+      if(!response.ok) throw new Error(result.error||"ログインできません");
+      const {error}=await supabase.auth.setSession(result);
+      if(error) throw error;
+      setPass("");onLoginSuccess();
+    } catch(cause) {setErrorMessage(cause instanceof Error?cause.message:"ログインできません");}
+    finally {setLoading(false);}
   };
 
   return (
@@ -58,7 +42,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ posts, onLoginSuccess }) => {
         {errorMessage && <div className={styles.errorBox}>{errorMessage}</div>}
 
         {/* Form */}
-        <div className={styles.form}>
+        <form className={styles.form} onSubmit={handleClick}>
           {/* User */}
           <div className={styles.formGroup}>
             <label className={styles.label}>ユーザーID</label>
@@ -70,6 +54,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ posts, onLoginSuccess }) => {
                 className={styles.input}
                 value={user}
                 placeholder="ユーザーIDを入力"
+                autoComplete="username" required
                 onChange={(e) => setUser(e.target.value)}
               />
             </div>
@@ -83,7 +68,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ posts, onLoginSuccess }) => {
               <LockKeyhole size={20} />
 
               <input
-                type="password"
+                type="password" autoComplete="current-password" required
                 className={styles.input}
                 value={pass}
                 placeholder="パスワードを入力"
@@ -94,14 +79,14 @@ const LoginForm: React.FC<LoginFormProps> = ({ posts, onLoginSuccess }) => {
 
           {/* Button */}
           <button
-            type="button"
+            type="submit"
             className={styles.signinButton}
-            onClick={handleClick}
+            disabled={loading}
           >
             <LogIn size={20} />
-            サインイン
+            {loading?"確認中…":"サインイン"}
           </button>
-        </div>
+        </form>
       </div>
     </div>
   );

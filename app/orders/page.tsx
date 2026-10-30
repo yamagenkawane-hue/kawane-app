@@ -8,9 +8,12 @@ import React, {
   useState,
 } from "react";
 import Link from "next/link";
+import { useAppAuth } from "@/app/components/AuthProvider/AuthProvider";
 import supabase from "../../lib/supabase";
 import styles from "./page.module.css";
 import { CustomerMaster, InventoryAllocation, PostData } from "@/app/type";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { buildOrderManufacturingLots, type ManufacturingLot } from "@/lib/orderManufacturingLots";
 import {
   buildFinalProcessCompletionMap,
   buildOrderProcessProgressMap,
@@ -28,6 +31,8 @@ type AdjustedPost = PostData & {
   allocationConfirmed: boolean;
   availableInventoryAmount: number;
   shippedAmount: number;
+  hasProcessProgress: boolean;
+  manufacturingLots: ManufacturingLot[];
 };
 
 const POST_SELECT_COLUMNS =
@@ -64,6 +69,7 @@ const compareCustomerName = (a: string, b: string) =>
   customerNameCollator.compare(getCustomerSortKey(a), getCustomerSortKey(b));
 
 const OrdersPage = () => {
+  const {profile}=useAppAuth();
   const [posts, setPosts] = useState<AdjustedPost[]>([]);
   const [loadingPostId, setLoadingPostId] = useState("");
   const [deletingPostId, setDeletingPostId] = useState("");
@@ -126,37 +132,52 @@ const OrdersPage = () => {
         shipmentResult,
         orderProcessResult,
         productionResult,
+        eligibilityResult,
+        lotResult,
+        lotProductionResult,
       ] = await Promise.all([
-          supabase.from("v_posts_with_master").select(POST_SELECT_COLUMNS),
-          supabase.from("customer_master").select(CUSTOMER_SELECT_COLUMNS),
-          supabase
+          fetchAllRows((from, to) => supabase.from("v_posts_with_master").select(POST_SELECT_COLUMNS).order("id").range(from, to)),
+          fetchAllRows((from, to) => supabase.from("customer_master").select(CUSTOMER_SELECT_COLUMNS).order("id").range(from, to)),
+          fetchAllRows((from, to) => supabase
             .from("v_inventory_allocations_with_master")
-            .select(ALLOCATION_SELECT_COLUMNS),
-          supabase
+            .select(ALLOCATION_SELECT_COLUMNS).order("id").range(from, to)),
+          fetchAllRows((from, to) => supabase
             .from("v_inventory_items_with_master")
-            .select("product_code,current_stock,allocated_stock"),
-          supabase
+            .select("product_code,current_stock,allocated_stock").order("id").range(from, to)),
+          fetchAllRows((from, to) => supabase
             .from("v_shipments_with_master")
-            .select("post_id,quantity")
-            .eq("cancelled", false),
-          supabase
+            .select("post_id,order_no,quantity")
+            .or("cancelled.is.null,cancelled.eq.false").order("id").range(from, to)),
+          fetchAllRows((from, to) => supabase
             .from("v_order_processes_with_master")
             .select(
-              "post_id,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,outsource_status,outsource_sent_date,outsource_returned_date",
-            ),
-          supabase
+              "id,post_id,process_name,process_order,planned_amount,completed_amount,completed_date,subcontractor_id,outsource_status,outsource_sent_date,outsource_returned_date",
+            ).order("id").range(from, to)),
+          fetchAllRows((from, to) => supabase
             .from("v_production_results_with_master")
-            .select("post_id,process_name,date,amount"),
+            .select("post_id,process_name,date,amount").order("id").range(from, to)),
+          fetchAllRows((from, to) => supabase.from("v_order_allocation_eligibility")
+            .select("post_id,has_process_progress").order("post_id").range(from, to)),
+          fetchAllRows((from,to)=>supabase.from("lots").select("id,post_id,lot_no,material_lot_no")
+            .or("deleted.is.null,deleted.eq.false").order("id").range(from,to)),
+          fetchAllRows((from,to)=>supabase.from("production_results").select("lot_id,post_id,order_process_id,amount")
+            .not("lot_id","is",null).gt("amount",0).order("id").range(from,to)),
         ]);
 
       const { data, error } = postResult;
 
       if (error) throw error;
+      if (customerResult.error) throw customerResult.error;
       if (allocationResult.error) throw allocationResult.error;
       if (inventoryResult.error) throw inventoryResult.error;
       if (shipmentResult.error) throw shipmentResult.error;
       if (orderProcessResult.error) throw orderProcessResult.error;
       if (productionResult.error) throw productionResult.error;
+      if (eligibilityResult.error) throw eligibilityResult.error;
+      if (lotResult.error) throw lotResult.error;
+      if (lotProductionResult.error) throw lotProductionResult.error;
+      const manufacturingLotMap=buildOrderManufacturingLots(lotResult.data||[],lotProductionResult.data||[],orderProcessResult.data||[]);
+      const eligibilityMap = new Map((eligibilityResult.data || []).map(row => [row.post_id, row.has_process_progress]));
 
       const customerList: CustomerMaster[] = (customerResult.data || []).map(
         (row) => ({
@@ -203,7 +224,7 @@ const OrdersPage = () => {
 
       const shippedMap = new Map<string, number>();
       for (const row of shipmentResult.data || []) {
-        const postId = row.post_id || "";
+        const postId = row.post_id || data?.find(post => post.order_no === row.order_no)?.id || "";
         shippedMap.set(postId, (shippedMap.get(postId) || 0) + Number(row.quantity || 0));
       }
 
@@ -282,7 +303,7 @@ const OrdersPage = () => {
           productName: row.product_name || "",
           customerName: row.customer_name || "",
           orderAmount: row.order_amount || 0,
-          remainingAmount: row.remaining_amount || 0,
+          remainingAmount: Math.max(0, Number(row.order_amount || 0) - shippedAmount),
           status,
           completionScheduledDate:
             row.completion_scheduled_date || row.delivery_date || "",
@@ -307,9 +328,8 @@ const OrdersPage = () => {
 
       const filtered = rawData.filter((post) => {
         if (post.delete) return false;
-        const completed = post.packagingAmount || 0;
         const shippedAmount = shippedMap.get(post.id) || 0;
-        return post.orderAmount - completed > 0 && shippedAmount < post.orderAmount;
+        return shippedAmount < post.orderAmount;
       });
 
       // =========================
@@ -325,8 +345,7 @@ const OrdersPage = () => {
       });
 
       const adjusted: AdjustedPost[] = filtered.map((post) => {
-        const completed = post.packagingAmount || 0;
-        const ownRemaining = post.orderAmount - completed;
+        const ownRemaining = post.orderAmount - (shippedMap.get(post.id) || 0);
         const customer = customerList.find(
           (item) => item.customerName === post.customerName,
         );
@@ -336,7 +355,7 @@ const OrdersPage = () => {
         );
         const postAllocations = allocationMap[post.id] || [];
         const allocatedAmount = postAllocations.reduce(
-          (sum, allocation) => sum + allocation.allocatedAmount,
+          (sum, allocation) => sum + Math.max(0, allocation.allocatedAmount - allocation.shippedAmount),
           0,
         );
         const shippedAmount = shippedMap.get(post.id) || 0;
@@ -346,13 +365,16 @@ const OrdersPage = () => {
 
         return {
           ...post,
-          remainingAmount: Math.max(0, ownRemaining - allocatedAmount),
+          remainingAmount: Math.max(0, ownRemaining),
           shippingScheduledDate,
           transferSource: formatAllocationSource(postAllocations),
           allocatedAmount,
           allocationConfirmed: postAllocations.length > 0,
           availableInventoryAmount,
           shippedAmount,
+          // Fail closed if eligibility cannot be resolved for a concurrently added order.
+          hasProcessProgress: eligibilityMap.get(post.id) !== false,
+          manufacturingLots: manufacturingLotMap.get(post.id)||[],
         };
       });
 
@@ -379,6 +401,10 @@ const OrdersPage = () => {
   }, [fetchPosts]);
 
   const handleConfirmAllocation = async (post: AdjustedPost) => {
+    if (post.hasProcessProgress) {
+      alert("工程進捗があるため在庫引当できません。未着手の受注のみ引当できます。");
+      return;
+    }
     if (post.allocationConfirmed) return;
     if (!confirm(`${post.orderNo} の在庫引当を確定しますか？`)) return;
 
@@ -408,7 +434,7 @@ const OrdersPage = () => {
   const handleDeleteOrder = async (post: AdjustedPost) => {
     if (
       !confirm(
-        `${post.orderNo} / ${post.productName} を削除します。関連する進捗・工程・実績・引当・出荷データも削除されます。よろしいですか？`,
+        `${post.orderNo} / ${post.productName} の誤登録・重複登録を取り消します。在庫は減算されません。実績・ロット・引当・出荷履歴のある注番は削除できません。よろしいですか？`,
       )
     ) {
       return;
@@ -465,7 +491,6 @@ const OrdersPage = () => {
       .from("posts")
       .update({
         order_no: editingPost.orderNo,
-        lot_no: editingPost.lotNo || null,
         product_name: editingPost.productName,
         customer_name: editingPost.customerName,
         order_amount: Number(editingPost.orderAmount || 0),
@@ -582,15 +607,12 @@ const OrdersPage = () => {
                     )}
                   </td>
                   <td>
-                    {editing ? (
-                      <input
-                        className={styles.tableInput}
-                        value={editingPost.lotNo || ""}
-                        onChange={(e) => updateEditingPost("lotNo", e.target.value)}
-                      />
-                    ) : (
-                      post.lotNo || "-"
-                    )}
+                    {(post.manufacturingLots||[]).length>0?<ul className={styles.lotList}>
+                      {post.manufacturingLots.map(lot=><li key={lot.id}>
+                        <Link href={`/lots/${lot.id}`}>{lot.lotNo}</Link>
+                        {lot.materialLotNo&&<small>材料ロット：{lot.materialLotNo}</small>}
+                      </li>)}
+                    </ul>:"-"}
                   </td>
                   <td>
                     {editing ? (
@@ -660,6 +682,13 @@ const OrdersPage = () => {
                   <td>
                     {post.allocationConfirmed ? (
                       <span className={styles.confirmedBadge}>確定済み</span>
+                    ) : post.hasProcessProgress ? (
+                      <div className={styles.allocationBlocked}>
+                        <button className={styles.confirmButton} disabled title="工程進捗があるため在庫引当できません">
+                          引当不可
+                        </button>
+                        <small>工程進捗あり</small>
+                      </div>
                     ) : post.availableInventoryAmount > 0 ? (
                       <button
                         className={styles.confirmButton}
@@ -700,10 +729,11 @@ const OrdersPage = () => {
                   <td>
                     <button
                       className={styles.deleteButton}
-                      disabled={deletingPostId === post.id}
+                      disabled={!profile?.manager||deletingPostId === post.id}
+                      title={!profile?.manager?"管理者のみ操作できます":undefined}
                       onClick={() => handleDeleteOrder(post)}
                     >
-                      {deletingPostId === post.id ? "削除中" : "削除"}
+                      {deletingPostId === post.id ? "取消中" : "誤登録取消"}
                     </button>
                   </td>
                 </tr>

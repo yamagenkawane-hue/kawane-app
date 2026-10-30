@@ -168,7 +168,7 @@ export default function InventoryMasterPage() {
       .eq("id", item.id);
 
     if (error) {
-      alert("在庫の削除に失敗しました");
+      alert(error.message || "在庫の削除に失敗しました");
       return;
     }
 

@@ -68,7 +68,7 @@
 .scopedSummaryCard {
   display: grid;
   gap: 0;
-  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
   margin-bottom: 24px;
   overflow: hidden;
 }
@@ -105,14 +105,14 @@
 }
 
 .scopedOutsourceTable {
-  min-width: 0;
+  min-width: 1280px;
   table-layout: fixed;
   width: 100%;
 }
 
 .scopedTableCard {
   cursor: default;
-  overflow-x: visible;
+  overflow-x: auto;
 }
 
 .scopedOutsourceTable th,
@@ -123,33 +123,39 @@
 
 .scopedOutsourceTable th:nth-child(1),
 .scopedOutsourceTable td:nth-child(1) {
-  width: 18%;
+  width: 16%;
 }
 
 .scopedOutsourceTable th:nth-child(2),
 .scopedOutsourceTable td:nth-child(2) {
-  width: 11%;
+  width: 14%;
 }
 
 .scopedOutsourceTable th:nth-child(3),
 .scopedOutsourceTable td:nth-child(3) {
-  width: 26%;
+  width: 13%;
 }
 
 .scopedOutsourceTable th:nth-child(4),
 .scopedOutsourceTable td:nth-child(4) {
-  width: 10%;
+  width: 9%;
 }
 
 .scopedOutsourceTable th:nth-child(5),
 .scopedOutsourceTable td:nth-child(5) {
-  width: 24%;
+  width: 22%;
 }
 
 .scopedOutsourceTable th:nth-child(6),
 .scopedOutsourceTable td:nth-child(6) {
-  width: 11%;
+  width: 9%;
 }
+
+.scopedOutsourceTable th:nth-child(7),
+.scopedOutsourceTable td:nth-child(7) { width: 10%; }
+
+.scopedOutsourceTable th:nth-child(8),
+.scopedOutsourceTable td:nth-child(8) { width: 7%; }
 
 .scopedOutsourceTable .quantityHeader,
 .scopedOutsourceTable .quantityCell,
@@ -346,10 +352,29 @@
 
 @media (max-width: 1100px) {
   .scopedSummaryCard {
-    grid-template-columns: repeat(3, minmax(160px, 1fr));
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
   }
 
   .scopedSummaryCard div {
     border-bottom: 1px solid #e5e7eb;
   }
 }
+
+.processCell, .vendorCell {
+  min-width: 160px;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+}
+.processCell strong, .processOrderLabel { display: block; }
+.processOrderLabel { color: #64748b; font-size: 12px; margin-bottom: 6px; }
+.scheduleIdentity {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  margin-bottom: 12px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.initialScheduleLabel { font-size: 12px; font-weight: 800; color: #475569; margin: 10px 0; }
+.scopedOutsourceTable .processCell, .scopedOutsourceTable .vendorCell { min-width: 0; }

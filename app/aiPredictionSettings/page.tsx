@@ -1,4 +1,5 @@
 "use client";
+import { authFetch } from "@/lib/auth/client";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -64,7 +65,7 @@ export default function AiPredictionSettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("common");
 
   const fetchRunStatus = useCallback(async () => {
-    const response = await fetch("/api/ai-predictions/status", { cache: "no-store" });
+    const response = await authFetch("/api/ai-predictions/status", { cache: "no-store" });
     if (response.ok) setRunStatus((await response.json()) as RunStatus | null);
   }, []);
 
@@ -182,7 +183,7 @@ export default function AiPredictionSettingsPage() {
     }
     setRunning(true); setMessageType("success"); setMessage("AI予測を実行しています。この画面を閉じずにお待ちください。");
     try {
-      const response = await fetch("/api/ai-predictions/run", { method: "POST" });
+      const response = await authFetch("/api/ai-predictions/run", { method: "POST" });
       const body = (await response.json()) as { error?: string; message?: string };
       if (!response.ok) throw new Error(body.error || "AI予測の実行に失敗しました。");
       setMessage(body.message || "AI予測を更新しました。");

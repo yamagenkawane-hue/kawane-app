@@ -1,7 +1,9 @@
 "use client";
+import { authFetch } from "@/lib/auth/client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useAppAuth } from "@/app/components/AuthProvider/AuthProvider";
 import { useParams } from "next/navigation";
 import supabase from "@/lib/supabase";
 import styles from "../page.module.css";
@@ -42,6 +44,8 @@ type HistoryRow = {
   canCancelShipment?: boolean;
   cancelled?: boolean;
 };
+
+const HISTORY_PAGE_SIZE = 30;
 
 const LOT_SELECT_COLUMNS = [
   "id",
@@ -108,9 +112,9 @@ const buildDateLabel = (label: string, value: unknown) => {
 
 const sortHistoryRows = (rows: HistoryRow[]) =>
   [...rows].sort((a, b) => {
-    const aDate = a.date || "9999-12-31";
-    const bDate = b.date || "9999-12-31";
-    const dateCompare = aDate.localeCompare(bDate);
+    const aDate = a.date || "";
+    const bDate = b.date || "";
+    const dateCompare = bDate.localeCompare(aDate);
     if (dateCompare !== 0) return dateCompare;
     return a.sortOrder - b.sortOrder;
   });
@@ -187,19 +191,15 @@ export default function LotDetailPage() {
   const lotId = String(params?.id || "");
   const [lot, setLot] = useState<LotFlowRow | null>(null);
   const [historyRows, setHistoryRows] = useState<HistoryRow[]>([]);
+  const [historyPage,setHistoryPage]=useState(1);
+  const historyTotalPages=Math.max(1,Math.ceil(historyRows.length/HISTORY_PAGE_SIZE));
+  const currentHistoryPage=Math.min(historyPage,historyTotalPages);
+  const historyStart=(currentHistoryPage-1)*HISTORY_PAGE_SIZE;
+  const paginatedHistory=historyRows.slice(historyStart,historyStart+HISTORY_PAGE_SIZE);
   const [loading, setLoading] = useState(true);
   const [cancellingShipmentId, setCancellingShipmentId] = useState("");
-  const [pendingCancelShipment, setPendingCancelShipment] = useState<{
-    history: HistoryRow;
-    reason: string;
-  } | null>(null);
-  const [cancelPassword, setCancelPassword] = useState("");
-  const [showCancelPassword, setShowCancelPassword] = useState(false);
-  const [isManagerIn] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.localStorage.getItem("isManagerIn") === "true",
-  );
+  const {profile}=useAppAuth();
+  const isManagerIn=Boolean(profile?.manager);
   const [message, setMessage] = useState("");
 
   const loadHistory = useCallback(async (targetLot: LotFlowRow) => {
@@ -470,6 +470,7 @@ export default function LotDetailPage() {
       }
 
       const nextLot = mapLotRow(data as unknown as Record<string, unknown>);
+      setHistoryPage(1);
       setLot(nextLot);
       await loadHistory(nextLot);
     } catch (error) {
@@ -508,68 +509,14 @@ export default function LotDetailPage() {
       return;
     }
 
-    setPendingCancelShipment({ history, reason: trimmedReason });
-    setCancelPassword("");
-    setShowCancelPassword(false);
-  };
-
-  const closeCancelPasswordDialog = () => {
-    if (cancellingShipmentId) return;
-    setPendingCancelShipment(null);
-    setCancelPassword("");
-    setShowCancelPassword(false);
-  };
-
-  const submitCancelShipment = async () => {
-    if (!pendingCancelShipment || !lot) return;
-
-    const trimmedPassword = cancelPassword.trim();
-    if (!trimmedPassword) {
-      alert("管理者ログインパスワードを入力してください");
-      return;
-    }
-
-    if (
-      !window.confirm(
-        `出荷数 ${formatAmount(
-          pendingCancelShipment.history.amount,
-        )} を取り消し、在庫に戻します。よろしいですか？`,
-      )
-    ) {
-      return;
-    }
-
+    if(!window.confirm(`出荷数 ${formatAmount(history.amount)} を取り消し、在庫に戻します。よろしいですか？`)) return;
     try {
-      setCancellingShipmentId(pendingCancelShipment.history.shipmentId || "");
-      const response = await fetch("/api/shipments", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "x-manager": "true",
-        },
-        body: JSON.stringify({
-          id: pendingCancelShipment.history.shipmentId,
-          reason: pendingCancelShipment.reason,
-          cancel_password: trimmedPassword,
-          is_manager: isManagerIn,
-        }),
-      });
-
-      if (!response.ok) {
-        const result = await response.json().catch(() => null);
-        throw new Error(result?.error || "出荷取消に失敗しました");
-      }
-
+      setCancellingShipmentId(history.shipmentId);
+      const response=await authFetch("/api/shipments",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:history.shipmentId,reason:trimmedReason})});
+      if(!response.ok) {const result=await response.json();throw new Error(result.error||"出荷取消に失敗しました");}
       await loadLotDetail();
-      setPendingCancelShipment(null);
-      setCancelPassword("");
-      setShowCancelPassword(false);
-    } catch (error) {
-      console.error(error);
-      alert(error instanceof Error ? error.message : "出荷取消に失敗しました");
-    } finally {
-      setCancellingShipmentId("");
-    }
+    } catch(error) {alert(error instanceof Error?error.message:"出荷取消に失敗しました");}
+    finally {setCancellingShipmentId("");}
   };
 
   const totals = useMemo(
@@ -670,7 +617,7 @@ export default function LotDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {historyRows.map((history) => (
+                  {paginatedHistory.map((history) => (
                     <tr key={history.id}>
                       <td>{formatDate(history.date)}</td>
                       <td>{history.section}</td>
@@ -706,63 +653,25 @@ export default function LotDetailPage() {
                   )}
                 </tbody>
               </table>
+              <nav className={styles.pagination} aria-label="履歴のページ切り替え">
+                <div className={styles.pageInfo}>
+                  {formatNumber(historyRows.length)}件中 {formatNumber(historyRows.length?historyStart+1:0)}-
+                  {formatNumber(Math.min(historyStart+HISTORY_PAGE_SIZE,historyRows.length))}件を表示
+                </div>
+                <div className={styles.pageActions}>
+                  <button className={styles.pageButton} type="button" disabled={currentHistoryPage<=1}
+                    onClick={()=>setHistoryPage(currentHistoryPage-1)}>前へ</button>
+                  <span className={styles.pageNumber}>{currentHistoryPage} / {historyTotalPages}</span>
+                  <button className={styles.pageButton} type="button" disabled={currentHistoryPage>=historyTotalPages}
+                    onClick={()=>setHistoryPage(currentHistoryPage+1)}>次へ</button>
+                </div>
+              </nav>
             </div>
           </div>
         </>
       )}
 
-      {pendingCancelShipment && (
-        <div className={styles.passwordModal} role="dialog" aria-modal="true">
-          <div className={styles.passwordModalCard}>
-            <h2>管理者確認</h2>
-            <p>
-              出荷取消を実行するため、管理者ログインパスワードを入力してください。
-            </p>
-            <label className={styles.passwordLabel}>
-              管理者ログインパスワード
-              <div className={styles.passwordInputRow}>
-                <input
-                  autoFocus
-                  className={styles.passwordInput}
-                  type={showCancelPassword ? "text" : "password"}
-                  value={cancelPassword}
-                  onChange={(event) => setCancelPassword(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      void submitCancelShipment();
-                    }
-                  }}
-                />
-                <button
-                  className={styles.passwordToggleButton}
-                  type="button"
-                  onClick={() => setShowCancelPassword((current) => !current)}
-                >
-                  {showCancelPassword ? "非表示" : "表示"}
-                </button>
-              </div>
-            </label>
-            <div className={styles.passwordModalActions}>
-              <button
-                className={styles.passwordCancelButton}
-                type="button"
-                disabled={Boolean(cancellingShipmentId)}
-                onClick={closeCancelPasswordDialog}
-              >
-                キャンセル
-              </button>
-              <button
-                className={styles.passwordConfirmButton}
-                type="button"
-                disabled={Boolean(cancellingShipmentId)}
-                onClick={() => void submitCancelShipment()}
-              >
-                {cancellingShipmentId ? "取消中..." : "取消実行"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

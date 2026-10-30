@@ -1,4 +1,5 @@
 "use client";
+import { authFetch } from "@/lib/auth/client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -33,8 +34,8 @@ export default function SubcontractorsPage() {
     setLoading(true);
     try {
       const [subcontractorResponse, processResponse] = await Promise.all([
-        fetch("/api/masters/subcontractors"),
-        fetch("/api/processes"),
+        authFetch("/api/masters/subcontractors"),
+        authFetch("/api/processes"),
       ]);
 
       if (!subcontractorResponse.ok) {
@@ -68,7 +69,7 @@ export default function SubcontractorsPage() {
       return;
     }
 
-    const response = await fetch("/api/masters/subcontractors", {
+    const response = await authFetch("/api/masters/subcontractors", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, process_name: processName }),
@@ -83,7 +84,7 @@ export default function SubcontractorsPage() {
   };
 
   const saveItem = async (item: Subcontractor) => {
-    const response = await fetch("/api/masters/subcontractors", {
+    const response = await authFetch("/api/masters/subcontractors", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -98,7 +99,7 @@ export default function SubcontractorsPage() {
 
   const deleteItem = async (id: string) => {
     if (!confirm("削除しますか？")) return;
-    const response = await fetch(`/api/masters/subcontractors?id=${id}`, {
+    const response = await authFetch(`/api/masters/subcontractors?id=${id}`, {
       method: "DELETE",
     });
     if (!response.ok) alert("削除に失敗しました");

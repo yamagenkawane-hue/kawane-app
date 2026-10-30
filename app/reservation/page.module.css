@@ -1,9 +1,6 @@
 .reservationImg {
   display: grid;
-  grid-template-columns: minmax(160px, auto) minmax(180px, 1fr) minmax(
-      280px,
-      auto
-    );
+  grid-template-columns: auto minmax(320px, 1fr) auto;
   align-items: center;
   margin-bottom: 20px;
   gap: 10px;
@@ -31,6 +28,7 @@
 .center {
   text-align: center;
   min-width: 0;
+  transform: translateX(-104px);
 }
 
 .center h1 {
@@ -44,6 +42,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-left: 16px;
 }
 
 .deleteIconLink {
@@ -474,4 +473,23 @@
 
     padding: 6px 12px;
   }
+}
+
+.searchDelete input {
+  width: 100%;
+  min-width: 0;
+  padding: 14px 18px;
+  font-size: 18px;
+  border: 2px solid #1976d2;
+  background: #f0f7ff;
+}
+.searchDelete > div {
+  flex: 0 1 66.6667%;
+  min-width: 0;
+}
+@media (max-width: 800px) {
+  .reservationImg { grid-template-columns: 1fr; }
+  .searchDelete { margin-left: 0; }
+  .searchDelete > div { flex: 1; }
+  .center { transform: none; }
 }

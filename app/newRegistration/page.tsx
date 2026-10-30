@@ -64,13 +64,13 @@ const NewRegistration = () => {
             パスワード
           </label>
 
-          <p className={styles.helpText}>※半角英数字</p>
+          <p className={styles.helpText}>※6文字以上</p>
 
           <input
             type="password"
             className={styles.input}
             value={passWord}
-            pattern="[a-zA-Z0-9]*"
+            minLength={6}
             placeholder="パスワードを入力してください"
             onChange={handleInputChange("passWord", setPassWord, (value) =>
               validateInput(value, "passWord"),

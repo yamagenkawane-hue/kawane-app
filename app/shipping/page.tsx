@@ -1,11 +1,13 @@
 "use client";
+import { authFetch } from "@/lib/auth/client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { subDays } from "date-fns";
 import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
-import { CustomerMaster, Shipment } from "@/app/type";
+import { CustomerMaster } from "@/app/type";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import styles from "../masterCommon.module.css";
 
 type ShippingPost = {
@@ -33,9 +35,6 @@ type ShippingPostGroup = {
   rows: ShippingPost[];
 };
 
-const STOCK_IN_HISTORY_SELECT_COLUMNS =
-  "id,post_id,order_no,lot_id,lot_no,quantity,created_at,product_code,product_name,customer_name";
-
 const CUSTOMER_SELECT_COLUMNS =
   "id,customer_name,shipping_offset_days,note";
 
@@ -59,27 +58,8 @@ const createShippingGroupKey = (post: ShippingPost) =>
     post.orderAmount,
   ].join("|");
 
-const mapShipment = (row: Record<string, unknown>): Shipment => ({
-  id: String(row.id || ""),
-  postId: String(row.post_id || ""),
-  orderNo: String(row.order_no || ""),
-  customerName: String(row.customer_name || ""),
-  productCode: String(row.product_code || ""),
-  productName: String(row.product_name || ""),
-  lotId: String(row.lot_id || ""),
-  lotNo: String(row.lot_no || ""),
-  scheduledDate: String(row.scheduled_date || ""),
-  deliveryDate: String(row.delivery_date || ""),
-  orderAmount: Number(row.order_amount || 0),
-  quantity: Number(row.quantity || 0),
-  cancelled: Boolean(row.cancelled),
-  cancelledAt: String(row.cancelled_at || ""),
-  cancelledReason: String(row.cancelled_reason || ""),
-  createdAt: String(row.created_at || ""),
-  updatedAt: String(row.updated_at || ""),
-});
-
 export default function ShippingPage() {
+  const shippingRef = useRef(false);
   const [posts, setPosts] = useState<ShippingPost[]>([]);
   const [shipAmounts, setShipAmounts] = useState<Record<string, number>>({});
   const [targetDate, setTargetDate] = useState("");
@@ -90,25 +70,14 @@ export default function ShippingPage() {
     try {
       setLoading(true);
 
-      const [completedResult, customerResult, postResult, shipmentResponse] = await Promise.all([
-        supabase
-          .from("v_process_transfer_history_with_master")
-          .select(STOCK_IN_HISTORY_SELECT_COLUMNS)
-          .eq("movement_type", "stock_in")
-          .order("customer_name", { ascending: true })
-          .order("created_at", { ascending: true }),
-        supabase.from("customer_master").select(CUSTOMER_SELECT_COLUMNS),
-        supabase
-          .from("v_posts_with_master")
-          .select("id,order_amount,delivery_date,completion_scheduled_date")
-          .or("delete.is.null,delete.eq.false"),
-        fetch("/api/shipments"),
+      const [stockResult, customerResult] = await Promise.all([
+        fetchAllRows((from, to) => supabase.from("v_shipping_candidates")
+          .select("post_id,order_no,lot_id,lot_no,product_code,product_name,customer_name,order_amount,delivery_date,completion_scheduled_date,current_stock,available_quantity")
+          .gt("available_quantity", 0).order("post_id").order("lot_id").range(from, to)),
+        fetchAllRows((from, to) => supabase.from("customer_master").select(CUSTOMER_SELECT_COLUMNS).order("id").range(from, to)),
       ]);
-
-      if (completedResult.error) throw completedResult.error;
+      if (stockResult.error) throw stockResult.error;
       if (customerResult.error) throw customerResult.error;
-      if (postResult.error) throw postResult.error;
-      if (!shipmentResponse.ok) throw new Error("出荷データの取得に失敗しました");
 
       const customerList: CustomerMaster[] = (customerResult.data || []).map(
         (row) => ({
@@ -119,70 +88,22 @@ export default function ShippingPage() {
         }),
       );
 
-      const shipmentRows: Shipment[] = (await shipmentResponse.json()).map(mapShipment);
-      const shippedByPost = shipmentRows.reduce((acc: Record<string, number>, row) => {
-        acc[row.postId] = (acc[row.postId] || 0) + Number(row.quantity || 0);
-        return acc;
-      }, {});
-      const shippedByPostLot = shipmentRows.reduce((acc: Record<string, number>, row) => {
-        const key = `${row.postId}:${row.lotNo}`;
-        acc[key] = (acc[key] || 0) + Number(row.quantity || 0);
-        return acc;
-      }, {});
-      const postMap = new Map(
-        (postResult.data || []).map((row) => [
-          String(row.id || ""),
-          {
-            orderAmount: Number(row.order_amount || 0),
-            deliveryDate: String(row.delivery_date || ""),
-            completionScheduledDate: String(
-              row.completion_scheduled_date || row.delivery_date || "",
-            ),
-          },
-        ]),
-      );
-
-      const mappedPosts: ShippingPost[] = (completedResult.data || [])
-        .map((row) => {
-          const customer = customerList.find(
-            (item) => item.customerName === row.customer_name,
-          );
-          const postId = String(row.post_id || "");
-          const post = postMap.get(postId);
-          const scheduledDate = formatDate(
-            subDays(new Date(post?.deliveryDate || new Date()), customer?.shippingOffsetDays || 0),
-          );
-          const orderAmount = Number(post?.orderAmount || 0);
-          const shippedAmount = Number(shippedByPost[postId] || 0);
-          const orderRemainingAmount = Math.max(orderAmount - shippedAmount, 0);
-          const lotNo = String(row.lot_no || "");
-          const shippedLotAmount = Number(shippedByPostLot[`${postId}:${lotNo}`] || 0);
-          const completedQuantity = Number(row.quantity || 0);
-
-          return {
-            id: postId,
-            rowKey: String(row.id || `${postId}-${lotNo}`),
-            lotId: String(row.lot_id || ""),
-            postId,
-            orderNo: row.order_no || "",
-            lotNo,
-            productCode: row.product_code || "",
-            productName: row.product_name || "",
-            customerName: row.customer_name || "",
-            orderAmount,
-            lotProductionAmount: completedQuantity,
-            remainingAmount: Math.min(
-              Math.max(completedQuantity - shippedLotAmount, 0),
-              orderRemainingAmount,
-            ),
-            status: "",
-            deliveryDate: post?.deliveryDate || "",
-            completionScheduledDate: post?.completionScheduledDate || "",
-            shippedAmount,
-            scheduledDate,
-          };
-        })
-        .filter((post) => post.remainingAmount > 0)
+      const mappedPosts: ShippingPost[] = (stockResult.data || []).map((row) => {
+        const customer = customerList.find(item => item.customerName === row.customer_name);
+        const deliveryDate = String(row.delivery_date || "");
+        const scheduledDate = deliveryDate
+          ? formatDate(subDays(new Date(deliveryDate), customer?.shippingOffsetDays || 0)) : "";
+        return {
+          id: row.post_id, postId: row.post_id, rowKey: `${row.post_id}:${row.lot_id}`,
+          lotId: row.lot_id, lotNo: row.lot_no, orderNo: row.order_no,
+          productCode: row.product_code || "", productName: row.product_name || "",
+          customerName: row.customer_name || "", orderAmount: Number(row.order_amount || 0),
+          lotProductionAmount: Number(row.current_stock || 0),
+          remainingAmount: Number(row.available_quantity || 0),
+          deliveryDate, scheduledDate, completionScheduledDate: row.completion_scheduled_date || "",
+          status: "", shippedAmount: 0,
+        };
+      })
         .sort((a, b) => {
           const customerCompare = a.customerName.localeCompare(b.customerName, "ja");
           return customerCompare || a.scheduledDate.localeCompare(b.scheduledDate);
@@ -323,7 +244,7 @@ export default function ShippingPage() {
           <th>注番</th>
           <th>製品名</th>
           <th>ロットNo</th>
-          <th>生産数</th>
+          <th>ロット在庫数</th>
           <th>納期</th>
           <th>受注数</th>
           <th>出荷数</th>
@@ -342,17 +263,22 @@ export default function ShippingPage() {
   };
 
   const handleShip = async (post: ShippingPost) => {
+    if (shippingRef.current) return;
     const amount = Number(shipAmounts[post.rowKey] || 0);
-    if (amount <= 0) {
-      alert("出荷数を入力してください");
+    if (!Number.isInteger(amount) || amount <= 0) {
+      alert("出荷数を1以上の整数で入力してください");
       return;
     }
     if (amount > post.remainingAmount) {
-      alert("出荷数が注残数を超えています");
+      alert("出荷数が注残数または出荷可能在庫を超えています");
       return;
     }
     if (!post.lotNo.trim()) {
       alert("ロットNoが未設定です。注残管理で在庫引当を確定してください");
+      return;
+    }
+    if (!post.scheduledDate) {
+      alert("納期が未登録のため出荷予定日を計算できません。注残管理で納期を設定してください");
       return;
     }
 
@@ -366,12 +292,17 @@ export default function ShippingPage() {
       return;
     }
 
+    shippingRef.current = true;
+    const requestStorageKey = `shipment-request:${post.rowKey}:${amount}:${post.scheduledDate}`;
     try {
       setLoading(true);
-      const response = await fetch("/api/shipments", {
+      const requestKey = sessionStorage.getItem(requestStorageKey) || crypto.randomUUID();
+      sessionStorage.setItem(requestStorageKey, requestKey);
+      const response = await authFetch("/api/shipments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          idempotency_key: requestKey,
           post_id: post.postId,
           order_no: post.orderNo,
           customer_name: post.customerName,
@@ -391,6 +322,7 @@ export default function ShippingPage() {
         throw new Error(result?.error || "出荷登録に失敗しました");
       }
 
+      sessionStorage.removeItem(requestStorageKey);
       setShipAmounts((prev) => ({ ...prev, [post.rowKey]: 0 }));
       await fetchData();
     } catch (error) {
@@ -399,6 +331,7 @@ export default function ShippingPage() {
         error instanceof Error ? error.message : "出荷登録に失敗しました",
       );
     } finally {
+      shippingRef.current = false;
       setLoading(false);
     }
   };
@@ -406,9 +339,14 @@ export default function ShippingPage() {
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
-        <Link href="/productionSchedules" className={styles.backButton}>
-          ← 生産予定に戻る
-        </Link>
+        <nav className={styles.backLinkGroup} aria-label="画面移動">
+          <Link href="/productionSchedules" className={styles.backButton}>
+            ← 生産予定に戻る
+          </Link>
+          <Link href="/reservation" className={styles.backButton}>
+            ← 進捗管理に戻る
+          </Link>
+        </nav>
         <h1 className={styles.title}>出荷管理</h1>
       </div>
 
@@ -446,7 +384,7 @@ export default function ShippingPage() {
               <th>注番</th>
               <th>製品名</th>
               <th>ロットNo</th>
-              <th>生産数</th>
+              <th>ロット在庫数</th>
               <th>納期</th>
               <th>受注数</th>
               <th>出荷数</th>
@@ -488,7 +426,8 @@ export default function ShippingPage() {
                     />
                   </td>
                   <td className={styles.actionArea}>
-                    <button className={styles.saveButton} onClick={() => handleShip(post)}>
+                    <button className={styles.saveButton} disabled={loading}
+                      onClick={() => handleShip(post)}>
                       出荷
                     </button>
                   </td>

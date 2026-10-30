@@ -1,5 +1,5 @@
 import { useState } from "react";
-import supabase from "../../lib/supabase";
+import { authFetch } from "@/lib/auth/client";
 
 export const useNewRegistration = () => {
   const [userName, setUserName] = useState("");
@@ -15,8 +15,8 @@ export const useNewRegistration = () => {
         type === "userName" ? "ユーザーID" : "パスワード"
       }を入力してください`;
     }
-    if (type === "passWord" && /[^a-zA-Z0-9]/.test(value)) {
-      return "※パスワードは半角英数字のみです";
+    if (type === "passWord" && value.length < 6) {
+      return "※パスワードは6文字以上で入力してください";
     }
     return "";
   };
@@ -45,20 +45,14 @@ export const useNewRegistration = () => {
     }
 
     try {
-      const { error } = await supabase.from("user").insert({
-        name: userName,
-        pass: passWord,
-        manager: false,
-        delete: false,
-      });
-
-      if (error) throw error;
-
+      const response=await authFetch("/api/auth/users",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:userName,password:passWord})});
+      const result=await response.json();
+      if(!response.ok) throw new Error(result.error||"登録できません");
       setUserName("");
       setPassWord("");
       setErrors({ userName: "", passWord: "" });
     } catch (error) {
-      console.error("エラーが発生しました: ", error);
+      alert(error instanceof Error?error.message:"登録できません");
     }
   };
 

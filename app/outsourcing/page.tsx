@@ -1,4 +1,5 @@
 "use client";
+import { authFetch } from "@/lib/auth/client";
 
 import {
   type MouseEvent,
@@ -17,11 +18,15 @@ import supabase from "@/lib/supabase";
 import { OrderProcess, ProductProcess } from "@/app/type";
 import styles from "../masterCommon.module.css";
 import outsourcingStyles from "./page.module.css";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { mapOutsourceRemainder, REMAINDER_COLUMNS, type OutsourceRemainder } from "@/lib/outsourceRemainders";
+import OutsourceRemainderEditor from "../components/OutsourceRemainderEditor/OutsourceRemainderEditor";
 
 type OutsourceRow = OrderProcess & {
   deliveryDate: string;
   remainingAmount: number;
   outsourcing: boolean;
+  remainderSchedules?: OutsourceRemainder[];
 };
 
 const ORDER_PROCESS_SELECT_COLUMNS =
@@ -32,7 +37,12 @@ type DerivedOutsourceStatus = "not_sent" | "sent" | "returned";
 const getDerivedOutsourceStatus = (row: {
   outsourceSentDate?: string;
   outsourceReturnedDate?: string;
+  remainderSchedules?: OutsourceRemainder[];
 }): DerivedOutsourceStatus => {
+  const pending=(row.remainderSchedules||[]).filter(item=>item.quantity>item.movedAmount);
+  if(pending.some(item=>item.sentDate&&!item.returnedDate)) return "sent";
+  if(pending.some(item=>!item.sentDate)) return "not_sent";
+  if(pending.length>0) return "returned";
   if (row.outsourceReturnedDate) return "returned";
   if (row.outsourceSentDate) return "sent";
   return "not_sent";
@@ -123,6 +133,7 @@ function OutsourcingContent() {
   const [rows, setRows] = useState<OutsourceRow[]>([]);
   const [savingId, setSavingId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [remainderReady,setRemainderReady]=useState(true);
   const [showCompleted, setShowCompleted] = useState(false);
   const [isDraggingTable, setIsDraggingTable] = useState(false);
   const topScrollRef = useRef<HTMLDivElement>(null);
@@ -135,17 +146,23 @@ function OutsourcingContent() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [orderProcessResult, productProcessResponse] = await Promise.all([
+      const [orderProcessResult, productProcessResponse, remainderResult] = await Promise.all([
         supabase
           .from("v_order_processes_with_master")
           .select(ORDER_PROCESS_SELECT_COLUMNS)
           .order("delivery_date", { ascending: true })
           .order("customer_name", { ascending: true })
           .order("process_order", { ascending: true }),
-        fetch("/api/masters/product-processes"),
+        authFetch("/api/masters/product-processes"),
+        fetchAllRows((from,to)=>supabase.from("outsource_remainder_schedules").select(REMAINDER_COLUMNS)
+          .eq("cancelled",false).order("created_at").order("id").range(from,to)),
       ]);
 
       if (orderProcessResult.error) throw orderProcessResult.error;
+      const missingRemainderSchema=remainderResult.error&&['PGRST205','42P01','42703','PGRST204'].includes(remainderResult.error.code||'');
+      if (remainderResult.error&&!missingRemainderSchema) throw remainderResult.error;
+      setRemainderReady(!missingRemainderSchema);
+      const remainders=(remainderResult.data||[]).map(row=>mapOutsourceRemainder(row as Record<string,unknown>));
       if (!productProcessResponse.ok) {
         throw new Error("product process fetch failed");
       }
@@ -169,6 +186,7 @@ function OutsourcingContent() {
             subcontractorName:
               process.subcontractorName || master?.subcontractorName || "",
             outsourcing: Boolean(master),
+            remainderSchedules: remainders.filter(item=>item.orderProcessId===process.id),
           };
         })
         .filter((process) => process.outsourcing)
@@ -253,12 +271,6 @@ function OutsourcingContent() {
             ? `${row.productCode} / ${row.productName}`
             : row.productName,
         ),
-      ),
-      processName: uniqueJoined(
-        visibleRows.map((row) => `${row.processOrder}. ${row.processName}`),
-      ),
-      subcontractorName: uniqueJoined(
-        visibleRows.map((row) => row.subcontractorName || "-"),
       ),
     };
   }, [targetOrderNo, visibleRows]);
@@ -409,14 +421,6 @@ function OutsourcingContent() {
             <span>製品</span>
             <strong>{scopedDetails.productName}</strong>
           </div>
-          <div>
-            <span>工程</span>
-            <strong>{scopedDetails.processName}</strong>
-          </div>
-          <div>
-            <span>外注先</span>
-            <strong>{scopedDetails.subcontractorName}</strong>
-          </div>
         </div>
       ) : (
         <div className={styles.summaryCard}>
@@ -480,10 +484,10 @@ function OutsourcingContent() {
                   <th>注番</th>
                   <th>得意先</th>
                   <th>製品</th>
-                  <th>工程</th>
-                  <th>外注先</th>
                 </>
               )}
+              <th className={outsourcingStyles.processCell}>工程</th>
+              <th className={outsourcingStyles.vendorCell}>外注先</th>
               <th className={outsourcingStyles.quantityHeader}>数量</th>
               <th className={outsourcingStyles.statusHeader}>状態</th>
               <th className={outsourcingStyles.scheduleHeader}>外注日程</th>
@@ -508,12 +512,13 @@ function OutsourcingContent() {
                       <td className={outsourcingStyles.productCell}>
                         {row.productCode} / {row.productName}
                       </td>
-                      <td>
-                        {row.processOrder}. {row.processName}
-                      </td>
-                      <td>{row.subcontractorName || "-"}</td>
                     </>
                   )}
+                  <td className={outsourcingStyles.processCell}>
+                    <span className={outsourcingStyles.processOrderLabel}>第{row.processOrder}工程</span>
+                    <strong>{row.processName}</strong>
+                  </td>
+                  <td className={outsourcingStyles.vendorCell}>{row.subcontractorName || "外注先未設定"}</td>
                   <td className={outsourcingStyles.quantityCell}>
                     <div className={outsourcingStyles.quantityGroup}>
                       <span>予定</span>
@@ -536,11 +541,17 @@ function OutsourcingContent() {
                     </span>
                   </td>
                   <td className={outsourcingStyles.scheduleCell}>
+                    <div className={outsourcingStyles.scheduleIdentity}>
+                      第{row.processOrder}工程：{row.processName}<br />
+                      {row.subcontractorName || "外注先未設定"}
+                    </div>
+                    <div className={outsourcingStyles.initialScheduleLabel}>初回分の日程</div>
                     <label>
-                      <span>出し</span>
+                      <span>出し日</span>
                       <input
                         className={styles.tableInput}
                         type="date"
+                        aria-label={`${row.orderNo} 第${row.processOrder}工程 ${row.processName} ${row.subcontractorName || "外注先未設定"} 出し日`}
                         value={row.outsourceSentDate || ""}
                         onChange={(e) =>
                           updateRow(row.id, "outsourceSentDate", e.target.value)
@@ -548,10 +559,11 @@ function OutsourcingContent() {
                       />
                     </label>
                     <label>
-                      <span>予定</span>
+                      <span>予定日</span>
                       <input
                         className={styles.tableInput}
                         type="date"
+                        aria-label={`${row.orderNo} 第${row.processOrder}工程 ${row.processName} ${row.subcontractorName || "外注先未設定"} 予定日`}
                         value={row.outsourceExpectedReturnDate || ""}
                         onChange={(e) =>
                           updateRow(
@@ -563,16 +575,21 @@ function OutsourcingContent() {
                       />
                     </label>
                     <label>
-                      <span>実績</span>
+                      <span>実績日</span>
                       <input
                         className={styles.tableInput}
                         type="date"
+                        aria-label={`${row.orderNo} 第${row.processOrder}工程 ${row.processName} ${row.subcontractorName || "外注先未設定"} 実績日`}
                         value={row.outsourceReturnedDate || ""}
                         onChange={(e) =>
                           updateRow(row.id, "outsourceReturnedDate", e.target.value)
                         }
                       />
                     </label>
+                    {remainderReady?<OutsourceRemainderEditor orderProcessId={row.id}
+                      identity={`${row.orderNo} 第${row.processOrder}工程 ${row.processName} ${row.subcontractorName||"外注先未設定"}`}
+                      remainingAmount={row.remainingAmount} schedules={row.remainderSchedules} onSaved={fetchData}/>
+                      :<p>残数分の日程追加はDB更新の反映待ちです。</p>}
                   </td>
                   <td className={outsourcingStyles.dateCell}>
                     {row.completedDate || "-"}
@@ -610,7 +627,7 @@ function OutsourcingContent() {
             })}
             {visibleRows.length === 0 && (
               <tr>
-                <td colSpan={isProgressScoped ? 6 : 12}>
+                <td colSpan={isProgressScoped ? 8 : 12}>
                   外注工程はありません
                 </td>
               </tr>

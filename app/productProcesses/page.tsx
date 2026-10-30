@@ -1,4 +1,5 @@
 "use client";
+import { authFetch } from "@/lib/auth/client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -150,9 +151,9 @@ export default function ProductProcessesPage() {
           .from("v_product_master_with_customer")
           .select(PRODUCT_SELECT_COLUMNS)
           .order("product_code"),
-        fetch("/api/processes"),
-        fetch("/api/masters/subcontractors"),
-        fetch("/api/masters/product-processes"),
+        authFetch("/api/processes"),
+        authFetch("/api/masters/subcontractors"),
+        authFetch("/api/masters/product-processes"),
       ]);
 
       if (productResult.error) throw productResult.error;
@@ -261,7 +262,7 @@ export default function ProductProcessesPage() {
       return;
     }
 
-    const response = await fetch("/api/masters/product-processes", {
+    const response = await authFetch("/api/masters/product-processes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -301,7 +302,7 @@ export default function ProductProcessesPage() {
   };
 
   const saveProcess = async (process: ProductProcess) => {
-    const response = await fetch("/api/masters/product-processes", {
+    const response = await authFetch("/api/masters/product-processes", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -320,7 +321,7 @@ export default function ProductProcessesPage() {
 
   const saveOrder = async () => {
     for (const process of selectedProcesses) {
-      const response = await fetch("/api/masters/product-processes", {
+      const response = await authFetch("/api/masters/product-processes", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -342,7 +343,7 @@ export default function ProductProcessesPage() {
 
   const deleteProcess = async (id: string) => {
     if (!confirm("削除しますか？")) return;
-    const response = await fetch(`/api/masters/product-processes?id=${id}`, {
+    const response = await authFetch(`/api/masters/product-processes?id=${id}`, {
       method: "DELETE",
     });
     if (!response.ok) alert("削除に失敗しました");

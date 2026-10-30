@@ -1,0 +1,9 @@
+.section { margin-top: 18px; border-top: 2px solid #93c5fd; padding-top: 12px; }
+.card { padding: 10px; margin: 12px 0; border: 1px solid #93c5fd; border-radius: 8px; background: #eff6ff; }
+.card legend { font-size: 13px; font-weight: 800; color: #1e40af; padding: 0 4px; }
+.card label { margin-bottom: 8px; }
+.card p, .available { font-size: 12px; white-space: normal; margin: 8px 0; color: #475569; }
+.section button { border: 1px solid #2563eb; border-radius: 6px; padding: 7px 10px; color: #1d4ed8; background: white; font-weight: 700; font-size: 12px; cursor: pointer; }
+.section button:disabled { opacity: .5; cursor: not-allowed; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.error { color: #b91c1c !important; white-space: normal; font-size: 13px; margin-top: 10px; }

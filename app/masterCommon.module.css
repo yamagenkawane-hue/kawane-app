@@ -30,6 +30,13 @@
   white-space: nowrap;
 }
 
+.backLinkGroup {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .linkButton {
   align-items: center;
   background: #2563eb;
