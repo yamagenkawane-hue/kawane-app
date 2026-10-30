@@ -153,7 +153,7 @@ const outsourceRows=[
 ];
 function renderOutsourcing(scoped) {
   const component=load("app/outsourcing/page.tsx",{
-    "react":{...React,useState:(initial)=>Array.isArray(initial)?[outsourceRows,()=>{}]:React.useState(initial)},
+    "react":{...React,useState(initial) { const state=React.useState(initial); return Array.isArray(initial)?[outsourceRows,()=>{}]:state; }},
     "@/lib/supabase":{__esModule:true,default:{}},
     "next/navigation":{useRouter:()=>({push:()=>{}}),useSearchParams:()=>new URLSearchParams(scoped?"orderNo=OUT-2&returnTo=reservation":"")},
   }).default;
@@ -178,7 +178,7 @@ const allocationPosts=[
   {...base,id:"confirmed",orderNo:"ALLOC-CONFIRMED",manufacturingLots:[{id:"lot-a",lotNo:"ACTUAL-A",materialLotNo:"MAT-A"},{id:"lot-b",lotNo:"ACTUAL-B",materialLotNo:"MAT-B"}],remainingAmount:100,allocationConfirmed:true,availableInventoryAmount:100,hasProcessProgress:true},
 ];
 const OrdersPage=load("app/orders/page.tsx",{
-  "react":{...React,useState:(initial)=>Array.isArray(initial)?[allocationPosts,()=>{}]:React.useState(initial)},
+  "react":{...React,useState(initial) { const state=React.useState(initial); return Array.isArray(initial)?[allocationPosts,()=>{}]:state; }},
   "../../lib/supabase":{__esModule:true,default:{}},
 }).default;
 const ordersHtml=renderToStaticMarkup(React.createElement(OrdersPage));

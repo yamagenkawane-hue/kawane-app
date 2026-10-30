@@ -65,9 +65,9 @@ AI自動更新は既存のCRON_SECRETで確認する。手動更新ボタンは�
 
 28個の既存業務テーブルと新プロフィールにRLSを適用。既存ビューをsecurity_invokerに変更し、未ログインのテーブル・ビュー・関数利用を禁止した。保存RPCは直接呼び出されても有効な利用者かを確認し、管理操作では管理者を確認する。サービス権限は自動処理のため維持する。内部専用のbase/legacy関数は利用者から呼べない。
 
-旧`public.user`は移行元の退避として保持するが、アプリ利用者からの読取・書込権限はすべて剥奪した。旧平文パスワードは移行元テーブルに残っており、DB所有者等に限定される。新ログイン・ユーザー管理はこのテーブルを使用しない。最終的な退避データ廃棄は別途判断する。
+旧`public.user`は初回移行時に退避として保持され、アプリ利用者からの読取・書込権限は剥奪済み。ただし、旧平文パスワードの残存リスクは権限剥奪では解消しない。新ログイン・ユーザー管理はこのテーブルを使用しない。今回の修正は実データを削除せず、以下の廃棄手順を仕様化する。
 
-## unit_test / integration_test
+## unit_test / integration_test（初回公開時の記録）
 
 - `verify-auth-api.mjs`: 35件成功。トークン不正、未ログイン、管理者偽装、無効セッション、AI実行の拒否を検証。
 - `verify-auth-db.mjs`: 65件成功。RLS、管理者保護、ログイン試行制限、無効化・セッション失効、権限付き工程移動・外注残数移動を検証。
@@ -77,7 +77,7 @@ AI自動更新は既存のCRON_SECRETで確認する。手動更新ボタンは�
 - TypeScript・変更箇所のESLint・本番ビルド成功。
 - ブラウザーでtestの1段階ログイン、一般メニュー、管理者画面への直接アクセス拒否を確認。
 
-## system_review / 公開状況
+## system_review / 公開状況（初回公開時の記録）
 
 ローカルアプリ・本番Supabase・Vercel公開アプリに反映済み。
 
@@ -96,3 +96,85 @@ Vercel連携ツールの詳細取得は、チーム再認証承認後も403だ�
 - 漏洩パスワード検知は未設定。今回はユーザー指定の既存パスワード継続方針を維持し、Authの強度設定は変更していない。
 
 共用端末では使用後にサインアウトする。保持期間の独自制限やMFAは追加していない。
+
+
+## 追加修正（2026-10-30、未公開・本番未適用）
+
+### requirements / 差し戻し理由
+
+初回移行の一般利用者向けUPDATE権限では、RPCを通さず取消・削除フラグを変更できた。また、出荷の直接INSERTは`register_shipment`の数量・在庫検証を回避できた。ユーザーの指摘修正・仕様変更・テストの依頼に基づき、本仕様と実装を修正する。初回公開時の成功記録はこの追加修正の本番検証を意味しない。
+
+### design / DB更新経路
+
+- `shipments`の直接INSERT・UPDATE・DELETEは、一般利用者・管理者とも禁止する。一般利用者の出荷登録は`register_shipment`、管理者の取消は`cancel_shipment_and_restore_inventory`を利用する。取消フラグだけでなく数量・在庫・引当の整合性を同一トランザクションで保つ。
+- `posts.delete`、`lots.deleted`は`authenticated`のUPDATE許可列から除外する（管理者も同じDBロールのため直接更新不可）。INSERTの制限ポリシーでも`true`を禁止し、INSERT/upsertによる取消状態の偽造を防ぐ。既存の`false`・`null`は許容する。取消・削除・復元は既存の権限検証付きRPCを利用する。
+- ロットの削除日時・理由（`lots.deleted_at` / `deleted_reason`）も直接UPDATEから保護し、INSERT時はNULLのみ許可する。削除・復元RPCによる履歴変更は維持する。
+- 初回認証移行で再公開された旧`ship_inventory_for_post(uuid,integer)`の実行権限を再び剥奪する。在庫だけを減らし出荷履歴を作らない旧経路は、一般利用者・管理者とも呼べない。
+- `posts`の直接DELETEを禁止し、既存の受注取消RPCを使用する。`lots`の直接DELETEに関する既存の管理者専用ポリシーは変更しない。
+- 既存の日常業務の編集は必要な項目に限定して維持する。画面の無効化だけを権限制御としない。DBへの直接要求、RPCへの直接要求、管理者・一般利用者の双方をテストする。
+- 適用済み移行SQLを遡及変更せず、追加移行`20261030090416_enforce_workflow_write_boundaries.sql`で権限を修正する。追加移行の公開・本番適用には別途承認が必要。今回の作業で本番DB、Auth、公開アプリは変更しない。
+
+### 旧平文資格情報の保管・廃棄手順（承認待ち）
+
+1. **責任者・期限の決定**: システム管理責任者が廃棄対象、実施責任者、実施日、バックアップ失効日を承認記録に残す。具体的な担当者・期日は未確定であり、無期限保管を既定にしない。決定前に自動削除しない。
+2. **移行照合**: パスワードを取得・表示せず、旧IDと`app_profiles.id`、`auth.users.id`の対応、有効状態、管理者の存在、無効アカウントの扱いを件数・識別子で確認する。ID変更や未移行アカウントは解決してから進める。
+3. **依存排除**: アプリ、検証スクリプト、運用ジョブ、ビュー、関数、外部連携を調べ、旧`pass`列の利用がないことを確認する。`prepare-auth-users.mjs`は初回移行専用で再実行しない。移行済み利用者の検証には専用テスト資格情報を用いる。旧パスワードをCSV・ログ・追加バックアップに複製しない。
+4. **承認後のみ廃棄**: 本番作業の明示承認を受けた後、DB所有者が依存関係と制約を事前確認した専用トランザクションで旧`public.user.pass`列を廃棄する。`CASCADE`で未確認依存を削除しない。アカウントIDなど必要な履歴は別途保持可否を判断し、Authや`app_profiles`は削除しない。今回の追加権限移行には廃棄SQLを含めない。
+5. **バックアップ管理**: 既存バックアップ・スナップショット・PITR・エクスポートにも旧パスワードが残り得る。アクセスを限定し、保存期間・削除可能日を管理責任者が確認する。表の列削除だけで全コピーを消したと判断しない。災害復旧時もアプリ再公開前に資格情報廃棄と最新権限移行を再適用する。
+6. **認証継続と漏洩対応**: 平文廃棄はAuthのハッシュ済みパスワードを変えない。実行後に承認済み専用アカウントでログインと業務読取を確認する。漏洩が疑われる場合は別途、全対象者のパスワード再設定・セッション失効と他サービスでの使い回し対策を検討・承認する。バックアップ失効だけでは既に知られたパスワードは無効にならない。
+7. **監査記録**: 廃棄対象、承認、実施時刻、列不存在・依存ゼロの確認、バックアップ残存期限を記録する。資格情報の値は記録しない。失敗時はトランザクションをロールバックして原因を調査し、旧平文認証を復活させない。
+
+### 認証検証スクリプトの実行条件
+
+`verify-live-auth.mjs`は旧ユーザーの一覧・平文パスワードを読み取らず、サービスロールキーも使用しない。以下を、承認された検証先と専用アカウントについて安全な環境変数として指定する。秘密値をコマンド履歴・文書・Gitへ保存しない。
+
+- `KAWANE_ALLOW_LIVE_AUTH_TEST=yes`: **実行承認を取得してから**指定する明示オプトイン。
+- `KAWANE_VERIFY_ORIGIN`: 検証対象アプリのオリジン。既定値はない。
+- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`: 上記アプリと同じ承認済み環境の公開接続情報。
+- `KAWANE_VERIFY_WORKER_ID` / `KAWANE_VERIFY_WORKER_PASSWORD`: 専用の一般利用者。
+- `KAWANE_VERIFY_ADMIN_ID` / `KAWANE_VERIFY_ADMIN_PASSWORD`: 別の専用管理者。
+
+実行: `node scripts/verify-live-auth.mjs`。必要項目・オプトインの不足時は通信前に終了する。外部への平文HTTP、資格情報入りURL、パス付きURLは拒否する。アプリへのHTTPリダイレクトを追跡しない。資格情報の値・トークンは出力しない。
+
+この検証は業務データを読取のみとするが、**ログイン試行数とAuthセッションを作成・失効するため完全な読取専用ではない**。本番での実行には別途承認が必要。専用アカウントは事前に用意し、このスクリプトは作成しない。失敗時もサインアウトを試みる。セッション終了に失敗した場合は管理者が専用アカウントの残存セッションを失効する。今回は本番ログイン検証を実行していない。
+
+### unit_test / integration_test / system_review
+
+基準コミット: `1f931ca87899424d751e75927abecae2da55e6c6`。クラウド内のローカルコピーと合成データだけを使用した。
+
+| 検証 | 結果 | 範囲 |
+|---|---|---|
+| `verify-workflow-permissions.mjs` | 147件成功 | 既存出荷55件＋今回の権限92件。直接INSERT/UPDATE/DELETE/upsert/ビュー経由の拒否、管理者・一般利用者、実際のロット削除復元・出荷登録取消RPC、在庫・引当復元、二重取消、旧RPC拒否、通常編集、無効・失効セッション、列権限の残存除去、移行再適用 |
+| `verify-live-auth-config.mjs` | 20件成功 | 通信なし。オプトイン・必須値・URL・専用アカウント区分を検証 |
+| `verify-auth-api.mjs` | 35件成功 | オフラインAPI認証・権限 |
+| `verify-auth-db.mjs` | 65件成功 | 既存の認証・RLS・工程移動 |
+| `verify-progress-shipping-ui.mjs` | 108件成功 | オフラインReact描画・API回帰。既存テストモックの条件付きHook呼出を修正して全体Lintも正常化 |
+| 出荷・引当・外注・日付の既存DBテスト | 全件成功 | `verify-safe-shipping` 55、`verify-allocation-progress` 104、`verify-outsource-transfer` 25、`verify-outsource-remainders` 50、`verify-transfer-dates` 11 |
+| `verify-ai-prediction.mjs` | 28件成功 | オフラインのみ。Gemini実行なし |
+| TypeScript / 全体ESLint / `git diff --check` | 成功 | 最終変更に対して実施 |
+| `npm run build` | 成功 | localhostのダミーSupabase URL/公開キーでビルド。実環境への接続なし |
+| 独立コードレビュー | 対象範囲の阻害問題なし | 旧出荷RPC迂回を検出・修正後、147件を独立再実行 |
+
+DBテストはPGlite 0.3.14の隔離PostgreSQLを使用する。新テストは既存出荷テストを含むため件数は重複し、独立ケース総数とはみなさない。実際の出荷・ロットRPC定義を読み込み、代替スタブで成功を作らない。全本番スキーマのリハーサル用JSONはGit管理対象外で今回のコピーに存在しないため、`rehearse-auth-schema.mjs`は未実行。
+
+再実行例（依存はリポジトリ外に固定バージョンで導入）:
+
+```sh
+npm ci
+npm install --prefix /tmp/kawane-test-tools --ignore-scripts --save-exact @electric-sql/pglite@0.3.14
+node scripts/verify-workflow-permissions.mjs /tmp/kawane-test-tools/node_modules/@electric-sql/pglite/dist/index.js
+node scripts/verify-live-auth-config.mjs
+node scripts/verify-auth-api.mjs
+node scripts/verify-auth-db.mjs /tmp/kawane-test-tools/node_modules/@electric-sql/pglite/dist/index.js
+node scripts/verify-progress-shipping-ui.mjs
+npx tsc --noEmit
+npm run lint
+NEXT_TELEMETRY_DISABLED=1 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=local-test-placeholder npm run build
+```
+
+**未実施・制限**: Chromiumの起動を試みたが、クラウドのsocket制限（`Operation not permitted`）で起動前に終了したため、実ブラウザーE2Eは未検証。別コマンドからローカルサーバーへのHTTP確認も接続不可で成功とは扱わない。オフラインReact描画テストはブラウザーE2Eの代替証明ではない。本番・ローカルアプリへの実ログイン、旧資格情報の削除、公開、プッシュ、本番移行適用は行っていない。
+
+**公開手順**: 変更パッチを上記基準コミットへ適用・レビューし、承認後に修正ブランチを公開する。承認された検証環境で全スキーマへの追加移行とブラウザー動作を確認してから、別途本番適用の承認を受ける。適用済み移行を編集・再実行せず、新しい移行だけを追加する。移行後は権限・RPC・在庫整合性を確認し、承認済み専用アカウントだけで認証確認する。旧平文資格情報の廃棄は別の承認・運用手順で行う。
+
+【次のAIへの引き継ぎ事項】
+追加移行のレビュー・公開・本番適用の承認取得が必要。旧平文資格情報の廃棄担当者、実施期限、バックアップ失効日は未確定。本番への変更・ログイン検証を承認なしで実施しない。
