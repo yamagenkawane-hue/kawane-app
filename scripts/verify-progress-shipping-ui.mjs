@@ -192,7 +192,8 @@ for(const scoped of [true,false]) {
     check(html.includes("出荷済み件数"),true);
     check(html.includes("未出荷件数"),true);
     check(html.includes("完了工程"),false);
-    check(html.includes("分納中を含む"),true);
+    check(html.includes("工程単位・出し日あり"),true);
+    check(html.includes("工程単位・出し日なし"),true);
   }
   check(html.includes(">工程</th>"),true);check(html.includes(">外注先</th>"),true);
   const scheduleRows=[...html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/g)].map(match=>match[1]).filter(row=>row.includes('type="date"'));
@@ -206,36 +207,25 @@ for(const scoped of [true,false]) {
   }
 }
 const {summarizeOutsourceShipments}=load("lib/outsourceShipmentSummary.ts");
-const shippingOrders=[
-  {id:"full",order_no:"FULL",order_amount:100},
-  {id:"partial",order_no:"PARTIAL",order_amount:100},
-  {id:"none",order_no:"NONE",order_amount:100},
-  {id:"other",order_no:"OTHER",order_amount:100},
-  {id:"deleted",order_no:"DELETED",order_amount:100,delete:true},
-  {id:"legacy",order_no:"LEGACY",order_amount:50},
+// Count consecutive external stages separately by their own dates.
+const dispatchProcesses=[
+  {orderNo:"SAME",outsourceSentDate:"2026-11-01"},
+  {orderNo:"SAME",outsourceSentDate:""},
+  {outsourceSentDate:null},
+  {outsourceSentDate:undefined},
+  {outsourceSentDate:"   "},
+  {outsourceSentDate:"2026-10-01",outsourceReturnedDate:"2026-10-05"},
 ];
-const shippingProcesses=[
-  {postId:"full",orderNo:"FULL"},{postId:"full",orderNo:"FULL"},
-  {postId:"partial",orderNo:"PARTIAL"},{postId:"none",orderNo:"NONE"},
-  {postId:"deleted",orderNo:"DELETED"},{postId:"",orderNo:"LEGACY"},
-];
-const shippingHistory=[
-  {post_id:"full",order_no:"FULL",quantity:40},
-  {post_id:"full",order_no:"FULL",quantity:60},
-  {post_id:"partial",order_no:"PARTIAL",quantity:30},
-  {post_id:"partial",order_no:"PARTIAL",quantity:70,cancelled:true},
-  {post_id:"other",order_no:"OTHER",quantity:100},
-  {post_id:"deleted",order_no:"DELETED",quantity:100},
-  {post_id:null,order_no:"LEGACY",quantity:50},
-];
-const shipSummary=summarizeOutsourceShipments(shippingProcesses,shippingOrders,shippingHistory);
-check(shipSummary.shipped,2);check(shipSummary.unshipped,2);
-check(summarizeOutsourceShipments(shippingProcesses,shippingOrders,[]).unshipped,4);
-check(summarizeOutsourceShipments([],shippingOrders,shippingHistory).shipped,0);
-check(summarizeOutsourceShipments([{postId:"full",orderNo:"FULL"}],shippingOrders,[{post_id:"full",order_no:"FULL",quantity:100,cancelled:true}]).shipped,0);
-check(summarizeOutsourceShipments([{postId:"none",orderNo:"NONE"}],shippingOrders,[{post_id:"stale",order_no:"NONE",quantity:100}]).shipped,0);
-check(summarizeOutsourceShipments([{postId:"full",orderNo:"FULL"}],shippingOrders,[{post_id:"full",order_no:"FULL",quantity:101}]).shipped,1);
-check(summarizeOutsourceShipments([{postId:"zero",orderNo:"ZERO"}],[{id:"zero",order_no:"ZERO",order_amount:0}],[]).unshipped,1);
+const shipSummary=summarizeOutsourceShipments(dispatchProcesses);
+check(shipSummary.shipped,2);check(shipSummary.unshipped,4);
+check(shipSummary.shipped+shipSummary.unshipped,dispatchProcesses.length);
+check(summarizeOutsourceShipments([]).shipped,0);
+check(summarizeOutsourceShipments([]).unshipped,0);
+check(summarizeOutsourceShipments([{outsourceSentDate:"2026-11-02"}]).shipped,1);
+check(summarizeOutsourceShipments([{outsourceSentDate:""}]).unshipped,1);
+check(summarizeOutsourceShipments([{outsourceSentDate:"",outsourceReturnedDate:"2026-11-02"}]).shipped,0);
+check(summarizeOutsourceShipments(dispatchProcesses.slice(0,2)).shipped,1);
+check(summarizeOutsourceShipments(dispatchProcesses.slice(0,2)).unshipped,1);
 const allocationPosts=[
   {...base,id:"unstarted",orderNo:"ALLOC-UNSTARTED",lotNo:"PLANNED-ONLY",manufacturingLots:[],remainingAmount:100,allocationConfirmed:false,availableInventoryAmount:100,hasProcessProgress:false},
   {...base,id:"started",orderNo:"ALLOC-STARTED",remainingAmount:100,allocationConfirmed:false,availableInventoryAmount:100,hasProcessProgress:true},

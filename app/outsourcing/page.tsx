@@ -136,7 +136,6 @@ function OutsourcingContent() {
   const [loading, setLoading] = useState(false);
   const [remainderReady,setRemainderReady]=useState(true);
   const [showCompleted, setShowCompleted] = useState(false);
-  const [shippingCounts,setShippingCounts]=useState({shipped:0,unshipped:0});
   const [isDraggingTable, setIsDraggingTable] = useState(false);
   const topScrollRef = useRef<HTMLDivElement>(null);
   const tableScrollRef = useRef<HTMLDivElement>(null);
@@ -148,7 +147,7 @@ function OutsourcingContent() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [orderProcessResult, productProcessResponse, remainderResult, postResult, shipmentResult] = await Promise.all([
+      const [orderProcessResult, productProcessResponse, remainderResult] = await Promise.all([
         fetchAllRows((from,to)=>supabase
           .from("v_order_processes_with_master")
           .select(ORDER_PROCESS_SELECT_COLUMNS)
@@ -158,15 +157,9 @@ function OutsourcingContent() {
         authFetch("/api/masters/product-processes"),
         fetchAllRows((from,to)=>supabase.from("outsource_remainder_schedules").select(REMAINDER_COLUMNS)
           .eq("cancelled",false).order("created_at").order("id").range(from,to)),
-        fetchAllRows((from,to)=>supabase.from("posts").select("id,order_no,order_amount,delete")
-          .or("delete.is.null,delete.eq.false").order("id").range(from,to)),
-        fetchAllRows((from,to)=>supabase.from("shipments").select("post_id,order_no,quantity,cancelled")
-          .or("cancelled.is.null,cancelled.eq.false").order("id").range(from,to)),
       ]);
 
       if (orderProcessResult.error) throw orderProcessResult.error;
-      if (postResult.error) throw postResult.error;
-      if (shipmentResult.error) throw shipmentResult.error;
       const missingRemainderSchema=remainderResult.error&&['PGRST205','42P01','42703','PGRST204'].includes(remainderResult.error.code||'');
       if (remainderResult.error&&!missingRemainderSchema) throw remainderResult.error;
       setRemainderReady(!missingRemainderSchema);
@@ -213,7 +206,6 @@ function OutsourcingContent() {
         });
 
       const scopedRows=targetOrderNo?mappedRows.filter(process=>process.orderNo===targetOrderNo):mappedRows;
-      setShippingCounts(summarizeOutsourceShipments(scopedRows,postResult.data||[],shipmentResult.data||[]));
       setRows(scopedRows);
     } catch (error) {
       console.error(error);
@@ -259,9 +251,9 @@ function OutsourcingContent() {
         (sum, row) => sum + Number(row.remainingAmount || 0),
         0,
       ),
-      ...shippingCounts,
+      ...summarizeOutsourceShipments(visibleRows),
     }),
-    [shippingCounts, visibleRows],
+    [visibleRows],
   );
 
   const scopedDetails = useMemo(() => {
@@ -441,12 +433,12 @@ function OutsourcingContent() {
           <div>
             <span>出荷済み件数</span>
             <strong>{summary.shipped}</strong>
-            <small>注番単位・全数出荷済み</small>
+            <small>工程単位・出し日あり</small>
           </div>
           <div>
             <span>未出荷件数</span>
             <strong>{summary.unshipped}</strong>
-            <small>注番単位・分納中を含む</small>
+            <small>工程単位・出し日なし</small>
           </div>
           <label>
             <span>表示条件</span>
