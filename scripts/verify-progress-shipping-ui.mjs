@@ -130,7 +130,11 @@ check(Boolean(validateOutsourceTransferDates({...dates,sentDate:"2026-02-30"},"2
 const Dialog=load("app/components/OutsourceTransferDialog/OutsourceTransferDialog.tsx").default;
 const dialog=renderToStaticMarkup(React.createElement(Dialog,{today:"2026-10-26",request:{lotNo:"TEST",processName:"メッキ",quantity:100,
   dates:{sentDate:"2026-10-12",expectedDate:"",returnedDate:""}},onCancel:()=>{},onSubmit:async()=>{}}));
-check(dialog.includes("登録して次工程へ移動"),true);
+check(dialog.includes("登録して次工程へ移動"),false);
+check(dialog.includes(">登録</button>"),true);
+check((dialog.match(/required=""/g)||[]).length,2);
+check(validateOutsourceTransferDates({sentDate:"2026-10-12",expectedDate:"",returnedDate:""},"2026-10-26"),"");
+check(validateOutsourceTransferDates({sentDate:"2026-10-12",expectedDate:"",returnedDate:"2026-10-16"},"2026-10-26"),"");
 check((dialog.match(/readOnly=""/g)||[]).length,1);
 check((dialog.match(/type="date"/g)||[]).length,3);
 const processHelpers=load("lib/progressProcess.ts");

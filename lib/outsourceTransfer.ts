@@ -22,13 +22,13 @@ export function isOutsourceTransfer(source: {
 }
 
 export function validateOutsourceTransferDates(dates: OutsourceTransferDates, today: string) {
-  if (Object.values(dates).some(date => !date || actualDate(date) !== date)) {
-    return "出し日・予定日・実績日をすべて正しい日付で入力してください。";
+  if (!dates.sentDate || Object.values(dates).some(date => date && actualDate(date) !== date)) {
+    return "出し日を入力し、入力した日付が正しいか確認してください。";
   }
   if (dates.sentDate > today || dates.returnedDate > today) {
     return "出し日・実績日は本日以前の日付を入力してください。";
   }
-  if (dates.expectedDate < dates.sentDate || dates.returnedDate < dates.sentDate) {
+  if ((dates.expectedDate && dates.expectedDate < dates.sentDate) || (dates.returnedDate && dates.returnedDate < dates.sentDate)) {
     return "予定日・実績日は出し日以降の日付を入力してください。";
   }
   return "";

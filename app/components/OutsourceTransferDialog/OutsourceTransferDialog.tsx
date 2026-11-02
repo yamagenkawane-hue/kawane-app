@@ -75,9 +75,9 @@ export default function OutsourceTransferDialog({ request, today, onCancel, onSu
     <dialog ref={dialogRef} className={styles.dialog} aria-labelledby="outsource-transfer-title"
       onCancel={event => { event.preventDefault(); if (!savingRef.current) onCancel(); }}>
       <form onSubmit={submit}>
-        <h2 id="outsource-transfer-title">{request.isRemainder?"残数分の外注日程で次工程へ移動":"外注日程を登録して次工程へ移動"}</h2>
+        <h2 id="outsource-transfer-title">{request.isRemainder?"残数分の外注日程を登録":"外注日程を登録"}</h2>
         <p>{request.lotNo} ／ {request.processName}</p>
-        <p>未登録の外注日程を入力してください。登録済みの日付は引き継ぎます。</p>
+        <p>出し日のみでも登録できます。予定日は任意です。戻り日（実績日）を入力して登録すると次工程へ移動します。登録済みの日付は引き継ぎます。</p>
         <fieldset disabled={saving} className={styles.fields}>
           {request.isRemainder&&<label><span>対象の追加日程</span>
             <select value={scheduleId} onChange={event=>{
@@ -92,22 +92,22 @@ export default function OutsourceTransferDialog({ request, today, onCancel, onSu
           {fields.map(([key, label]) => (
             <label key={key}>
               <span>{label}{registeredDates[key] ? "（登録済み）" : ""}</span>
-              <input type="date" required value={dates[key]} readOnly={Boolean(registeredDates[key])}
+              <input type="date" required={key === "sentDate"} value={dates[key]} readOnly={Boolean(registeredDates[key])}
                 max={key === "expectedDate" ? undefined : today}
                 min={key === "sentDate" ? undefined : dates.sentDate || undefined}
                 onChange={event => setDates(previous => ({ ...previous, [key]: event.target.value }))} />
             </label>
           ))}
-          <label><span>移動数量</span>
+          <label><span>数量（戻り日登録時の移動数量）</span>
             <input type="number" required min={1} max={maxQuantity} step={1} value={amount}
               onChange={event => setAmount(event.target.value)} />
           </label>
         </fieldset>
-        <p className={styles.note}>実績日を工程の作業日として記録します。</p>
+        <p className={styles.note}>{dates.returnedDate ? "戻り日（実績日）を作業日として記録し、入力数量を次工程へ移動します。" : "戻り日が未入力のため、日程のみ保存します。実績や工程数量は変更しません。"}</p>
         {error && <p role="alert" className={styles.error}>{error}</p>}
         <div className={styles.actions}>
           <button type="button" disabled={saving} onClick={onCancel}>キャンセル</button>
-          <button type="submit" disabled={saving}>{saving ? "登録・移動中…" : "登録して次工程へ移動"}</button>
+          <button type="submit" disabled={saving}>{saving ? "登録中…" : "登録"}</button>
         </div>
       </form>
     </dialog>

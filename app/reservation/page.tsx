@@ -7,7 +7,7 @@ import SearchForm from "../components/SearchForm/SearchForm";
 import ReservationList from "../components/ReservationList/ReservationList";
 import TableHeader from "../components/TableHeader/TableHeader";
 import OutsourceTransferDialog, { type OutsourceTransferRequest } from "../components/OutsourceTransferDialog/OutsourceTransferDialog";
-import { isOutsourceTransfer, validateOutsourceTransferDates, type OutsourceTransferDates } from "@/lib/outsourceTransfer";
+import { isOutsourceTransfer, type OutsourceTransferDates } from "@/lib/outsourceTransfer";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { actualDate } from "@/lib/aiPrediction/actuals";
 import { fetchAllRows } from "@/lib/fetchAllRows";
@@ -250,10 +250,10 @@ const Reservation = () => {
   const handleDelete = useReservationDelete(setShouldFetch);
 
   const registerOutsourceAndTransfer = async (request: OutsourceTransferRequest, amount: number, dates: OutsourceTransferDates, scheduleId?: string) => {
-    const { error } = await supabase.rpc(request.isRemainder?"transfer_outsource_remainder_lot":"transfer_outsource_lot_with_dates", {
-      ...(request.isRemainder?{p_schedule_id:scheduleId||null}:{}),
+    const { data: moved, error } = await supabase.rpc("register_outsource_progress", {
+      p_is_remainder: Boolean(request.isRemainder), p_schedule_id: scheduleId || null,
       p_lot_id: request.lotId, p_from_order_process_id: request.orderProcessId, p_amount: amount,
-      p_sent_date: dates.sentDate, p_expected_date: dates.expectedDate, p_returned_date: dates.returnedDate,
+      p_sent_date: dates.sentDate, p_expected_date: dates.expectedDate || null, p_returned_date: dates.returnedDate || null,
       p_idempotency_key: request.idempotencyKey,
     });
     if (error) throw new Error(error.code === "PGRST202"
@@ -261,7 +261,7 @@ const Reservation = () => {
       : error.message || "外注日程の登録・工程移動に失敗しました。");
     setOutsourceTransfer(null);
     setShouldFetch(true);
-    alert("外注日程を登録し、次工程へ移動しました。");
+    alert(moved ? "外注日程を登録し、次工程へ移動しました。" : "外注日程を登録しました。戻り日が未入力のため、次工程へは移動していません。");
   };
 
   const handleTransferLot = async (balance: LotProcessBalance) => {
@@ -301,7 +301,7 @@ const Reservation = () => {
           return;
         }
       }
-      if (outsourced && Object.values(dates).some(date => !date)) {
+      if (outsourced) {
         setOutsourceTransfer({lotId: balance.lotId, lotNo: balance.lotNo,
           orderProcessId: balance.orderProcessId, processName: source.process_name,
           quantity: currentQuantity, dates, idempotencyKey: crypto.randomUUID()});
@@ -336,18 +336,12 @@ const Reservation = () => {
       const reason = isPackaging ? "進捗管理から計量・梱包完了" : "進捗管理から工程移動（数量補正を含む）";
 
       const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-      let workDate = dates.returnedDate;
-      if (outsourced) {
-        const dateError = validateOutsourceTransferDates(dates, today);
-        if (dateError) { alert(`${dateError} 外注日程画面で確認してください。`); return; }
-      } else {
-        const enteredDate = window.prompt("実際に作業した日付を入力してください（YYYY-MM-DD）。過去の作業はその作業日を指定してください。", today);
-        if (enteredDate === null) return;
-        workDate = actualDate(enteredDate.trim()) || "";
-        if (!workDate || enteredDate.trim() !== workDate || workDate > today) {
-          alert("作業日は本日以前の正しい日付（YYYY-MM-DD）で入力してください。");
-          return;
-        }
+      const enteredDate = window.prompt("実際に作業した日付を入力してください（YYYY-MM-DD）。過去の作業はその作業日を指定してください。", today);
+      if (enteredDate === null) return;
+      const workDate = actualDate(enteredDate.trim()) || "";
+      if (!workDate || enteredDate.trim() !== workDate || workDate > today) {
+        alert("作業日は本日以前の正しい日付（YYYY-MM-DD）で入力してください。");
+        return;
       }
       const confirmed = window.confirm(
         `${balance.lotNo} / ${transferAmount.toLocaleString("ja-JP")} を${
@@ -362,13 +356,12 @@ const Reservation = () => {
           ? crypto.randomUUID()
           : `${Date.now()}-${Math.random()}`;
 
-      const { error } = await supabase.rpc(outsourced ? "transfer_outsource_lot_with_dates" : isPackaging ? "complete_lot_from_progress" : "transfer_lot_to_next_process", {
+      const { error } = await supabase.rpc(isPackaging ? "complete_lot_from_progress" : "transfer_lot_to_next_process", {
         p_lot_id: balance.lotId,
         p_from_order_process_id: balance.orderProcessId,
         p_amount: transferAmount,
         p_idempotency_key: idempotencyKey,
-        ...(outsourced ? {p_sent_date: dates.sentDate, p_expected_date: dates.expectedDate, p_returned_date: dates.returnedDate}
-          : {p_reason: reason, p_date: workDate}),
+        p_reason: reason, p_date: workDate,
       });
 
       if (error) {
