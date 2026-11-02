@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { authFetch } from "@/lib/auth/client";
 import styles from "../../historyRetention/page.module.css";
+import masterStyles from "../../masterCommon.module.css";
 
 type Remainder = { id: string; dispatch_no: number; quantity: number; sent_date: string | null; expected_date: string | null; returned_date: string | null; cancelled: boolean; note: string };
 type Row = { id: string; order_no: string; customer_name: string; product_name: string; process_name: string; process_order: number; subcontractor_name: string; outsource_sent_date: string; outsource_expected_return_date: string; outsource_returned_date: string; outsource_note: string; remainders: Remainder[]; archived: boolean };
@@ -27,7 +28,7 @@ export default function OutsourceHistoryPage() {
     }
     void load(); return () => { active = false; };
   }, [search, page]);
-  return <main className={styles.page}><header><Link href="/outsourcing">← 外注管理へ戻る</Link><h1>外注履歴</h1></header>
+  return <main className={`${masterStyles.container} ${styles.page}`}><div className={masterStyles.headerArea}><Link href="/outsourcing" className={masterStyles.backButton}>← 外注管理へ戻る</Link><h1 className={masterStyles.title}>外注履歴</h1></div>
     <p>注残から外れた注文・ロット未作成の注文も検索できます。外注工程ごとに、初回と分割発送の日程を表示します。</p>
     <form onSubmit={e => { e.preventDefault(); setSearch(query); setPage(0); }}><label>注番・得意先・製品・工程・外注先<input value={query} maxLength={100} onChange={e => setQuery(e.target.value)}/></label><button>検索</button></form>
     {loading && <p role="status">読込中…</p>}{error && <p role="alert">{error}</p>}

@@ -1,6 +1,4 @@
-.page { min-height:100vh; padding:32px; background:#f4f7fc; color:#172033; }
-.page header { display:flex; align-items:center; gap:32px; flex-wrap:wrap; }
-.page h1 { font-size:28px; }
+.page { color:#172033; }
 .page h2 { margin:0 0 16px; font-size:20px; }
 .page section { background:white; border:1px solid #dce3ed; border-radius:14px; padding:24px; margin-top:24px; }
 .page label { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:14px 0; }

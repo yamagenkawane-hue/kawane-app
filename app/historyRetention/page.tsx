@@ -4,6 +4,7 @@ import Link from "next/link";
 import { authFetch } from "@/lib/auth/client";
 import { parseArchivePacket, type RetentionSettings } from "@/lib/historyRetention";
 import styles from "./page.module.css";
+import masterStyles from "../masterCommon.module.css";
 
 type Candidate = { post_id: string; order_no: string; product_name: string; finished_at: string | null; eligible: boolean; reason: string };
 type Event = { id: string; action: string; created_at: string; post_id: string | null; actor_id: string | null };
@@ -43,8 +44,8 @@ export default function HistoryRetentionPage() {
     try { await action(); } catch (error) { setMessage(error instanceof Error ? error.message : "処理に失敗しました"); }
     finally { setBusy(false); }
   }
-  return <main className={styles.page}>
-    <header><Link href="/masterSettings">← マスタ設定へ戻る</Link><h1>履歴管理マスタ</h1></header>
+  return <main className={`${masterStyles.container} ${styles.page}`}>
+    <div className={masterStyles.headerArea}><Link href="/masterSettings" className={masterStyles.backButton}>← マスタ設定に戻る</Link><h1 className={masterStyles.title}>履歴管理マスタ</h1></div>
     <p>保存期間を過ぎた詳細履歴を、注文ごとに確認して整理します。自動削除は行いません。</p>
     <p>注文・ロット・工程・在庫・出荷の基本情報と、参照に必要な実績は残します。業務を訂正するときは先に詳細履歴を復元してください。</p>
     {message && <p role="status" className={styles.message}>{message}</p>}
