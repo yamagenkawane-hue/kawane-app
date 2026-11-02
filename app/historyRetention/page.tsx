@@ -8,6 +8,7 @@ import styles from "./page.module.css";
 type Candidate = { post_id: string; order_no: string; product_name: string; finished_at: string | null; eligible: boolean; reason: string };
 type Event = { id: string; action: string; created_at: string; post_id: string | null; actor_id: string | null };
 type View = { settings: RetentionSettings; preview: { rows: Candidate[]; total: number }; events: Event[]; reference_days: number };
+const tableLabels: Record<string, string> = { production_results: "製造実績", process_transfer_history: "工程移動履歴", outsource_remainder_schedules: "外注分割日程" };
 const actions: Record<string, string> = { settings: "設定変更", export: "退避ファイル作成", delete_details: "詳細履歴削除（復元検証済み）", restore: "詳細履歴復元" };
 
 export default function HistoryRetentionPage() {
@@ -71,7 +72,7 @@ export default function HistoryRetentionPage() {
         if (file.size > 16 * 1024 * 1024) throw new Error("ファイルは16MB以内にしてください");
         setArchive(parseArchivePacket(JSON.parse(await file.text()))); setFileName(file.name); setMessage("ファイルを読み込みました。登録内容との一致は実行時にサーバーで検証します。");
       }); }}/></label>
-      {archive && <><p>{fileName} ／ 注文ID：{archive.payload.post_id}</p><p>対象明細：{Object.entries(archive.payload.tables).map(([key, rows]) => `${key}: ${rows.length}件`).join("、")}</p>
+      {archive && <><p>{fileName} ／ 注番：{String((archive.payload.anchors.post as Record<string, unknown>)?.order_no || "-")}</p><p>対象明細：{Object.entries(archive.payload.tables).map(([key, rows]) => `${tableLabels[key] || "詳細履歴"}: ${rows.length}件`).join("、")}</p>
         <label><input type="checkbox" checked={stored} onChange={e => setStored(e.target.checked)}/>退避ファイルを社内の保管先に保存しました</label>
         <label>実行する操作に合わせて「履歴削除」または「履歴復元」と入力<input value={confirmation} onChange={e => setConfirmation(e.target.value)}/></label>
         <button className={styles.danger} disabled={busy || !stored || confirmation !== "履歴削除"} onClick={() => void run(async () => { await request({ action: "delete", archive, confirmation }); setArchive(null); setConfirmation(""); await load(); setMessage("AI用実績を保存し、復元検証後に詳細履歴を削除しました。"); })}>詳細履歴を削除する</button>{" "}
