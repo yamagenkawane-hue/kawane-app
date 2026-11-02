@@ -136,6 +136,7 @@ function OutsourcingContent() {
   const [savingId, setSavingId] = useState("");
   const [loading, setLoading] = useState(false);
   const [remainderReady,setRemainderReady]=useState(true);
+  const [tableScrollWidth, setTableScrollWidth] = useState(0);
   const [isDraggingTable, setIsDraggingTable] = useState(false);
   const topScrollRef = useRef<HTMLDivElement>(null);
   const tableScrollRef = useRef<HTMLDivElement>(null);
@@ -235,6 +236,18 @@ function OutsourcingContent() {
   const isProgressScoped = Boolean(targetOrderNo && returnTo === "reservation");
 
   const visibleRows = rows;
+
+  useEffect(() => {
+    const container = tableScrollRef.current;
+    const table = container?.querySelector("table");
+    if (!container || !table) return;
+    const measure = () => setTableScrollWidth(container.scrollWidth);
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    observer.observe(table);
+    const frame = requestAnimationFrame(measure);
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+  }, [isProgressScoped, visibleRows.length]);
 
   const summary = useMemo(
     () => ({
@@ -353,6 +366,7 @@ function OutsourcingContent() {
   };
 
   const startTableDrag = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
     const target = event.target;
 
     if (
@@ -438,18 +452,19 @@ function OutsourcingContent() {
 
       {loading && <div className={styles.loading}>読み込み中...</div>}
 
-      {!isProgressScoped && (
-        <div
-          ref={topScrollRef}
-          className={outsourcingStyles.topScroll}
-          onScroll={(event) => syncScroll(event, tableScrollRef)}
-        >
-          <div className={outsourcingStyles.scrollSpacer} />
-        </div>
-      )}
+      <div
+        ref={topScrollRef}
+        className={outsourcingStyles.topScroll}
+        onScroll={(event) => syncScroll(event, tableScrollRef)}
+      >
+        <div className={outsourcingStyles.scrollSpacer} style={{ width: tableScrollWidth }} />
+      </div>
 
       <div
         ref={tableScrollRef}
+        role="region"
+        aria-label="外注工程一覧（左右にドラッグして横スクロール）"
+        tabIndex={0}
         className={`${styles.tableCard} ${outsourcingStyles.tableCard} ${
           isDraggingTable ? outsourcingStyles.draggingTable : ""
         } ${isProgressScoped ? outsourcingStyles.scopedTableCard : ""}`}
@@ -512,10 +527,10 @@ function OutsourcingContent() {
                       <span>予定</span>
                       <span>完了</span>
                       <span className={outsourcingStyles.remainingLabel}>残</span>
-                      <strong>{row.plannedAmount}</strong>
-                      <strong>{row.completedAmount}</strong>
+                      <strong>{row.plannedAmount.toLocaleString("ja-JP")}</strong>
+                      <strong>{row.completedAmount.toLocaleString("ja-JP")}</strong>
                       <strong className={outsourcingStyles.remainingAmount}>
-                        {row.remainingAmount}
+                        {row.remainingAmount.toLocaleString("ja-JP")}
                       </strong>
                     </div>
                   </td>

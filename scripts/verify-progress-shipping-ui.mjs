@@ -176,7 +176,7 @@ check(processHelpers.isCompletionProcess(lateOutsource),false);
 // A progress-scoped order with two suppliers must identify every schedule row.
 const outsourceRows=[
   {id:"external-a",orderNo:"OUT-2",customerName:"試験先",productCode:"P",productName:"試験製品",processOrder:2,processName:"メッキ",
-    subcontractorName:"外注先A",plannedAmount:100,completedAmount:0,remainingAmount:100,deliveryDate:"2026-11-01",
+    subcontractorName:"外注先A",plannedAmount:999999,completedAmount:100000,remainingAmount:899999,deliveryDate:"2026-11-01",
     outsourceSentDate:"2026-10-12",outsourceExpectedReturnDate:"2026-10-15",outsourceReturnedDate:""},
   {id:"external-b",orderNo:"OUT-2",customerName:"試験先",productCode:"P",productName:"試験製品",processOrder:3,processName:"塗装",
     subcontractorName:"外注先B",plannedAmount:100,completedAmount:0,remainingAmount:100,deliveryDate:"2026-11-01",
@@ -196,6 +196,7 @@ for(const scoped of [true,false]) {
     check(html.includes("出荷済み件数"),true);
     check(html.includes("未出荷件数"),true);
     check(html.includes("完了工程"),false);
+    check(html.includes("999,999")&&html.includes("100,000")&&html.includes("899,999"),true);
     check(html.includes("工程単位・出し日あり"),true);
     check(html.includes("工程単位・出し日なし"),true);
   }
