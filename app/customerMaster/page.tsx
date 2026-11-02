@@ -5,16 +5,18 @@ import Link from "next/link";
 import supabase from "@/lib/supabase";
 import { CustomerMaster } from "@/app/type";
 import styles from "../masterCommon.module.css";
+import { compareCustomerNames, validateCustomerReading } from "@/lib/customerSort";
 
 const shippingOffsetOptions = Array.from({ length: 31 }, (_, index) => index);
 
 const CUSTOMER_SELECT_COLUMNS =
-  "id,customer_name,shipping_offset_days,note";
+  "id,customer_name,customer_name_kana,shipping_offset_days,note";
 
 export default function CustomerMasterPage() {
   const [items, setItems] = useState<CustomerMaster[]>([]);
   const [form, setForm] = useState({
     customerName: "",
+    customerNameKana: "",
     shippingOffsetDays: 0,
     note: "",
   });
@@ -32,9 +34,10 @@ export default function CustomerMasterPage() {
         (data || []).map((row) => ({
           id: row.id,
           customerName: row.customer_name || "",
+          customerNameKana: row.customer_name_kana || "",
           shippingOffsetDays: row.shipping_offset_days || 0,
           note: row.note || "",
-        })),
+        })).sort(compareCustomerNames),
       );
     } catch (error) {
       console.error(error);
@@ -63,11 +66,12 @@ export default function CustomerMasterPage() {
         const mappedItems: CustomerMaster[] = (data || []).map((row) => ({
           id: row.id,
           customerName: row.customer_name || "",
+          customerNameKana: row.customer_name_kana || "",
           shippingOffsetDays: row.shipping_offset_days || 0,
           note: row.note || "",
         }));
 
-        setItems(mappedItems);
+        setItems(mappedItems.sort(compareCustomerNames));
       } catch (error) {
         console.error(error);
         alert("得意先マスタの取得に失敗しました");
@@ -80,13 +84,15 @@ export default function CustomerMasterPage() {
   }, []);
 
   const handleAdd = async () => {
-    if (!form.customerName) {
-      alert("得意先名を入力してください");
+    const message=validateCustomerReading(form.customerName,form.customerNameKana);
+    if (message) {
+      alert(message);
       return;
     }
 
     const { error } = await supabase.from("customer_master").insert({
       customer_name: form.customerName,
+      customer_name_kana: form.customerNameKana.trim(),
       shipping_offset_days: Number(form.shippingOffsetDays),
       note: form.note,
     });
@@ -94,15 +100,18 @@ export default function CustomerMasterPage() {
       alert("登録に失敗しました");
       return;
     }
-    setForm({ customerName: "", shippingOffsetDays: 0, note: "" });
+    setForm({ customerName: "", customerNameKana: "", shippingOffsetDays: 0, note: "" });
     await fetchItems();
   };
 
   const handleSave = async (item: CustomerMaster) => {
+    const message=validateCustomerReading(item.customerName,item.customerNameKana||"");
+    if(message) {alert(message);return;}
     const { error } = await supabase
       .from("customer_master")
       .update({
         customer_name: item.customerName,
+        customer_name_kana: (item.customerNameKana||"").trim(),
         shipping_offset_days: Number(item.shippingOffsetDays),
         note: item.note,
       })
@@ -148,6 +157,12 @@ export default function CustomerMasterPage() {
           />
           </label>
           <label className={styles.fieldLabel}>
+            <span className={styles.fieldLabelText}>ふりがな</span>
+            <input className={styles.input} placeholder="例：かわねさんぷるこうぎょう"
+              value={form.customerNameKana} maxLength={256}
+              onChange={e=>setForm({...form,customerNameKana:e.target.value})}/>
+          </label>
+          <label className={styles.fieldLabel}>
             <span className={styles.fieldLabelText}>出荷日ルール</span>
           <select
             className={styles.select}
@@ -181,11 +196,13 @@ export default function CustomerMasterPage() {
       </div>
 
       {loading && <div className={styles.loading}>読み込み中...</div>}
+      <p>英字名はA→Z、日本語名はふりがなの五十音順で表示します。漢字名のふりがな未登録データは末尾に表示します。</p>
       <div className={styles.tableCard}>
         <table className={styles.table}>
           <thead>
             <tr>
               <th>得意先名</th>
+              <th>ふりがな</th>
               <th>出荷日ルール</th>
               <th>備考</th>
               <th>操作</th>
@@ -202,6 +219,11 @@ export default function CustomerMasterPage() {
                       updateItem(item.id, "customerName", e.target.value)
                     }
                   />
+                </td>
+                <td>
+                  <input className={styles.tableInput} aria-label={`${item.customerName}のふりがな`}
+                    placeholder="漢字名は入力必須" maxLength={256} value={item.customerNameKana||""}
+                    onChange={e=>updateItem(item.id,"customerNameKana",e.target.value)}/>
                 </td>
                 <td>
                   <select

@@ -49,9 +49,9 @@ check(page.includes("次へ"),false);
 check(page.indexOf("トップページに戻る") < page.indexOf("placeholder="),true);
 check(page.indexOf("placeholder=") < page.indexOf("<h1>"),true);
 const customerSortPosts=[
-  {...base,id:"sort-z",customerName:"山田工業",productName:"あ製品",deliveryDate:"2026-10-01"},
-  {...base,id:"sort-b",customerName:"あおい工業",productName:"い製品",deliveryDate:"2026-10-01"},
-  {...base,id:"sort-a",customerName:"あおい工業",productName:"あ製品",deliveryDate:"2026-12-01"},
+  {...base,id:"sort-z",customerName:"山田工業",customerNameKana:"やまだこうぎょう",productName:"あ製品",deliveryDate:"2026-10-01"},
+  {...base,id:"sort-b",customerName:"あおい工業",customerNameKana:"あおいこうぎょう",productName:"い製品",deliveryDate:"2026-10-01"},
+  {...base,id:"sort-a",customerName:"あおい工業",customerNameKana:"あおいこうぎょう",productName:"あ製品",deliveryDate:"2026-12-01"},
 ];
 const CustomerSortPage=load("app/reservation/page.tsx",{...mocks,
   "../utills/useFetchPosts":{useFetchPosts:()=>({posts:customerSortPosts,setShouldFetch:()=>{}})},
@@ -59,6 +59,32 @@ const CustomerSortPage=load("app/reservation/page.tsx",{...mocks,
 const customerSortHtml=renderToStaticMarkup(React.createElement(CustomerSortPage));
 check(customerSortHtml.indexOf('href="/progress/sort-a"')<customerSortHtml.indexOf('href="/progress/sort-b"'),true);
 check(customerSortHtml.indexOf('href="/progress/sort-b"')<customerSortHtml.indexOf('href="/progress/sort-z"'),true);
+const {compareCustomerNames,normalizeCustomerReading,validateCustomerReading}=load("lib/customerSort.ts");
+const nameFixtures=[
+  {customerName:"デモ工業",customerNameKana:"でもこうぎょう"},
+  {customerName:"テスト工業",customerNameKana:"てすとこうぎょう"},
+  {customerName:"川根サンプル工業",customerNameKana:"かわねさんぷるこうぎょう"},
+  {customerName:"テスト製作所",customerNameKana:"てすとせいさくしょ"},
+  {customerName:"グループ表示テスト工業",customerNameKana:"グループヒョウジテストコウギョウ"},
+];
+check([...nameFixtures].sort(compareCustomerNames).map(row=>row.customerName).join(","),"川根サンプル工業,グループ表示テスト工業,テスト工業,テスト製作所,デモ工業");
+check(normalizeCustomerReading(" ｶﾜﾈ サンプル "),"かわねさんぷる");
+check(validateCustomerReading("川根サンプル工業","カワネサンプルコウギョウ"),"");
+check(Boolean(validateCustomerReading("川根サンプル工業","")),true);
+check(Boolean(validateCustomerReading("川根サンプル工業","川根")),true);
+check(validateCustomerReading("ABC Industries",""),"");
+const bilingual=[...nameFixtures,{customerName:"zebra Inc"},{customerName:"ＢＥＴＡ Ltd"},{customerName:"alpha Co"},{customerName:"未登録工業"}];
+check(bilingual.sort(compareCustomerNames).map(row=>row.customerName).slice(0,4).join(","),"alpha Co,ＢＥＴＡ Ltd,zebra Inc,川根サンプル工業");
+check(bilingual.at(-1).customerName,"未登録工業");
+const KanaSortPage=load("app/reservation/page.tsx",{...mocks,
+  "../utills/useFetchPosts":{useFetchPosts:()=>({posts:nameFixtures.map((row,index)=>({...base,...row,id:`kana-${index}`})),setShouldFetch:()=>{}})},
+}).default;
+const kanaSortHtml=renderToStaticMarkup(React.createElement(KanaSortPage));
+const actualKanaOrder=[...kanaSortHtml.matchAll(/href="\/progress\/kana-(\d)"/g)].map(match=>match[1]).join(",");
+check(actualKanaOrder,"2,4,1,3,0");
+const CustomerMasterPage=load("app/customerMaster/page.tsx",{"@/lib/supabase":{__esModule:true,default:{}}}).default;
+const customerForm=renderToStaticMarkup(React.createElement(CustomerMasterPage));
+check(customerForm.includes(">ふりがな<"),true);
 const Row=load("app/components/ReservationList/ReservationList.tsx").default;
 const row=renderToStaticMarkup(React.createElement(Row,{post:{...base,id:"one",lotProcessBalances:[
   balance,{...balance,id:"history",lotNo:"MOVED-AWAY",isHistoryOnly:true},

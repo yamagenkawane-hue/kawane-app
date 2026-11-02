@@ -16,7 +16,7 @@ import {
 } from "./processProgress";
 
 const POST_SELECT_COLUMNS =
-  "id,order_no,lot_no,product_code,product_name,customer_name,order_amount,delivery_date,completion_scheduled_date,remark,delete,created_at,updated_at";
+  "id,order_no,lot_no,product_code,product_name,customer_id,customer_name,order_amount,delivery_date,completion_scheduled_date,remark,delete,created_at,updated_at";
 
 const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
   "id,post_id,order_no,lot_id,lot_no,material_lot_no,order_process_id,process_name,process_order,quantity,subcontractor_name";
@@ -90,6 +90,7 @@ export const useFetchPosts = () => {
           allocationResult,
           transferHistoryResult,
           productProcessResult,
+          customerResult,
         ] = await Promise.all([
           fetchAllRows((from, to) => supabase
             .from("v_posts_with_master")
@@ -122,6 +123,8 @@ export const useFetchPosts = () => {
             ).order("id").range(from, to)),
           fetchAllRows((from, to) => supabase.from("product_processes")
             .select("id,process_master(process_id,name,outsourcing)").order("id").range(from, to)),
+          fetchAllRows((from,to)=>supabase.from("customer_master")
+            .select("id,customer_name,customer_name_kana").order("id").range(from,to)),
         ]);
 
         const { data, error } = postResult;
@@ -135,6 +138,9 @@ export const useFetchPosts = () => {
         if (allocationResult.error) throw allocationResult.error;
         if (transferHistoryResult.error) throw transferHistoryResult.error;
         if (productProcessResult.error) throw productProcessResult.error;
+        if (customerResult.error) throw customerResult.error;
+        const customerReadingsById=new Map((customerResult.data||[]).map(row=>[row.id,row.customer_name_kana||""]));
+        const customerReadingsByName=new Map((customerResult.data||[]).map(row=>[row.customer_name,row.customer_name_kana||""]));
 
         const shippedMap = new Map<string, number>();
         for (const row of shipmentResult.data || []) {
@@ -381,6 +387,7 @@ export const useFetchPosts = () => {
             productCode: row.product_code || "",
             productName: row.product_name || "",
             customerName: row.customer_name || "",
+            customerNameKana: customerReadingsById.get(row.customer_id)||customerReadingsByName.get(row.customer_name)||"",
             orderAmount,
             manufacturingDate:
               row.completion_scheduled_date ||

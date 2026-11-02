@@ -17,11 +17,7 @@ import supabase from "@/lib/supabase";
 import { LotProcessBalance, Post, ProgressGroupSummary } from "../type";
 import { useFetchPosts } from "../utills/useFetchPosts";
 import { useReservationDelete } from "../utills/useReservationDelete";
-
-const customerNameCollator = new Intl.Collator("ja", {
-  numeric: true,
-  sensitivity: "base",
-});
+import { compareCustomerNames } from "@/lib/customerSort";
 
 const getCustomerSortKey = (customerName: string) =>
   customerName
@@ -213,10 +209,7 @@ const Reservation = () => {
     })
 
     .sort((a, b) => {
-      const customerCompare = customerNameCollator.compare(
-        String(a.customerName || "").trim(),
-        String(b.customerName || "").trim(),
-      );
+      const customerCompare = compareCustomerNames(a,b);
 
       if (customerCompare !== 0) {
         return customerCompare;

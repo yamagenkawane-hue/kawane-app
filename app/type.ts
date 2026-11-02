@@ -54,6 +54,7 @@ export type Post = {
   productCode: string;
   productName: string;
   customerName: string;
+  customerNameKana?: string;
   orderAmount: number;
   manufacturingDate: string;
   manufacturingAmount: number;
@@ -375,6 +376,7 @@ export type Lot = {
 export type CustomerMaster = {
   id: string;
   customerName: string;
+  customerNameKana?: string;
   shippingOffsetDays: number;
   note: string;
 };
