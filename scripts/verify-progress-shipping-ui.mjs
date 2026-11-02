@@ -298,4 +298,19 @@ const remainderDialog=renderToStaticMarkup(React.createElement(Dialog,{today:"20
 check(remainderDialog.includes('max="7"')&&remainderDialog.includes('value="7"'),true);
 check(remainderDialog.includes("追加2回目：未移動7個")&&remainderDialog.includes("追加4回目：未移動8個"),true);
 check(remainderDialog.includes('value="2026-10-23"'),true);
+const {outsourceInitialQuantity}=load("lib/outsourceInitialQuantity.ts");
+check(outsourceInitialQuantity(150,[{moved_amount:30}]),120);
+check(outsourceInitialQuantity(130,[{quantity:30,moved_amount:10}]),120);
+check(outsourceInitialQuantity(150,[{moved_amount:20},{moved_amount:10}]),120);
+check(outsourceInitialQuantity(100,[]),100);
+check(outsourceInitialQuantity(0,[]),null);
+check(outsourceInitialQuantity(null,[]),null);
+check(outsourceInitialQuantity(10,[{moved_amount:20}]),null);
+check(outsourceInitialQuantity(150,[],true),null);
+const HistoryPage=load("app/outsourcing/history/page.tsx",{
+  "react":{...React,useState:initial=>initial&&typeof initial==="object"&&"rows" in initial?[{rows:[{id:"external",initial_quantity:120,remainders:[{id:"split",dispatch_no:1,quantity:30}],archived:false}],total:1},()=>{}]:React.useState(initial)},
+}).default;
+const historyHtml=renderToStaticMarkup(React.createElement(HistoryPage));
+check(historyHtml.includes("初回：120個"),true);
+check(historyHtml.includes("分割")&&historyHtml.includes("30"),true);
 console.log(JSON.stringify({mode:"offline React rendering and API",passed},null,2));

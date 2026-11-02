@@ -45,7 +45,7 @@ for(const method of ['GET','POST','PUT']) {
   role='worker';res=response();await retention({method,headers:{authorization:'Bearer valid'},body:{action:'delete'}},res);check(res.statusCode,403);
   res=response();await retention({method,headers:{}},res);check(res.statusCode,401);
 }
-const externalHistory=load('pages/api/outsource-history.ts',{'@/lib/auth/server':auth,'@/lib/fetchAllRows':{}}).default;
+const externalHistory=load('pages/api/outsource-history.ts',{'@/lib/auth/server':auth,'@/lib/fetchAllRows':{},'@/lib/outsourceInitialQuantity':{}}).default;
 res=response();await externalHistory({method:'GET',headers:{}},res);check(res.statusCode,401);
 role='worker';res=response();await externalHistory({method:'POST',headers:{authorization:'Bearer valid'}},res);check(res.statusCode,405);
 for(const file of fs.readdirSync('pages/api',{recursive:true}).filter(f=>f.endsWith('.ts')&&!f.startsWith('auth')&&!f.startsWith('cron'))) {
