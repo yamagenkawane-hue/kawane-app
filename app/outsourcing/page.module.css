@@ -378,3 +378,13 @@
 }
 .initialScheduleLabel { font-size: 12px; font-weight: 800; color: #475569; margin: 10px 0; }
 .scopedOutsourceTable .processCell, .scopedOutsourceTable .vendorCell { min-width: 0; }
+.overviewSummaryCard {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.overviewSummaryCard small {
+  color: #64748b;
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+}

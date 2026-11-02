@@ -21,6 +21,7 @@ import outsourcingStyles from "./page.module.css";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { mapOutsourceRemainder, REMAINDER_COLUMNS, type OutsourceRemainder } from "@/lib/outsourceRemainders";
 import OutsourceRemainderEditor from "../components/OutsourceRemainderEditor/OutsourceRemainderEditor";
+import { summarizeOutsourceShipments } from "@/lib/outsourceShipmentSummary";
 
 type OutsourceRow = OrderProcess & {
   deliveryDate: string;
@@ -135,6 +136,7 @@ function OutsourcingContent() {
   const [loading, setLoading] = useState(false);
   const [remainderReady,setRemainderReady]=useState(true);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [shippingCounts,setShippingCounts]=useState({shipped:0,unshipped:0});
   const [isDraggingTable, setIsDraggingTable] = useState(false);
   const topScrollRef = useRef<HTMLDivElement>(null);
   const tableScrollRef = useRef<HTMLDivElement>(null);
@@ -146,19 +148,25 @@ function OutsourcingContent() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [orderProcessResult, productProcessResponse, remainderResult] = await Promise.all([
-        supabase
+      const [orderProcessResult, productProcessResponse, remainderResult, postResult, shipmentResult] = await Promise.all([
+        fetchAllRows((from,to)=>supabase
           .from("v_order_processes_with_master")
           .select(ORDER_PROCESS_SELECT_COLUMNS)
           .order("delivery_date", { ascending: true })
           .order("customer_name", { ascending: true })
-          .order("process_order", { ascending: true }),
+          .order("process_order", { ascending: true }).order("id").range(from,to)),
         authFetch("/api/masters/product-processes"),
         fetchAllRows((from,to)=>supabase.from("outsource_remainder_schedules").select(REMAINDER_COLUMNS)
           .eq("cancelled",false).order("created_at").order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("posts").select("id,order_no,order_amount,delete")
+          .or("delete.is.null,delete.eq.false").order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("shipments").select("post_id,order_no,quantity,cancelled")
+          .or("cancelled.is.null,cancelled.eq.false").order("id").range(from,to)),
       ]);
 
       if (orderProcessResult.error) throw orderProcessResult.error;
+      if (postResult.error) throw postResult.error;
+      if (shipmentResult.error) throw shipmentResult.error;
       const missingRemainderSchema=remainderResult.error&&['PGRST205','42P01','42703','PGRST204'].includes(remainderResult.error.code||'');
       if (remainderResult.error&&!missingRemainderSchema) throw remainderResult.error;
       setRemainderReady(!missingRemainderSchema);
@@ -204,11 +212,9 @@ function OutsourcingContent() {
           );
         });
 
-      setRows(
-        targetOrderNo
-          ? mappedRows.filter((process) => process.orderNo === targetOrderNo)
-          : mappedRows,
-      );
+      const scopedRows=targetOrderNo?mappedRows.filter(process=>process.orderNo===targetOrderNo):mappedRows;
+      setShippingCounts(summarizeOutsourceShipments(scopedRows,postResult.data||[],shipmentResult.data||[]));
+      setRows(scopedRows);
     } catch (error) {
       console.error(error);
       alert("外注工程データの取得に失敗しました");
@@ -253,9 +259,9 @@ function OutsourcingContent() {
         (sum, row) => sum + Number(row.remainingAmount || 0),
         0,
       ),
-      completed: rows.filter((row) => row.remainingAmount === 0).length,
+      ...shippingCounts,
     }),
-    [rows, visibleRows],
+    [shippingCounts, visibleRows],
   );
 
   const scopedDetails = useMemo(() => {
@@ -423,7 +429,7 @@ function OutsourcingContent() {
           </div>
         </div>
       ) : (
-        <div className={styles.summaryCard}>
+        <div className={`${styles.summaryCard} ${outsourcingStyles.overviewSummaryCard}`}>
           <div>
             <span>表示件数</span>
             <strong>{summary.total}</strong>
@@ -433,8 +439,14 @@ function OutsourcingContent() {
             <strong>{summary.remaining}</strong>
           </div>
           <div>
-            <span>完了工程</span>
-            <strong>{summary.completed}</strong>
+            <span>出荷済み件数</span>
+            <strong>{summary.shipped}</strong>
+            <small>注番単位・全数出荷済み</small>
+          </div>
+          <div>
+            <span>未出荷件数</span>
+            <strong>{summary.unshipped}</strong>
+            <small>注番単位・分納中を含む</small>
           </div>
           <label>
             <span>表示条件</span>
