@@ -18,6 +18,7 @@ import supabase from "@/lib/supabase";
 import { OrderProcess, ProductProcess } from "@/app/type";
 import styles from "../masterCommon.module.css";
 import outsourcingStyles from "./page.module.css";
+import { outstandingOrderIds } from "@/lib/orderVisibility";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { mapOutsourceRemainder, REMAINDER_COLUMNS, type OutsourceRemainder } from "@/lib/outsourceRemainders";
 import OutsourceRemainderEditor from "../components/OutsourceRemainderEditor/OutsourceRemainderEditor";
@@ -135,7 +136,6 @@ function OutsourcingContent() {
   const [savingId, setSavingId] = useState("");
   const [loading, setLoading] = useState(false);
   const [remainderReady,setRemainderReady]=useState(true);
-  const [showCompleted, setShowCompleted] = useState(false);
   const [isDraggingTable, setIsDraggingTable] = useState(false);
   const topScrollRef = useRef<HTMLDivElement>(null);
   const tableScrollRef = useRef<HTMLDivElement>(null);
@@ -147,7 +147,7 @@ function OutsourcingContent() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [orderProcessResult, productProcessResponse, remainderResult] = await Promise.all([
+      const [orderProcessResult, productProcessResponse, remainderResult, postResult, shipmentResult] = await Promise.all([
         fetchAllRows((from,to)=>supabase
           .from("v_order_processes_with_master")
           .select(ORDER_PROCESS_SELECT_COLUMNS)
@@ -157,8 +157,14 @@ function OutsourcingContent() {
         authFetch("/api/masters/product-processes"),
         fetchAllRows((from,to)=>supabase.from("outsource_remainder_schedules").select(REMAINDER_COLUMNS)
           .eq("cancelled",false).order("created_at").order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("posts").select("id,order_no,order_amount,delete").order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("shipments").select("post_id,order_no,quantity,cancelled").order("id").range(from,to)),
       ]);
 
+      if(postResult.error) throw postResult.error;
+      if(shipmentResult.error) throw shipmentResult.error;
+      const outstandingIds=outstandingOrderIds(postResult.data||[],shipmentResult.data||[]);
+      const postIdByOrder=new Map((postResult.data||[]).map(post=>[post.order_no,post.id]));
       if (orderProcessResult.error) throw orderProcessResult.error;
       const missingRemainderSchema=remainderResult.error&&['PGRST205','42P01','42703','PGRST204'].includes(remainderResult.error.code||'');
       if (remainderResult.error&&!missingRemainderSchema) throw remainderResult.error;
@@ -190,7 +196,7 @@ function OutsourcingContent() {
             remainderSchedules: remainders.filter(item=>item.orderProcessId===process.id),
           };
         })
-        .filter((process) => process.outsourcing)
+        .filter((process) => process.outsourcing && outstandingIds.has(process.postId || postIdByOrder.get(process.orderNo) || ""))
         .sort((a, b) => {
           const deliveryCompare = a.deliveryDate.localeCompare(b.deliveryDate);
           const customerCompare = a.customerName.localeCompare(
@@ -228,21 +234,7 @@ function OutsourcingContent() {
     returnTo === "reservation" ? "進捗管理に戻る" : "トップへ戻る";
   const isProgressScoped = Boolean(targetOrderNo && returnTo === "reservation");
 
-  const visibleRows = useMemo(
-    () =>
-      targetOrderNo
-        ? rows
-        : rows.filter((row) => {
-            const derivedStatus = getDerivedOutsourceStatus(row);
-
-            return (
-              showCompleted ||
-              row.remainingAmount > 0 ||
-              derivedStatus !== "returned"
-            );
-          }),
-    [rows, showCompleted, targetOrderNo],
-  );
+  const visibleRows = rows;
 
   const summary = useMemo(
     () => ({
@@ -440,15 +432,7 @@ function OutsourcingContent() {
             <strong>{summary.unshipped}</strong>
             <small>工程単位・出し日なし</small>
           </div>
-          <label>
-            <span>表示条件</span>
-            <input
-              type="checkbox"
-              checked={showCompleted}
-              onChange={(e) => setShowCompleted(e.target.checked)}
-            />{" "}
-            完了済みも表示
-          </label>
+          <Link href="/outsourcing/history" className={styles.backButton}>外注履歴</Link>
         </div>
       )}
 

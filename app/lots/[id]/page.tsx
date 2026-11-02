@@ -211,6 +211,7 @@ export default function LotDetailPage() {
       inventoryResult,
       allocationResult,
       shipmentResult,
+      remainderResult,
     ] = await Promise.all([
       supabase
         .from("production_results")
@@ -253,8 +254,11 @@ export default function LotDetailPage() {
         )
         .or(`lot_id.eq.${targetLot.id},lot_no.eq.${targetLot.lotNo}`)
         .order("scheduled_date", { ascending: true }),
+      supabase.from("outsource_remainder_schedules").select("*,order_processes!inner(post_id)")
+        .eq("order_processes.post_id",targetLot.postId).order("dispatch_no"),
     ]);
 
+    if(remainderResult.error) console.warn("外注分割履歴の取得に失敗",remainderResult.error);
     if (orderResult.error) console.warn("注番工程実績の取得に失敗", orderResult.error);
     if (lotResult.error) console.warn("ロット実績の取得に失敗", lotResult.error);
     if (orderProcessResult.error) console.warn("外注工程履歴の取得に失敗", orderProcessResult.error);
@@ -291,6 +295,14 @@ export default function LotDetailPage() {
         target: targetLot.orderNo || "-",
         detail: `${String(row.process_name || "工程")} 実績登録`,
       }));
+
+    const remainderHistory: HistoryRow[] = ((remainderResult.data||[]) as unknown as Record<string,unknown>[]).flatMap(row=>{
+      const process=((orderProcessResult.data||[]) as Record<string,unknown>[]).find(process=>process.id===row.order_process_id)||{};
+      const detail=`第${process.process_order}工程 ${process.process_name} / ${process.subcontractor_name||"-"} / 分割${row.dispatch_no}${row.cancelled?"（取消）":""} / ${row.note||""}`;
+      return [["sent_date","外注分割出し",30],["expected_date","外注分割戻り予定",35],["returned_date","外注分割戻り",40]].flatMap(([key,action,sortOrder])=>row[String(key)]?[{
+        id:`remainder-${row.id}-${key}`,date:String(row[String(key)]),sortOrder:Number(sortOrder),section:"注番工程履歴" as const,action:String(action),amount:toNumber(row.quantity),target:targetLot.orderNo||"-",detail,
+      }]:[]);
+    });
 
     const outsourceRows = (
       (orderProcessResult.error ? [] : orderProcessResult.data || []) as Record<string, unknown>[]
@@ -433,6 +445,7 @@ export default function LotDetailPage() {
     const detailRows = [
       ...orderRows,
       ...outsourceRows,
+      ...remainderHistory,
       ...transferRows,
       ...lotResultRows,
       ...inventoryRows,

@@ -14,6 +14,8 @@ check(Boolean((await anon.from('v_posts_with_master').select('id').limit(1)).err
 check(Boolean((await anon.from('user').select('id').limit(1)).error),true);
 check((await request('/api/ai-predictions/status')).status,401);
 check((await request('/api/shipments')).status,401);
+check((await request('/api/history-retention')).status,401);
+check((await request('/api/outsource-history')).status,401);
 const {data:accounts,error}=await admin.from('user').select('id,name,pass,manager,delete').eq('delete',false);
 if(error) throw Error('Cannot read migration source');
 for(const account of accounts) {
@@ -32,6 +34,15 @@ for(const account of accounts) {
     check(Boolean((await client.from('app_profiles').select('auth_email')).error),true);
     check(Boolean((await client.from('user').select('pass')).error),true);
     check((await request('/api/daily-production','GET',token)).status,200);
+    const retentionResponse=await request('/api/history-retention','GET',token);
+    check(retentionResponse.status,account.manager?200:403);
+    if(account.manager) {
+      const body=await retentionResponse.json();check(body.settings.detail_years,3);check(body.settings.ai_years,5);check(Array.isArray(body.preview.rows),true);
+    } else {
+      const blocked=await client.rpc('execute_history_retention',{p_export:'00000000-0000-0000-0000-000000000000',p_packet:{},p_restore:false});check(Boolean(blocked.error),true);
+      check((await client.from('history_retention_settings').select('*')).data.length,0);
+    }
+    check((await request('/api/outsource-history','GET',token)).status,200);
     check((await request('/api/masters/product-processes','GET',token)).status,200);
     check((await request('/api/ai-predictions/run','GET',token)).status,account.manager?405:403);
     if(!account.manager) {

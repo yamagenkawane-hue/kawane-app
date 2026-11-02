@@ -40,7 +40,15 @@ const status=load('pages/api/ai-predictions/status.ts',{'@/lib/auth/server':auth
 res=response();await status({method:'GET',headers:{}},res);check(res.statusCode,401);
 const shipments=load('pages/api/shipments.ts',{'@/lib/auth/server':auth,'@/lib/supabaseAdmin':{__esModule:true,default:admin,hasSupabaseAdminConfig:true},'@/lib/fetchAllRows':{fetchAllRows:()=>{throw Error('Unauthorized query executed');}}}).default;
 role='worker';res=response();await shipments({method:'DELETE',headers:{authorization:'Bearer valid','x-manager':'true'},body:{is_manager:true,cancel_password:'ignored'}},res);check(res.statusCode,403);
+const retention=load('pages/api/history-retention.ts',{'@/lib/auth/server':auth,'@/lib/historyRetention':{parseArchivePacket:()=>{throw Error('not authorized');},validateRetentionSettings:()=>{throw Error('not authorized');}}}).default;
+for(const method of ['GET','POST','PUT']) {
+  role='worker';res=response();await retention({method,headers:{authorization:'Bearer valid'},body:{action:'delete'}},res);check(res.statusCode,403);
+  res=response();await retention({method,headers:{}},res);check(res.statusCode,401);
+}
+const externalHistory=load('pages/api/outsource-history.ts',{'@/lib/auth/server':auth,'@/lib/fetchAllRows':{}}).default;
+res=response();await externalHistory({method:'GET',headers:{}},res);check(res.statusCode,401);
+role='worker';res=response();await externalHistory({method:'POST',headers:{authorization:'Bearer valid'}},res);check(res.statusCode,405);
 for(const file of fs.readdirSync('pages/api',{recursive:true}).filter(f=>f.endsWith('.ts')&&!f.startsWith('auth')&&!f.startsWith('cron'))) {
-  check(fs.readFileSync('pages/api/'+file,'utf8').includes('requireApiUser(req,res,'),true);
+  check(fs.readFileSync('pages/api/'+file,'utf8').match(/requireApiUser\(\s*req\s*,\s*res\s*[,)]/)!==null,true);
 }
 console.log(JSON.stringify({mode:'offline API authorization',passed},null,2));

@@ -12,6 +12,7 @@ import { useAppAuth } from "@/app/components/AuthProvider/AuthProvider";
 import supabase from "../../lib/supabase";
 import styles from "./page.module.css";
 import { CustomerMaster, InventoryAllocation, PostData } from "@/app/type";
+import { buildShippedAmountMap } from "@/lib/orderVisibility";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { buildOrderManufacturingLots, type ManufacturingLot } from "@/lib/orderManufacturingLots";
 import {
@@ -222,11 +223,7 @@ const OrdersPage = () => {
         );
       }
 
-      const shippedMap = new Map<string, number>();
-      for (const row of shipmentResult.data || []) {
-        const postId = row.post_id || data?.find(post => post.order_no === row.order_no)?.id || "";
-        shippedMap.set(postId, (shippedMap.get(postId) || 0) + Number(row.quantity || 0));
-      }
+      const shippedMap = buildShippedAmountMap(data || [], shipmentResult.data || []);
 
       const processProgressMap = buildOrderProcessProgressMap(
         orderProcessResult.data || [],

@@ -11,6 +11,7 @@ import {
 import styles from "../settings/page.module.css";
 
 const masterMenus = [
+  { title: "履歴管理マスタ", text: "保存期間・退避・詳細履歴の削除と復元を管理", href: "/historyRetention", icon: <Settings2 size={34} /> },
   {
     title: "工程マスタ",
     text: "工程順・使用可否・外注工程区分を管理",

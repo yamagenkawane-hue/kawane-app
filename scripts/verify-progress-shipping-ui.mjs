@@ -206,6 +206,16 @@ for(const scoped of [true,false]) {
     check(rendered.includes(`aria-label="OUT-2 第${row.processOrder}工程 ${row.processName} ${row.subcontractorName} 実績日"`),true);
   }
 }
+const {outstandingOrderIds,buildShippedAmountMap}=load("lib/orderVisibility.ts");
+const outstandingOrders=[{id:"a",order_no:"A",order_amount:100},{id:"b",order_no:"B",order_amount:100},{id:"d",order_no:"D",order_amount:100,delete:true}];
+const outstandingShipments=[{post_id:"a",order_no:"A",quantity:40},{post_id:"a",order_no:"A",quantity:60},{post_id:"b",order_no:"B",quantity:100,cancelled:true}];
+check([...outstandingOrderIds(outstandingOrders,outstandingShipments)].join(","),"b");
+check([...outstandingOrderIds(outstandingOrders,[])].join(","),"a,b");
+check([...outstandingOrderIds(outstandingOrders,[{post_id:null,order_no:"A",quantity:100}])].join(","),"b");
+check(buildShippedAmountMap(outstandingOrders,[{post_id:"missing",order_no:"A",quantity:100}]).has("a"),false);
+check(buildShippedAmountMap(outstandingOrders,[{post_id:"a",order_no:"A",quantity:"invalid"}]).has("a"),false);
+check(renderOutsourcing(false).includes("完了済みも表示"),false);
+check(renderOutsourcing(false).includes('href="/outsourcing/history"'),true);
 const {summarizeOutsourceShipments}=load("lib/outsourceShipmentSummary.ts");
 // Count consecutive external stages separately by their own dates.
 const dispatchProcesses=[

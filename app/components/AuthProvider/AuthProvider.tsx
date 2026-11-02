@@ -9,7 +9,7 @@ import LoginForm from "../LoginForm/LoginForm";
 
 const AuthContext=createContext<{profile:AppProfile|null;refresh:()=>Promise<void>}>({profile:null,refresh:async()=>{}});
 export const useAppAuth=()=>useContext(AuthContext);
-const managerPages=new Set(["settings","masterSettings","userManager","managerMenu","managerDelete","newRegistration","create","customerMaster","productMaster","productProcesses","processMaster","materialMaster","lineMaster","subcontractors","inventoryMaster","calendar","aiPredictionSettings","orderProcesses"]);
+const managerPages=new Set(["settings","masterSettings","userManager","managerMenu","managerDelete","newRegistration","create","customerMaster","productMaster","productProcesses","processMaster","materialMaster","lineMaster","subcontractors","inventoryMaster","calendar","aiPredictionSettings","orderProcesses","historyRetention"]);
 
 export default function AuthProvider({children}:{children:ReactNode}) {
   const [profile,setProfile]=useState<AppProfile|null>(null);

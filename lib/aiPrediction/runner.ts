@@ -1,3 +1,5 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { mergeRetainedResults } from "@/lib/historyRetention";
 import { actualDate, processActuals, PREDICTION_DATE_VERSION } from "./actuals";
 import supabaseAdmin from "@/lib/supabaseAdmin";
 import { calculateLegacyPredictions } from "./legacy";
@@ -317,7 +319,16 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         (allocatedAmountByPost.get(postId) || 0) + unshippedAmount,
       );
     });
-    const allResults = ((resultsResponse.data || []) as DbRow[]).filter(
+    const retainedResponse = await fetchAllRows((from,to)=>supabaseAdmin!.from("history_ai_samples").select("post_id,samples,retained_until").order("post_id").range(from,to));
+    if(retainedResponse.error) throw retainedResponse.error;
+    const retainedRows=(retainedResponse.data||[]) as {post_id:string;samples:DbRow[];retained_until:string}[];
+    const expiredPostIds=new Set(retainedRows.filter(row=>row.retained_until<getTodayInJapan()).map(row=>row.post_id));
+    if(retainedRows.some(row=>expiredPostIds.has(row.post_id)&&row.samples.length>0)) {
+      const expiredCleanup=await supabaseAdmin.from("history_ai_samples").update({samples:[]}).lt("retained_until",getTodayInJapan());
+      if(expiredCleanup.error) throw expiredCleanup.error;
+    }
+    const retainedResults=retainedRows.filter(row=>!expiredPostIds.has(row.post_id)).flatMap(row=>row.samples);
+    const allResults = mergeRetainedResults((resultsResponse.data || []) as DbRow[],retainedResults).filter(result=>!expiredPostIds.has(textValue(result.post_id))).filter(
       (result) => !result.lot_id || !deletedLotIds.has(textValue(result.lot_id)),
     );
     const lines = (linesResponse.data || []) as DbRow[];
@@ -432,7 +443,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           const candidateCompletedDate = isOutsourcing
             ? textValue(candidate.outsource_returned_date).slice(0, 10)
             : textValue(candidate.completed_date).slice(0, 10);
-          return machineMatches && subcontractorMatches &&
+          return !expiredPostIds.has(textValue(candidate.post_id)) && machineMatches && subcontractorMatches &&
           (productId
             ? textValue(candidate.product_id) === productId
             : textValue(candidate.product_name) === productName) &&
@@ -919,7 +930,9 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
     }
 
     const cutoffHistory = new Date();
-    cutoffHistory.setUTCDate(cutoffHistory.getUTCDate() - 90);
+    const retentionResponse=await supabaseAdmin.from("history_retention_settings").select("prediction_days").single();
+    if(retentionResponse.error) throw retentionResponse.error;
+    cutoffHistory.setUTCDate(cutoffHistory.getUTCDate() - Number(retentionResponse.data.prediction_days));
     const historyCleanupResults = await Promise.all([
       supabaseAdmin.from("ai_prediction_results").delete().lt("created_at", cutoffHistory.toISOString()),
       supabaseAdmin.from("ai_prediction_input_snapshots").delete().lt("created_at", cutoffHistory.toISOString()),

@@ -30,6 +30,8 @@ function loadRunner(db, fetchImpl, env = {}) {
     require(name) {
       if (name === './actuals') return actualContext.exports;
       if (name === './legacy') return legacyContext.exports;
+      if(name==='@/lib/historyRetention') return {mergeRetainedResults:(live,retained)=>[...new Map([...retained,...live].map(row=>[row.id,row])).values()]};
+      if(name==='@/lib/fetchAllRows') return {fetchAllRows:async query=>query(0,999)};
       assert.equal(name, '@/lib/supabaseAdmin');
       return { __esModule: true, default: db };
     },
@@ -41,6 +43,7 @@ function loadRunner(db, fetchImpl, env = {}) {
 function fixture() {
   const calls = [];
   const tables = {
+    history_retention_settings:{prediction_days:90},
     ai_prediction_settings: {
       enabled: true, use_past_results: false, validation_mode: true,
       max_reference_days: 730, priority_reference_days: 90,
@@ -180,6 +183,27 @@ async function offline() {
     assert.equal(payload[0].historicalDurationDays,null);
     assert.equal(payload[0].historicalDailyAmount,100);
     assert.equal(payload[0].durationUnit,'business_days');
+  });
+  await test('retained actuals preserve AI inputs and deduplicate restored detail', async () => {
+    const run=async(mode)=>{
+      const f=fixture();f.tables.ai_prediction_settings.use_past_results=true;f.tables.ai_prediction_settings.other_process_min_lots=1;
+      f.tables.order_processes[0].process_name='梱包';f.tables.process_master[0].name='梱包';
+      f.tables.order_processes.push({...f.tables.order_processes[0],id:'history',post_id:'old',completed_amount:100,completed_date:'2026-09-01'});
+      const sample={id:'r',post_id:'old',order_process_id:'history',date:'2026-09-01',amount:100};
+      f.tables.production_results=mode==='archive'?[]:[sample];
+      f.tables.history_ai_samples=mode==='live'?[]:[{post_id:'old',samples:[sample],retained_until:'2099-01-01'}];
+      let payload;
+      const fetcher=async(_url,options)=>{payload=JSON.parse(JSON.parse(options.body).contents[0].parts[0].text.split('\n').at(-1));return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({predictions:payload.map(row=>({orderProcessId:row.orderProcessId,durationDays:1,reason:'synthetic'}))})}]}}]})};};
+      await loadRunner(f.db,fetcher,{GEMINI_API_KEY:'fake'}).runAiPrediction('scheduled');
+      return JSON.stringify(payload);
+    };
+    assert.equal(await run('live'),await run('archive'));
+    assert.equal(await run('live'),await run('restored'));
+  });
+  await test('expired retained samples are excluded and compact details cleared', async () => {
+    const f=fixture();f.tables.history_ai_samples=[{post_id:'old',samples:[{id:'old-result',post_id:'old',date:'2020-01-01',amount:100}],retained_until:'2020-01-02'}];
+    await loadRunner(f.db,noFetch).runAiPrediction('scheduled');
+    assert.ok(f.calls.some(call=>call.table==='history_ai_samples'&&call.operation==='update'&&call.payload.samples.length===0));
   });
   await test('old snapshots and changed actual dates are rejected', () => {
     const saved={dateVersion:2,registeredPlannedAmount:100,orderAmount:100,plannedAmount:100,completedAmount:50,completedDate:null,lastActualDate:'2026-09-01'};
