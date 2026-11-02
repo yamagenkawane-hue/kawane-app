@@ -11,9 +11,7 @@ const SearchForm: React.FC<SearchProps> = ({ search, setSearch }) => {
         type="text"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="
-          注番・製品名・得意先・状態で検索
-        "
+        placeholder="注番・製品名・得意先で検索"
         className={styles.searchInput}
       />
     </div>
