@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   closestCenter,
   DndContext,
@@ -19,6 +19,9 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { findRequestedOrder } from "@/lib/orderProcessNavigation";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
 import { OrderProcess, PostData, ProductProcess } from "@/app/type";
@@ -249,7 +252,14 @@ const SortableProcessRow = ({
   );
 };
 
-export default function OrderProcessesPage() {
+function OrderProcessesContent() {
+  const searchParams = useSearchParams();
+  const requestedPostId = searchParams?.get("postId") || "";
+  const requestedOrderNo = searchParams?.get("orderNo") || "";
+  const targetKey = JSON.stringify([requestedPostId, requestedOrderNo]);
+  const appliedTargetRef = useRef<string | null>(null);
+  const fetchVersionRef = useRef(0);
+  const [selectionMessage, setSelectionMessage] = useState("");
   const [posts, setPosts] = useState<PostData[]>([]);
   const [processes, setProcesses] = useState<OrderProcess[]>([]);
   const [selectedPostId, setSelectedPostId] = useState("");
@@ -276,22 +286,18 @@ export default function OrderProcessesPage() {
   );
 
   const fetchData = useCallback(async () => {
+    const version = ++fetchVersionRef.current;
     try {
       setLoading(true);
       const [postResult, processResult, shipmentResult] = await Promise.all([
-        supabase
-          .from("v_posts_with_master")
-          .select(POST_SELECT_COLUMNS)
-          .order("order_no", { ascending: true }),
-        supabase
-          .from("v_order_processes_with_master")
-          .select(ORDER_PROCESS_SELECT_COLUMNS)
-          .order("process_order", { ascending: true }),
-        supabase
-          .from("shipments")
-          .select("post_id,quantity")
-          .eq("cancelled", false),
+        fetchAllRows((from,to)=>supabase.from("v_posts_with_master").select(POST_SELECT_COLUMNS)
+          .order("order_no", { ascending: true }).order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("v_order_processes_with_master").select(ORDER_PROCESS_SELECT_COLUMNS)
+          .order("process_order", { ascending: true }).order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("shipments").select("post_id,quantity")
+          .eq("cancelled",false).order("id").range(from,to)),
       ]);
+      if (version !== fetchVersionRef.current) return;
 
       if (postResult.error) throw postResult.error;
       if (processResult.error) throw processResult.error;
@@ -319,18 +325,24 @@ export default function OrderProcessesPage() {
         mappedProcesses.filter((process) => activePostIds.has(process.postId)),
       );
 
-      setSelectedPostId((prev) =>
-        mappedPosts.some((post) => post.id === prev)
-          ? prev
-          : mappedPosts[0]?.id || "",
-      );
+      if (appliedTargetRef.current !== targetKey && (requestedPostId || requestedOrderNo)) {
+        const requested = findRequestedOrder(mappedPosts, requestedPostId, requestedOrderNo);
+        appliedTargetRef.current = targetKey;
+        setSelectedPostId(requested?.id || "");
+        setSelectionMessage(requested ? "" : "指定された注番は表示対象にありません。受注を選択してください。");
+      } else {
+        if (!requestedPostId && !requestedOrderNo) setSelectionMessage("");
+        appliedTargetRef.current = targetKey;
+        setSelectedPostId(prev => mappedPosts.some(post => post.id === prev) ? prev : (requestedPostId || requestedOrderNo) ? "" : mappedPosts[0]?.id || "");
+      }
     } catch (error) {
+      if (version !== fetchVersionRef.current) return;
       console.error(error);
       alert("工程予定の取得に失敗しました");
     } finally {
-      setLoading(false);
+      if (version === fetchVersionRef.current) setLoading(false);
     }
-  }, []);
+  }, [requestedPostId, requestedOrderNo, targetKey]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -607,13 +619,16 @@ export default function OrderProcessesPage() {
         <h1 className={styles.title}>受注別工程管理</h1>
       </div>
 
+      {selectionMessage && <p role="status">{selectionMessage}</p>}
       <div className={styles.formCard}>
         <div className={styles.formGrid}>
           <select
             className={styles.select}
+            aria-label="受注（注番）"
             value={selectedPostId}
-            onChange={(e) => setSelectedPostId(e.target.value)}
+            onChange={(e) => { setSelectedPostId(e.target.value); setSelectionMessage(""); }}
           >
+            <option value="">受注を選択してください</option>
             {posts.map((post) => (
               <option key={post.id} value={post.id}>
                 {post.orderNo} / {post.productName} / {post.customerName}
@@ -689,4 +704,8 @@ export default function OrderProcessesPage() {
       />
     </div>
   );
+}
+
+export default function OrderProcessesPage() {
+  return <Suspense fallback={<p role="status">受注別工程を読み込み中...</p>}><OrderProcessesContent /></Suspense>;
 }

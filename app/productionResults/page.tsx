@@ -1,9 +1,10 @@
 "use client";
 import { authFetch } from "@/lib/auth/client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { orderProcessesHref } from "@/lib/orderProcessNavigation";
 import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
 import {
@@ -156,8 +157,11 @@ const getProductionResultErrorComment = (error: unknown, lotNo: string) => {
     : "コメント: 製造実績の登録に失敗しました。入力内容を確認してください。";
 };
 
-export default function ProductionResultsPage() {
+function ProductionResultsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedOrderNo = searchParams?.get("orderNo") || "";
+  const requestedPostId = searchParams?.get("postId") || "";
   const [schedules, setSchedules] = useState<ProductionSchedule[]>([]);
   const [orderProcesses, setOrderProcesses] = useState<OrderProcess[]>([]);
   const [posts, setPosts] = useState<PostData[]>([]);
@@ -524,7 +528,7 @@ export default function ProductionResultsPage() {
         <Link href="/reservation" className={styles.backButton}>
           ← 進捗管理へ戻る
         </Link>
-        <Link href="/orderProcesses" className={styles.backButton}>
+        <Link href={orderProcessesHref(selectedPostId || (!selectedSchedule ? requestedPostId : ""), selectedSchedule ? selectedSchedule.orderNo || "" : requestedOrderNo)} className={styles.backButton}>
           受注別工程管理
         </Link>
         <h1 className={styles.title}>製造実績登録</h1>
@@ -684,3 +688,7 @@ export default function ProductionResultsPage() {
 }
 
 
+
+export default function ProductionResultsPage() {
+  return <Suspense fallback={<p role="status">製造実績を読み込み中...</p>}><ProductionResultsContent /></Suspense>;
+}
