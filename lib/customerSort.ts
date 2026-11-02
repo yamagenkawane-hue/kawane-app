@@ -15,18 +15,18 @@ export function validateCustomerReading(name:string,reading:string) {
 
 function sortKey(customer:CustomerName) {
   const name=customer.customerName.normalize("NFKC").trim();
-  if(/^[A-Za-z0-9]/.test(name)) return {group:0,key:name};
+  if(/^[A-Za-z0-9]/.test(name)) return {group:1,key:name};
   const reading=normalizeCustomerReading(customer.customerNameKana||"");
-  if(reading) return {group:1,key:reading};
-  if(name&&!/\p{Script=Han}/u.test(name)) return {group:1,key:normalizeCustomerReading(name)};
+  if(reading) return {group:0,key:reading};
+  if(name&&!/\p{Script=Han}/u.test(name)) return {group:0,key:normalizeCustomerReading(name)};
   // A missing reading must not masquerade as a correct phonetic sort.
   return {group:name?2:3,key:name};
 }
 
-/** English names A-Z, Japanese names by stored reading; unknown readings last. */
+/** Japanese names by stored reading, then English A-Z; unknown readings last. */
 export function compareCustomerNames(a:CustomerName,b:CustomerName) {
   const left=sortKey(a),right=sortKey(b);
   if(left.group!==right.group) return left.group-right.group;
-  const collator=left.group===0?englishCollator:japaneseCollator;
+  const collator=left.group===1?englishCollator:japaneseCollator;
   return collator.compare(left.key,right.key)||japaneseCollator.compare(a.customerName,b.customerName);
 }

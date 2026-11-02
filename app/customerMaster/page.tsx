@@ -196,7 +196,7 @@ export default function CustomerMasterPage() {
       </div>
 
       {loading && <div className={styles.loading}>読み込み中...</div>}
-      <p>英字名はA→Z、日本語名はふりがなの五十音順で表示します。漢字名のふりがな未登録データは末尾に表示します。</p>
+      <p>日本語名を先にふりがなの五十音順、英字名を後にA→Zで表示します。漢字名のふりがな未登録データは末尾に表示します。</p>
       <div className={styles.tableCard}>
         <table className={styles.table}>
           <thead>

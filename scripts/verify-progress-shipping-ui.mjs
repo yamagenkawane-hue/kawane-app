@@ -74,7 +74,8 @@ check(Boolean(validateCustomerReading("川根サンプル工業","")),true);
 check(Boolean(validateCustomerReading("川根サンプル工業","川根")),true);
 check(validateCustomerReading("ABC Industries",""),"");
 const bilingual=[...nameFixtures,{customerName:"zebra Inc"},{customerName:"ＢＥＴＡ Ltd"},{customerName:"alpha Co"},{customerName:"未登録工業"}];
-check(bilingual.sort(compareCustomerNames).map(row=>row.customerName).slice(0,4).join(","),"alpha Co,ＢＥＴＡ Ltd,zebra Inc,川根サンプル工業");
+check(bilingual.sort(compareCustomerNames).map(row=>row.customerName).slice(0,5).join(","),"川根サンプル工業,グループ表示テスト工業,テスト工業,テスト製作所,デモ工業");
+check(bilingual.slice(5,8).map(row=>row.customerName).join(","),"alpha Co,ＢＥＴＡ Ltd,zebra Inc");
 check(bilingual.at(-1).customerName,"未登録工業");
 const KanaSortPage=load("app/reservation/page.tsx",{...mocks,
   "../utills/useFetchPosts":{useFetchPosts:()=>({posts:nameFixtures.map((row,index)=>({...base,...row,id:`kana-${index}`})),setShouldFetch:()=>{}})},
