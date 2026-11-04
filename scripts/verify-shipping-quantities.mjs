@@ -9,7 +9,7 @@ const require=createRequire(import.meta.url);
 let passed=0;
 const check=(a,b)=>{assert.deepEqual(a,b);passed++;};
 const sample={lotNo:'LOT-1',lotId:'lot1',rowKey:'post:lot1',id:'post',postId:'post',orderNo:'SHIP-TEST',productCode:'P',productName:'試験製品',customerName:'試験先',orderAmount:100,lotProductionAmount:100,remainingAmount:50,status:'',deliveryDate:'2026-12-01',completionScheduledDate:'',shippedAmount:0,scheduledDate:'2026-12-01'};
-function harness({limit=50,input,confirm=true,reason="在庫不足",noStock=false}={}){
+function harness({limit=50,input,confirm=true,noStock=false}={}){
  const states=[[{...sample,remainingAmount:limit}],input===undefined?{}:{'post:lot1':input},'',false,null];
  const refs=[],alerts=[],requests=[],effects=[];let si=0,ri=0;
  const rows=[{post_id:'post',order_no:'SHIP-TEST',lot_id:'lot1',lot_no:'LOT-1',product_code:'P',product_name:'試験製品',customer_name:'試験先',order_amount:100,delivery_date:'2026-12-01',current_stock:100,available_quantity:limit}];
@@ -17,7 +17,7 @@ function harness({limit=50,input,confirm=true,reason="在庫不足",noStock=fals
  const client={from(table){const q={select(){return q},gt(){return q},or(){return q},is(){return q},order(){return q},range(){return Promise.resolve({data:tables[table],error:null})}};return q;}};
  const store=new Map();
  function load(file){
-  const context={exports:{},console,alert:s=>alerts.push(s),window:{confirm:()=>confirm,prompt:()=>reason},sessionStorage:{getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},crypto:{randomUUID:()=> 'test-request'},require(name){
+  const context={exports:{},console,alert:s=>alerts.push(s),window:{confirm:()=>confirm,prompt:()=>{throw Error("Reason prompt must not appear");}},sessionStorage:{getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},crypto:{randomUUID:()=> 'test-request'},require(name){
    if(name==='react')return {...React,useEffect:f=>effects.push(f),useMemo:f=>f(),useRef(value){const i=ri++;return refs[i]??(refs[i]={current:value})},useState(value){const i=si++;if(!(i in states))states[i]=value;return [states[i],v=>{states[i]=typeof v==='function'?v(states[i]):v}]}};
    if(name.endsWith('.css'))return {__esModule:true,default:new Proxy({},{get:(_,k)=>String(k)})};
    if(name==='next/link')return {__esModule:true,default:({children,...p})=>React.createElement('a',p,children)};
@@ -49,10 +49,8 @@ h=harness();h.states[4]='post:lot1';check(h.numpad().value,'50');check(h.numpad(
 h=harness({input:20});h.states[4]='post:lot1';check(h.numpad().value,'20');
 h=harness({confirm:false});await h.ship();check(h.requests.length,0);
 h=harness();h.states[0].push({...sample,lotId:'lot2',lotNo:'LOT-2',rowKey:'post:lot2',remainingAmount:30});html=h.html();check(html.includes('value="50"'),true);check(html.includes('value="30"'),true);
-h=harness();await h.close();check(h.requests.length,1);check(h.requests[0].url,'/api/shipment-closures');check(h.requests[0].post_id,'post');check('quantity' in h.requests[0],false);check(h.requests[0].reason,'在庫不足');check(h.states[0].length,0);
-h=harness({reason:null});await h.close();check(h.requests.length,0);
-h=harness({reason:' '});await h.close();check(h.requests.length,0);check(h.alerts.length,1);
-h=harness({reason:'x'.repeat(501)});await h.close();check(h.requests.length,0);
+h=harness();await h.close();check(h.requests.length,1);check(h.requests[0].url,'/api/shipment-closures');check(h.requests[0].post_id,'post');check('quantity' in h.requests[0],false);check('reason' in h.requests[0],false);check(h.states[0].length,0);
+h=harness({confirm:false});await h.close();check(h.requests.length,0);
 h=harness({noStock:true});await h.refresh();check(h.states[0][0].remainingAmount,0);check(h.states[0][0].orderRemaining,50);check(h.html().includes('打ち切り</button>'),true);await h.close();check(h.requests[0].url,'/api/shipment-closures');
 h=harness();h.states[0].push({...sample,lotId:'lot2',lotNo:'LOT-2',rowKey:'post:lot2',remainingAmount:30});check((h.html().match(/打ち切り<\/button>/g)||[]).length,1);
 const css=fs.readFileSync('app/shipping/page.module.css','utf8');check(css.includes('width: 50%'),true);check(css.includes('min-width: 110px'),true);

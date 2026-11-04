@@ -367,22 +367,16 @@ export default function ShippingPage() {
 
   const handleCloseOrder = async (post: ShippingPost) => {
     if (shippingRef.current) return;
-    const reason = window.prompt(`${post.orderNo} を打ち切ります。理由を入力してください（500文字以内）。`);
-    if (reason === null) return;
-    if (!reason.trim() || reason.trim().length > 500) {
-      alert("打ち切り理由を1〜500文字で入力してください");
-      return;
-    }
-    if (!window.confirm(`${post.orderNo} の残りの注残を打ち切り、完了扱いにします。\n注残数：${(post.orderRemaining ?? post.remainingAmount).toLocaleString("ja-JP")}個（確定時に再計算）\n理由：${reason.trim()}\n出荷数の入力値は出荷しません。在庫数量は減らさず、残りの在庫引当を解除します。\n打ち切り後はこの受注の出荷・出荷取消ができなくなります。よろしいですか？`)) return;
+    if (!window.confirm(`${post.orderNo} の残りの注残を打ち切り、完了扱いにします。\n注残数：${(post.orderRemaining ?? post.remainingAmount).toLocaleString("ja-JP")}個（確定時に再計算）\n出荷数の入力値は出荷しません。在庫数量は減らさず、残りの在庫引当を解除します。\n打ち切り後はこの受注の出荷・出荷取消ができなくなります。よろしいですか？`)) return;
     shippingRef.current = true;
-    const storageKey = `shipment-closure:${post.postId}:${reason.trim()}`;
+    const storageKey = `shipment-closure:${post.postId}`;
     try {
       setLoading(true);
       const requestId = sessionStorage.getItem(storageKey) || crypto.randomUUID();
       sessionStorage.setItem(storageKey, requestId);
       const response = await authFetch("/api/shipment-closures", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ post_id: post.postId, reason: reason.trim(), request_id: requestId }),
+        body: JSON.stringify({ post_id: post.postId, request_id: requestId }),
       });
       const result = await response.json().catch(() => null);
       if (!response.ok) throw new Error(result?.error || "打ち切りに失敗しました");
