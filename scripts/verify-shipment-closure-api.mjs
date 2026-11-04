@@ -13,6 +13,10 @@ for(const fields of [{post_id:'bad'},{request_id:'bad'},{reason:'x'.repeat(501)}
 for(const reason of [undefined,null,'',' ']){check((await req('POST',{...body,reason})).statusCode,201);check(calls.at(-1).args.p_reason,'理由入力なし');}
 rpcError={code:'P0001',message:'already closed'};check((await req('POST')).statusCode,409);rpcError={code:'42501',message:'forbidden'};check((await req('POST')).statusCode,403);rpcError=null;
 const get=await req('GET');check(get.statusCode,200);check(get.body[0].closed_quantity,50);check((await req('DELETE')).statusCode,405);
+authorized=false;check((await req('PATCH',{})).statusCode,401);authorized=true;
+for(const values of [{},{closure_id:'bad',request_id:body.request_id},{closure_id:body.post_id,request_id:'bad'}])check((await req('PATCH',values)).statusCode,400);
+check((await req('PATCH',{closure_id:body.post_id,request_id:body.request_id})).statusCode,200);check(calls.at(-1).name,'restore_order_shipments');check(calls.at(-1).args.p_closure_id,body.post_id);
+rpcError={code:'P0001',message:'already restored'};check((await req('PATCH',{closure_id:body.post_id,request_id:body.request_id})).statusCode,409);rpcError=null;
 const {outstandingOrderIds}=load('lib/orderVisibility.ts');
 const ids=outstandingOrderIds([{id:'closed',order_no:'A',order_amount:100,shipment_closed_at:'2026-11-04'},{id:'open',order_no:'B',order_amount:100},{id:'full',order_no:'C',order_amount:100}],[{post_id:'closed',order_no:'A',quantity:50},{post_id:'full',order_no:'C',quantity:100}]);check(ids.has('closed'),false);check(ids.has('open'),true);check(ids.has('full'),false);
 console.log(JSON.stringify({mode:'shipment closure API and outstanding-order visibility',passed}));
