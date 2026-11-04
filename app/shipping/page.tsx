@@ -9,6 +9,9 @@ import supabase from "@/lib/supabase";
 import { CustomerMaster } from "@/app/type";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import styles from "../masterCommon.module.css";
+import shippingStyles from "./page.module.css";
+import { buildShippedAmountMap } from "@/lib/orderVisibility";
+import { buildShippingStockMaps, shippingQuantityError } from "@/lib/shippingQuantity";
 
 type ShippingPost = {
   lotNo: string;
@@ -23,6 +26,8 @@ type ShippingPost = {
   orderAmount: number;
   lotProductionAmount: number;
   remainingAmount: number;
+  orderRemaining: number;
+  availableStock: number;
   status: string;
   deliveryDate: string;
   completionScheduledDate: string;
@@ -50,6 +55,7 @@ const escapeHtml = (value: string | number) =>
 
 const createShippingGroupKey = (post: ShippingPost) =>
   [
+    post.postId,
     post.scheduledDate,
     post.customerName,
     post.orderNo,
@@ -70,14 +76,28 @@ export default function ShippingPage() {
     try {
       setLoading(true);
 
-      const [stockResult, customerResult] = await Promise.all([
+      const [stockResult, customerResult, shipmentResult, inventoryResult, allocationResult] = await Promise.all([
         fetchAllRows((from, to) => supabase.from("v_shipping_candidates")
           .select("post_id,order_no,lot_id,lot_no,product_code,product_name,customer_name,order_amount,delivery_date,completion_scheduled_date,current_stock,available_quantity")
           .gt("available_quantity", 0).order("post_id").order("lot_id").range(from, to)),
         fetchAllRows((from, to) => supabase.from("customer_master").select(CUSTOMER_SELECT_COLUMNS).order("id").range(from, to)),
+        fetchAllRows((from, to) => supabase.from("shipments")
+          .select("post_id,order_no,quantity,cancelled").or("cancelled.is.null,cancelled.eq.false").order("id").range(from, to)),
+        fetchAllRows((from, to) => supabase.from("inventory_items")
+          .select("id,lot_id,current_stock,allocated_stock").order("id").range(from, to)),
+        fetchAllRows((from, to) => supabase.from("inventory_allocations")
+          .select("post_id,inventory_item_id,allocated_amount,shipped_amount").order("id").range(from, to)),
       ]);
       if (stockResult.error) throw stockResult.error;
       if (customerResult.error) throw customerResult.error;
+      if (shipmentResult.error) throw shipmentResult.error;
+      if (inventoryResult.error) throw inventoryResult.error;
+      if (allocationResult.error) throw allocationResult.error;
+      const shippedAmounts = buildShippedAmountMap(
+        (stockResult.data || []).map(row => ({ id: row.post_id, order_no: row.order_no })),
+        shipmentResult.data || [],
+      );
+      const stockMaps = buildShippingStockMaps(inventoryResult.data || [], allocationResult.data || []);
 
       const customerList: CustomerMaster[] = (customerResult.data || []).map(
         (row) => ({
@@ -93,15 +113,20 @@ export default function ShippingPage() {
         const deliveryDate = String(row.delivery_date || "");
         const scheduledDate = deliveryDate
           ? formatDate(subDays(new Date(deliveryDate), customer?.shippingOffsetDays || 0)) : "";
+        const shippedAmount = shippedAmounts.get(row.post_id) || 0;
+        const orderRemaining = Math.max(Number(row.order_amount || 0) - shippedAmount, 0);
+        const availableStock = (stockMaps.freeByLot.get(row.lot_id) || 0)
+          + (stockMaps.ownByOrderLot.get(`${row.post_id}:${row.lot_id}`) || 0);
         return {
           id: row.post_id, postId: row.post_id, rowKey: `${row.post_id}:${row.lot_id}`,
           lotId: row.lot_id, lotNo: row.lot_no, orderNo: row.order_no,
           productCode: row.product_code || "", productName: row.product_name || "",
           customerName: row.customer_name || "", orderAmount: Number(row.order_amount || 0),
           lotProductionAmount: Number(row.current_stock || 0),
-          remainingAmount: Number(row.available_quantity || 0),
+          remainingAmount: Math.min(Number(row.available_quantity || 0), orderRemaining, availableStock),
+          orderRemaining, availableStock,
           deliveryDate, scheduledDate, completionScheduledDate: row.completion_scheduled_date || "",
-          status: "", shippedAmount: 0,
+          status: "", shippedAmount,
         };
       })
         .sort((a, b) => {
@@ -110,11 +135,14 @@ export default function ShippingPage() {
         });
 
       setPosts(mappedPosts);
+      return mappedPosts;
     } catch (error) {
       console.error(error);
-      alert("出荷データの取得に失敗しました");
+      alert("出荷データの取得に失敗しました。最新の数量を確認できるまで出荷できません。");
+      setPosts([]);
+      return null;
     } finally {
-      setLoading(false);
+      if (!shippingRef.current) setLoading(false);
     }
   };
 
@@ -262,15 +290,14 @@ export default function ShippingPage() {
     printWindow.document.close();
   };
 
+  const getShipAmount = (post: ShippingPost) => shipAmounts[post.rowKey] ?? post.remainingAmount;
+
   const handleShip = async (post: ShippingPost) => {
     if (shippingRef.current) return;
-    const amount = Number(shipAmounts[post.rowKey] || 0);
-    if (!Number.isInteger(amount) || amount <= 0) {
-      alert("出荷数を1以上の整数で入力してください");
-      return;
-    }
-    if (amount > post.remainingAmount) {
-      alert("出荷数が注残数または出荷可能在庫を超えています");
+    const amount = getShipAmount(post);
+    const quantityError = shippingQuantityError(amount, post.orderRemaining, post.availableStock);
+    if (quantityError) {
+      alert(quantityError);
       return;
     }
     if (!post.lotNo.trim()) {
@@ -282,20 +309,29 @@ export default function ShippingPage() {
       return;
     }
 
-    if (
-      !window.confirm(
-        `${post.orderNo} / ${post.lotNo} を ${amount.toLocaleString(
-          "ja-JP",
-        )} 個出荷します。よろしいですか？`,
-      )
-    ) {
-      return;
-    }
-
     shippingRef.current = true;
     const requestStorageKey = `shipment-request:${post.rowKey}:${amount}:${post.scheduledDate}`;
     try {
       setLoading(true);
+      const latestPosts = await fetchData();
+      if (!latestPosts) return;
+      const latestPost = latestPosts.find(row => row.rowKey === post.rowKey);
+      if (!latestPost || latestPost.remainingAmount <= 0) {
+        alert("この注文またはロットから現在出荷できる数量は0個です。最新の一覧を確認してください。");
+        return;
+      }
+      const latestError = shippingQuantityError(amount, latestPost.orderRemaining, latestPost.availableStock);
+      if (latestError || amount > latestPost.remainingAmount) {
+        alert(latestError || `今回の出荷上限は${latestPost.remainingAmount.toLocaleString("ja-JP")}個です。最新の一覧を確認してください。`);
+        return;
+      }
+      if (latestPost.scheduledDate !== post.scheduledDate) {
+        alert("出荷予定日が変更されています。最新の一覧を確認して再度出荷してください。");
+        return;
+      }
+      if (!window.confirm(
+        `${post.orderNo} / ${post.lotNo} を ${amount.toLocaleString("ja-JP")} 個出荷します。\n出荷後の注残：${(latestPost.orderRemaining - amount).toLocaleString("ja-JP")}個\n出荷後のロット在庫：${(latestPost.lotProductionAmount - amount).toLocaleString("ja-JP")}個\nよろしいですか？`,
+      )) return;
       const requestKey = sessionStorage.getItem(requestStorageKey) || crypto.randomUUID();
       sessionStorage.setItem(requestStorageKey, requestKey);
       const response = await authFetch("/api/shipments", {
@@ -319,11 +355,23 @@ export default function ShippingPage() {
 
       if (!response.ok) {
         const result = await response.json().catch(() => null);
+        if (response.status === 409) {
+          const refreshed = await fetchData();
+          const current = refreshed?.find(row => row.rowKey === post.rowKey);
+          const detail = current
+            ? `最新の注残は${current.orderRemaining.toLocaleString("ja-JP")}個、今回の出荷上限は${current.remainingAmount.toLocaleString("ja-JP")}個です。`
+            : refreshed ? "現在この注文またはロットから出荷できる数量は0個です。" : "";
+          throw new Error(`${result?.error || "出荷数量が変更されています。"}\n${detail}`);
+        }
         throw new Error(result?.error || "出荷登録に失敗しました");
       }
 
       sessionStorage.removeItem(requestStorageKey);
-      setShipAmounts((prev) => ({ ...prev, [post.rowKey]: 0 }));
+      setShipAmounts((prev) => {
+        const next = { ...prev };
+        delete next[post.rowKey];
+        return next;
+      });
       await fetchData();
     } catch (error) {
       console.error(error);
@@ -374,9 +422,10 @@ export default function ShippingPage() {
       </div>
 
       {loading && <div className={styles.loading}>読み込み中...</div>}
+      <p className={shippingStyles.guide}>注残数は注文全体の残り数量です。今回の出荷上限は、注残数とこのロットの出荷可能在庫の少ない方です。他の注文への引当分は出荷可能在庫に含みません。</p>
 
       <div className={styles.tableCard}>
-        <table className={styles.table}>
+        <table className={`${styles.table} ${shippingStyles.table}`}>
           <thead>
             <tr>
               <th>出荷予定日</th>
@@ -387,14 +436,19 @@ export default function ShippingPage() {
               <th>ロット在庫数</th>
               <th>納期</th>
               <th>受注数</th>
-              <th>出荷数</th>
+              <th>出荷済数</th>
+              <th>注残数</th>
+              <th>出荷可能在庫</th>
+              <th>今回の出荷</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody>
             {visiblePostGroups.map((group) =>
-              group.rows.map((post, index) => (
-                <tr key={post.rowKey}>
+              group.rows.map((post, index) => {
+                const amount = getShipAmount(post);
+                const error = shippingQuantityError(amount, post.orderRemaining, post.availableStock);
+                return <tr key={post.rowKey}>
                   {index === 0 && (
                     <>
                       <td rowSpan={group.rows.length}>{post.scheduledDate}</td>
@@ -408,14 +462,22 @@ export default function ShippingPage() {
                   {index === 0 && (
                     <>
                       <td rowSpan={group.rows.length}>{post.deliveryDate}</td>
-                      <td rowSpan={group.rows.length}>{post.orderAmount}</td>
+                      <td rowSpan={group.rows.length}>{post.orderAmount.toLocaleString("ja-JP")}</td>
+                      <td rowSpan={group.rows.length}>{post.shippedAmount.toLocaleString("ja-JP")}</td>
+                      <td rowSpan={group.rows.length} className={shippingStyles.remaining}>{post.orderRemaining.toLocaleString("ja-JP")}</td>
                     </>
                   )}
-                  <td>
+                  <td>{post.availableStock.toLocaleString("ja-JP")}</td>
+                  <td className={shippingStyles.quantityCell}>
+                    <div className={shippingStyles.limit}>今回の出荷上限：{post.remainingAmount.toLocaleString("ja-JP")}個</div>
                     <input
-                      className={styles.tableInput}
+                      className={`${styles.tableInput} ${shippingStyles.quantityInput}`}
+                      aria-label={`${post.orderNo} / ${post.lotNo} の出荷数`}
+                      aria-invalid={!!error}
+                      aria-describedby={`quantity-${post.rowKey}`}
+                      disabled={loading}
                       inputMode="numeric"
-                      value={shipAmounts[post.rowKey] || ""}
+                      value={amount || ""}
                       onFocus={() => setNumpadPostId(post.rowKey)}
                       onChange={(e) =>
                         setShipAmounts({
@@ -424,15 +486,21 @@ export default function ShippingPage() {
                         })
                       }
                     />
+                    <div id={`quantity-${post.rowKey}`} className={shippingStyles.preview} aria-live="polite">
+                      {error ? <span className={shippingStyles.error}>{error}</span> : <>
+                        <div>出荷後の注残：{(post.orderRemaining - amount).toLocaleString("ja-JP")}個</div>
+                        <div>出荷後のロット在庫：{(post.lotProductionAmount - amount).toLocaleString("ja-JP")}個</div>
+                      </>}
+                    </div>
                   </td>
                   <td className={styles.actionArea}>
-                    <button className={styles.saveButton} disabled={loading}
+                    <button className={styles.saveButton} disabled={loading || !!error || post.remainingAmount <= 0}
                       onClick={() => handleShip(post)}>
                       出荷
                     </button>
                   </td>
-                </tr>
-              )),
+                </tr>;
+              }),
             )}
           </tbody>
         </table>
@@ -440,7 +508,8 @@ export default function ShippingPage() {
 
       <Numpad
         open={numpadPostId !== null}
-        value={numpadPostId ? String(shipAmounts[numpadPostId] || "") : ""}
+        replaceOnFirstInput
+        value={numpadPostId ? String(shipAmounts[numpadPostId] ?? posts.find(post => post.rowKey === numpadPostId)?.remainingAmount ?? "") : ""}
         onChange={(value) => {
           if (!numpadPostId) return;
           setShipAmounts((prev) => ({ ...prev, [numpadPostId]: Number(value || 0) }));
