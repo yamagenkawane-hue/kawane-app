@@ -8,7 +8,7 @@ function harness({confirm=true,error=false,restored=false,many=false}={}) {
   if(name==='react')return {...React,useEffect(){},useRef:v=>{const i=ri++;return refs[i]??(refs[i]={current:v})},useState:v=>{const i=si++;return [states[i],next=>states[i]=typeof next==='function'?next(states[i]):next]}};
   if(name==='next/link')return {__esModule:true,default:({children,...p})=>React.createElement('a',p,children)};
   if(name.endsWith('.css'))return {__esModule:true,default:new Proxy({},{get:(_,k)=>String(k)})};
-  if(name==='@/lib/auth/client')return {authFetch:async(url,opts)=>{calls.push({url,method:opts.method,body:JSON.parse(opts.body)});return {ok:!error,json:async()=>error?{error:'復元済みです'}:{...sample,restored_at:'2026-11-04T11:00:00Z',restored_actor_name:'operator'}}}};
+  if(name==='@/lib/auth/client')return {authFetch:async(url,opts)=>{calls.push({url,method:opts.method,body:JSON.parse(opts.body)});return {ok:!error,json:async()=>error?{error:'復元済みです'}:{...sample,restored_at:'2026-11-04T11:00:00Z',restored_actor_name:'operator',restored_shipment_quantity:30}}}};
   return require(name);
  }};
  vm.runInNewContext(ts.transpileModule(fs.readFileSync('app/shipping/history/page.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,context);
@@ -17,7 +17,7 @@ function harness({confirm=true,error=false,restored=false,many=false}={}) {
  return {states,calls,confirmations,html:()=>renderToStaticMarkup(render()),click:label=>nodes(render()).find(n=>n.type==='button'&&n.props.children===label)?.props.onClick()};
 }
 let h=harness();let html=h.html();check(html.includes('0個で打ち切り'),true);check(html.includes('復元日時'),true);check((html.match(/>復元<\/button>/g)||[]).length,1);
-await h.click('復元');check(h.calls.length,1);check(h.calls[0].method,'PATCH');check(h.calls[0].body.closure_id,'closure');check(h.html().includes('復元済み'),true);check(h.html().includes('注残に戻しました'),true);check(h.states[0],null);check(h.confirmations[0].includes('在庫引当は自動では戻しません'),true);
+await h.click('復元');check(h.calls.length,1);check(h.calls[0].method,'PATCH');check(h.calls[0].body.closure_id,'closure');check(h.html().includes('復元済み'),true);check(h.html().includes('注残に戻し'),true);check(h.html().includes('出荷した30個を在庫に戻しました'),true);check(h.html().includes('在庫復元数'),true);check(h.states[0],null);check(h.confirmations[0].includes('それ以前の通常出荷は取り消しません'),true);
 h=harness({confirm:false});await h.click('復元');check(h.calls.length,0);
 h=harness({error:true});await h.click('復元');check(h.html().includes('復元済みです'),true);check(h.html().includes('>復元</button>'),true);check(h.states[0],null);
 h=harness();await Promise.all([h.click('復元'),h.click('復元')]);check(h.calls.length,1);

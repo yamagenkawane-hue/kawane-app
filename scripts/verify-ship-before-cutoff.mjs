@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 let base=fs.readFileSync('scripts/verify-shipment-closure-db.mjs','utf8');
-base=base.replace("await db.exec(fs.readFileSync('supabase/migrations/20261104104723_order_shipment_closure.sql','utf8'));", "await db.exec(fs.readFileSync('supabase/migrations/20261104104723_order_shipment_closure.sql','utf8'));\n  await db.exec(fs.readFileSync('supabase/migrations/20261104110854_restore_shipment_closure.sql','utf8'));\n  await db.exec(fs.readFileSync('supabase/migrations/20261104112216_ship_stock_before_cutoff.sql','utf8'));");
+base=base.replace("await db.exec(fs.readFileSync('supabase/migrations/20261104104723_order_shipment_closure.sql','utf8'));", "await db.exec(fs.readFileSync('supabase/migrations/20261104104723_order_shipment_closure.sql','utf8'));\n  await db.exec(fs.readFileSync('supabase/migrations/20261104110854_restore_shipment_closure.sql','utf8'));\n  await db.exec(fs.readFileSync('supabase/migrations/20261104112216_ship_stock_before_cutoff.sql','utf8'));\n  await db.exec(fs.readFileSync('supabase/migrations/20261104113621_restore_cutoff_shipments.sql','utf8'));");
 const extra=String.raw`
   const setup=async(name,amount,quantities)=>{
     const id=await post(name,amount);const code='CUT-'+name;
@@ -46,11 +46,37 @@ const extra=String.raw`
   check(Number((await one('select count(*) as n from shipments where post_id=$1',[rbFull.id])).n),0);
   await db.exec('drop trigger test_request_audit on app_private.shipment_cutoff_requests');
   await db.query('select restore_order_shipments($1,$2)',[audit.id,'20000000-0000-4000-8000-000000000001']);
-  check(await stock(x.lots[0].inventory),0);
+  check(await stock(x.lots[0].inventory),60);
   const replay=await cut(x.id,key);check(replay.shipped_quantity,60);check((await one('select shipment_closed_at from posts where id=$1',[x.id])).shipment_closed_at,null);
-  const reclosed=await cut(x.id,'10000000-0000-4000-8000-000000000010');check(reclosed.shipped_quantity,0);check(reclosed.shipped_total,60);check(reclosed.closed_quantity,40);
+  const reclosed=await cut(x.id,'10000000-0000-4000-8000-000000000010');check(reclosed.shipped_quantity,60);check(reclosed.shipped_total,60);check(reclosed.closed_quantity,40);
   check((await one("select has_function_privilege('authenticated','close_order_shipments(uuid,text,uuid)','EXECUTE') as allowed")).allowed,false);
   await db.exec('set role authenticated');await reject(db.query('select * from app_private.shipment_cutoff_requests'),/permission denied/);await db.exec('reset role');
+  const restoredPrior=(await one('select (restore_order_shipments($1,$2)).*',[priorResult.closure_id,'30000000-0000-4000-8000-000000000001']));
+  check(Number(restoredPrior.restored_shipment_quantity),30);check(restoredPrior.restored_shipment_ids.length,1);
+  check(await stock(prior.lots[0].inventory),30);
+  check(Number((await one('select sum(quantity) as n from shipments where post_id=$1 and cancelled is not true',[prior.id])).n),50);
+  check((await one("select cancelled from shipments where idempotency_key='earlier'")).cancelled,false);
+  check((await one('select shipped_amount from lots where id=$1',[prior.lots[0].id])).shipped_amount,50);
+  await db.query('select restore_order_shipments($1,$2)',[priorResult.closure_id,'30000000-0000-4000-8000-000000000001']);check(await stock(prior.lots[0].inventory),30);
+  const multiRestore=await one('select (restore_order_shipments($1,$2)).*',[multiResult.closure_id,'30000000-0000-4000-8000-000000000002']);
+  check(Number(multiRestore.restored_shipment_quantity),60);check(multiRestore.restored_shipment_ids.length,2);
+  check((await stock(multi.lots[0].inventory))+(await stock(multi.lots[1].inventory)),60);
+  await db.query('select restore_order_shipments($1,$2)',[ar.closure_id,'30000000-0000-4000-8000-000000000003']);
+  check(await stock(allocated.lots[0].inventory),100);
+  check((await one('select allocated_stock from inventory_items where id=$1',[allocated.lots[0].inventory])).allocated_stock,70);
+  check((await one('select shipped_amount from inventory_allocations where post_id=$1',[allocated.id])).shipped_amount,0);
+  const failure=await setup('RESTORE-FAIL',100,[60]);const failResult=await cut(failure.id,'10000000-0000-4000-8000-000000000012');
+  await db.exec('create trigger test_restore_audit before update of restored_shipment_quantity on order_shipment_closures for each row execute function fail_audit()');
+  await reject(db.query('select restore_order_shipments($1,$2)',[failResult.closure_id,'30000000-0000-4000-8000-000000000004']),/audit failure/);
+  check(await stock(failure.lots[0].inventory),0);check((await one('select restored_at from order_shipment_closures where id=$1',[failResult.closure_id])).restored_at,null);
+  check(Boolean((await one('select shipment_closed_at from posts where id=$1',[failure.id])).shipment_closed_at),true);
+  check((await one('select cancelled from shipments where post_id=$1',[failure.id])).cancelled,false);
+  await db.exec('drop trigger test_restore_audit on order_shipment_closures');
+  const missing=await setup('MISSING-MOVEMENT',100,[60]);const missingResult=await cut(missing.id,'10000000-0000-4000-8000-000000000013');
+  await db.query("update shipments set inventory_movements=jsonb_set(inventory_movements,'{0,inventory_id}',to_jsonb('00000000-0000-0000-0000-000000000000'::text)) where post_id=$1",[missing.id]);
+  await reject(db.query('select restore_order_shipments($1,$2)',[missingResult.closure_id,'30000000-0000-4000-8000-000000000005']),/元の在庫レコード/);
+  check((await one('select restored_at from order_shipment_closures where id=$1',[missingResult.closure_id])).restored_at,null);
+  check(await stock(missing.lots[0].inventory),0);
   await db.exec("select set_config('test.uid','',false)");await reject(cut(b,'10000000-0000-4000-8000-000000000011'),/権限/);
 `;
 base=base.replace("  console.log(JSON.stringify",extra+"  console.log(JSON.stringify");

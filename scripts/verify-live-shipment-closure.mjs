@@ -22,7 +22,7 @@ try {
  const response=await request('/api/shipment-closures','GET',session.access_token);check(response.status,200);const logs=await response.json();check(Array.isArray(logs),true);
  check((await request('/api/shipment-closures','POST',session.access_token,{})).status,400);
  check((await request('/api/shipment-closures','PATCH',session.access_token,{})).status,400);
- for(const row of logs)check('restored_at' in row && 'restored_actor_name' in row,true);
+ for(const row of logs)check('restored_at' in row && 'restored_actor_name' in row && 'restored_shipment_quantity' in row,true);
  const invalidRestore=await member.rpc('restore_order_shipments',{p_closure_id:null,p_request_id:null});
  check(invalidRestore.error?.code,'P0001');
  check(invalidRestore.error.message.includes('処理キー'),true);

@@ -5,7 +5,7 @@ import { authFetch } from "@/lib/auth/client";
 import styles from "../../masterCommon.module.css";
 
 type Closure = { id: string; order_no: string; customer_name: string; product_name: string;
-  order_amount: number; shipped_amount: number; closed_quantity: number; reason: string; actor_name: string; closed_at: string; restored_at: string | null; restored_actor_name: string | null };
+  order_amount: number; shipped_amount: number; closed_quantity: number; reason: string; actor_name: string; closed_at: string; restored_at: string | null; restored_actor_name: string | null; restored_shipment_quantity: number };
 const PAGE_SIZE = 30;
 export default function ShipmentClosureHistory() {
   const restoringRef = useRef(false);
@@ -31,7 +31,7 @@ export default function ShipmentClosureHistory() {
   }, []);
   const handleRestore = async (row: Closure) => {
     if (restoringRef.current || row.restored_at) return;
-    if (!window.confirm(`${row.order_no} の打ち切りを取り消し、注残に戻します。\n出荷済数量・在庫数量は変更しません。解除済みの在庫引当は自動では戻しません。\n復元日時と操作者を履歴に記録します。よろしいですか？`)) return;
+    if (!window.confirm(`${row.order_no} の打ち切りを取り消し、注残に戻します。\n打ち切り操作で出荷した分だけを取り消して在庫に戻します。それ以前の通常出荷は取り消しません。打ち切りで解除した別の引当は自動では戻しません。\n復元日時と操作者を履歴に記録します。よろしいですか？`)) return;
     restoringRef.current = true;
     setRestoring(row.id);
     setError("");
@@ -48,7 +48,7 @@ export default function ShipmentClosureHistory() {
       if (!response.ok) throw new Error(result.error || "復元に失敗しました");
       sessionStorage.removeItem(storageKey);
       setRows(previous => previous.map(item => item.id === row.id ? { ...item, ...result } : item));
-      setMessage(`${row.order_no} を注残に戻しました。必要に応じて在庫引当を確認してください。`);
+      setMessage(`${row.order_no} を注残に戻し、打ち切り時に出荷した${Number(result.restored_shipment_quantity || 0).toLocaleString("ja-JP")}個を在庫に戻しました。以前の通常出荷は維持しています。`);
     } catch (e) { setError(e instanceof Error ? e.message : "復元に失敗しました"); }
     finally { restoringRef.current = false; setRestoring(null); }
   };
@@ -69,7 +69,7 @@ export default function ShipmentClosureHistory() {
     {error && <p role="alert">{error}</p>}
     {message && <p className={styles.message} role="status">{message}</p>}
     <div className={styles.tableCard}><table className={styles.table}>
-      <thead><tr>{["打ち切り日時", "注番", "得意先", "製品", "受注数", "打ち切り時出荷済合計", "未出荷数", "操作者", "理由", "状態", "復元日時", "復元操作者", "操作"].map(label => <th key={label}>{label}</th>)}</tr></thead>
+      <thead><tr>{["打ち切り日時", "注番", "得意先", "製品", "受注数", "打ち切り時出荷済合計", "未出荷数", "操作者", "理由", "状態", "復元日時", "復元操作者", "在庫復元数", "操作"].map(label => <th key={label}>{label}</th>)}</tr></thead>
       <tbody>{filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(row => <tr key={row.id}>
         <td>{new Date(row.closed_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</td>
         <td>{row.order_no}</td><td>{row.customer_name}</td><td>{row.product_name}</td>
@@ -78,6 +78,7 @@ export default function ShipmentClosureHistory() {
         <td>{row.restored_at ? "復元済み" : `${Number(row.shipped_amount).toLocaleString("ja-JP")}個で打ち切り`}</td>
         <td>{row.restored_at ? new Date(row.restored_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "-"}</td>
         <td>{row.restored_actor_name || "-"}</td>
+        <td>{row.restored_at ? Number(row.restored_shipment_quantity || 0).toLocaleString("ja-JP") : "-"}</td>
         <td>{!row.restored_at && <button className={styles.saveButton} disabled={restoring !== null}
           onClick={() => handleRestore(row)}>{restoring === row.id ? "復元中…" : "復元"}</button>}</td>
       </tr>)}</tbody>

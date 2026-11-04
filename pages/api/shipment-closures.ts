@@ -9,7 +9,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === "GET") {
       const { data, error } = await fetchAllRows((from, to) => auth.client
         .from("order_shipment_closures")
-        .select("id,post_id,order_no,customer_name,product_name,order_amount,shipped_amount,closed_quantity,reason,actor_name,closed_at,restored_at,restored_actor_name")
+        .select("id,post_id,order_no,customer_name,product_name,order_amount,shipped_amount,closed_quantity,reason,actor_name,closed_at,restored_at,restored_actor_name,restored_shipment_quantity")
         .order("closed_at", { ascending: false }).order("id").range(from, to));
       if (error) throw error;
       return res.status(200).json(data || []);
