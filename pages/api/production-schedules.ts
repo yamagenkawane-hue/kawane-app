@@ -85,7 +85,7 @@ export default async function handler(
             : scheduleQuery,
           supabase
             .from("v_posts_with_master")
-            .select(POST_SELECT_COLUMNS)
+            .select(POST_SELECT_COLUMNS).is("shipment_closed_at", null)
             .or("delete.is.null,delete.eq.false"),
           supabase
             .from("shipments")

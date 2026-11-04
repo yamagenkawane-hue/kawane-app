@@ -16,7 +16,7 @@ import {
 } from "./processProgress";
 
 const POST_SELECT_COLUMNS =
-  "id,order_no,lot_no,product_code,product_name,customer_id,customer_name,order_amount,delivery_date,completion_scheduled_date,remark,delete,created_at,updated_at";
+  "id,order_no,lot_no,product_code,product_name,customer_id,customer_name,order_amount,delivery_date,completion_scheduled_date,remark,delete,shipment_closed_at,created_at,updated_at";
 
 const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
   "id,post_id,order_no,lot_id,lot_no,material_lot_no,order_process_id,process_name,process_order,quantity,subcontractor_name";
@@ -94,7 +94,7 @@ export const useFetchPosts = () => {
         ] = await Promise.all([
           fetchAllRows((from, to) => supabase
             .from("v_posts_with_master")
-            .select(POST_SELECT_COLUMNS)
+            .select(POST_SELECT_COLUMNS).is("shipment_closed_at", null)
             .order("id").range(from, to)),
           fetchAllRows((from, to) => supabase
             .from("shipments")

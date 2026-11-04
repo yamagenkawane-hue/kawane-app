@@ -268,7 +268,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         supabaseAdmin
           .from("posts")
           .select("id,order_no,product_id,product_name,order_amount,delivery_date,delete")
-          .eq("delete", false),
+          .eq("delete", false).is("shipment_closed_at", null),
         supabaseAdmin.from("order_processes").select("*"),
         fetchProductionResults(),
         supabaseAdmin.from("lots").select("id,post_id,quantity,deleted"),

@@ -1,0 +1,73 @@
+// Reuse the safe-shipping schema fixture; all records exist only in an isolated in-memory DB.
+import fs from 'node:fs';
+const fixture=fs.readFileSync('scripts/verify-safe-shipping.mjs','utf8');
+const prefix=fixture.slice(0,fixture.indexOf('  const a=await post('));
+const extra=String.raw`
+  await db.exec(\`
+    create schema auth; create schema app_private;
+    create table app_profiles(id uuid primary key,login_id text,active boolean);
+    insert into app_profiles values('11111111-1111-4111-8111-111111111111','operator',true);
+    create function auth.uid() returns uuid language sql as 'select nullif(current_setting(''test.uid'',true),'''')::uuid';
+    create function app_private.is_member(boolean) returns boolean language sql security definer as 'select exists(select 1 from public.app_profiles where id=auth.uid() and active)';
+    create function app_private.assert_access(boolean) returns void language plpgsql as $auth$ begin if not app_private.is_member(false) then raise exception '権限がありません' using errcode='42501'; end if; end $auth$;
+    grant usage on schema auth,app_private to authenticated;
+    select set_config('test.uid','11111111-1111-4111-8111-111111111111',false);
+  \`);
+  await db.exec(fs.readFileSync('supabase/migrations/20261104104723_order_shipment_closure.sql','utf8'));
+  const close=(id,key='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',reason='在庫不足')=>one('select (close_order_shipments($1,$2,$3)).*',[id,reason,key]);
+  const a=await post('PARTIAL'),b=await post('OTHER'),l=await lot(a,120);
+  const shipment=await ship(a,l.id,50,'partial');
+  const aa=(await one('insert into inventory_allocations(post_id,inventory_item_id,lot_id,allocated_amount,shipped_amount) values($1,$2,$3,30,0) returning id',[a,l.inventory,l.id])).id;
+  await db.query('insert into inventory_allocations(post_id,inventory_item_id,lot_id,allocated_amount,shipped_amount) values($1,$2,$3,10,0)',[b,l.inventory,l.id]);
+  await db.query('update inventory_items set allocated_stock=40 where id=$1',[l.inventory]);
+  const before=await stock(l.inventory);
+  const log=await close(a);
+  check(Number(log.closed_quantity),50);check(Number(log.shipped_amount),50);check(log.actor_name,'operator');check(log.reason,'在庫不足');
+  check(await stock(l.inventory),before);
+  check((await one('select allocated_stock from inventory_items where id=$1',[l.inventory])).allocated_stock,10);
+  check((await one('select allocated_amount from inventory_allocations where id=$1',[aa])).allocated_amount,0);
+  check(Number((await one('select sum(quantity) as n from shipments where post_id=$1',[a])).n),50);
+  check(Number((await one('select count(*) as n from v_shipping_candidates where post_id=$1',[a])).n),0);
+  check(Boolean((await one('select shipment_closed_at from v_posts_with_master where id=$1',[a])).shipment_closed_at),true);
+  check((await close(a)).id,log.id);
+  check(Number((await one('select count(*) as n from order_shipment_closures where post_id=$1',[a])).n),1);
+  await reject(close(a,'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),/すでに打ち切り/);
+  await reject(close(b),/同じ処理キー/);
+  await reject(close(b,'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',''),/打ち切り理由/);
+  await reject(ship(a,l.id,1,'closed-ship'),/打ち切り済み/);
+  check(await stock(l.inventory),before);
+  await reject(cancel(shipment.id),/打ち切り済み/);
+  check((await one('select cancelled from shipments where id=$1',[shipment.id])).cancelled,false);
+  await reject(db.query('update posts set shipment_closed_at=null where id=$1',[a]),/専用/);
+  await reject(db.query('update posts set shipment_closed_at=now() where id=$1',[b]),/専用/);
+  await reject(db.query('insert into posts(order_no,shipment_closed_at) values($1,now())',['FORGED']),/指定して/);
+  const zero=await post('ZERO');
+  const zeroLog=await close(zero,'cccccccc-cccc-4ccc-8ccc-cccccccccccc');check(Number(zeroLog.closed_quantity),100);
+  const full=await post('FULL'),fl=await lot(full,100);await ship(full,fl.id,100,'full');
+  await reject(close(full,'dddddddd-dddd-4ddd-8ddd-dddddddddddd'),/注残がない/);
+  const deleted=await post('DELETED');await db.query('update posts set "delete"=true where id=$1',[deleted]);
+  await reject(close(deleted,'dddddddd-dddd-4ddd-8ddd-dddddddddddd'),/有効な注番/);
+  await db.exec("select set_config('test.uid','',false)");await reject(close(b,'dddddddd-dddd-4ddd-8ddd-dddddddddddd'),/権限/);
+  await db.exec("select set_config('test.uid','11111111-1111-4111-8111-111111111111',false)");
+  // Any audit failure rolls back allocation releases and the completion flag together.
+  const rollback=await post('ROLLBACK'),rl=await lot(rollback,20);
+  await db.query('insert into inventory_allocations(post_id,inventory_item_id,lot_id,allocated_amount,shipped_amount) values($1,$2,$3,20,0)',[rollback,rl.inventory,rl.id]);
+  await db.query('update inventory_items set allocated_stock=20 where id=$1',[rl.inventory]);
+  await db.exec(\`create function fail_audit() returns trigger language plpgsql as $fail$ begin raise exception 'audit failure'; end $fail$; create trigger test_audit before insert on order_shipment_closures for each row execute function fail_audit();\`);
+  await reject(close(rollback,'dddddddd-dddd-4ddd-8ddd-dddddddddddd'),/audit failure/);
+  check((await one('select allocated_stock from inventory_items where id=$1',[rl.inventory])).allocated_stock,20);
+  check((await one('select allocated_amount from inventory_allocations where post_id=$1',[rollback])).allocated_amount,20);
+  check((await one('select shipment_closed_at from posts where id=$1',[rollback])).shipment_closed_at,null);
+  await db.exec('drop trigger test_audit on order_shipment_closures');
+  // Audit data is readable by members, immutable through the Data API, and closed to anon.
+  await db.exec('set role anon');await reject(db.query('select * from order_shipment_closures'),/permission denied/);await db.exec('reset role');
+  await db.exec('set role authenticated');
+  check(Number((await one('select count(*) as n from order_shipment_closures')).n),2);
+  await reject(db.query("update order_shipment_closures set reason='tampered'"),/permission denied/);
+  await reject(db.query('delete from order_shipment_closures'),/permission denied/);
+  await reject(db.query('insert into order_shipment_closures(id) values(gen_random_uuid())'),/permission denied/);
+  await db.exec('reset role');
+  console.log(JSON.stringify({mode:'isolated shipment closure, audit, allocation release, rollback and permissions',passed}));
+} finally {await db.close();}
+`;
+await import('data:text/javascript;base64,'+Buffer.from(prefix+extra.replaceAll('\\`','`')).toString('base64'));

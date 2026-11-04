@@ -64,7 +64,7 @@ export default async function handler(
       const [postResult, shipmentResult, processResult] = await Promise.all([
         supabase
           .from("v_posts_with_master")
-          .select(DAILY_PRODUCTION_SELECT_COLUMNS)
+          .select(DAILY_PRODUCTION_SELECT_COLUMNS).is("shipment_closed_at", null)
           .or("delete.is.null,delete.eq.false")
           .or(
             [

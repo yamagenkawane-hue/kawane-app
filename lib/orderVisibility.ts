@@ -1,4 +1,4 @@
-type Order = { id: string; order_no: string | null; order_amount: number | string | null; delete?: boolean | null };
+type Order = { id: string; order_no: string | null; order_amount: number | string | null; delete?: boolean | null; shipment_closed_at?: string | null };
 type Shipment = { post_id: string | null; order_no: string | null; quantity: number | string | null; cancelled?: boolean | null };
 
 export function buildShippedAmountMap(orders: Pick<Order, "id" | "order_no">[], shipments: Shipment[]) {
@@ -15,5 +15,5 @@ export function buildShippedAmountMap(orders: Pick<Order, "id" | "order_no">[], 
 
 export function outstandingOrderIds(orders: Order[], shipments: Shipment[]) {
   const amounts = buildShippedAmountMap(orders, shipments);
-  return new Set(orders.filter(order => !order.delete && (amounts.get(order.id) || 0) < Number(order.order_amount || 0)).map(order => order.id));
+  return new Set(orders.filter(order => !order.delete && !order.shipment_closed_at && (amounts.get(order.id) || 0) < Number(order.order_amount || 0)).map(order => order.id));
 }

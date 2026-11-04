@@ -37,7 +37,7 @@ type AdjustedPost = PostData & {
 };
 
 const POST_SELECT_COLUMNS =
-  "id,delete,order_no,lot_no,product_code,product_name,customer_name,order_amount,remaining_amount,status,completion_scheduled_date,delivery_date,remark";
+  "id,delete,shipment_closed_at,order_no,lot_no,product_code,product_name,customer_name,order_amount,remaining_amount,status,completion_scheduled_date,delivery_date,remark";
 
 const CUSTOMER_SELECT_COLUMNS =
   "id,customer_name,shipping_offset_days,note";
@@ -137,7 +137,7 @@ const OrdersPage = () => {
         lotResult,
         lotProductionResult,
       ] = await Promise.all([
-          fetchAllRows((from, to) => supabase.from("v_posts_with_master").select(POST_SELECT_COLUMNS).order("id").range(from, to)),
+          fetchAllRows((from, to) => supabase.from("v_posts_with_master").select(POST_SELECT_COLUMNS).is("shipment_closed_at", null).order("id").range(from, to)),
           fetchAllRows((from, to) => supabase.from("customer_master").select(CUSTOMER_SELECT_COLUMNS).order("id").range(from, to)),
           fetchAllRows((from, to) => supabase
             .from("v_inventory_allocations_with_master")

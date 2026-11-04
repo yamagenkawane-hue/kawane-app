@@ -10,6 +10,7 @@ import { CustomerMaster } from "@/app/type";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import styles from "../masterCommon.module.css";
 import shippingStyles from "./page.module.css";
+import { buildShippedAmountMap } from "@/lib/orderVisibility";
 
 type ShippingPost = {
   lotNo: string;
@@ -24,6 +25,7 @@ type ShippingPost = {
   orderAmount: number;
   lotProductionAmount: number;
   remainingAmount: number;
+  orderRemaining?: number;
   status: string;
   deliveryDate: string;
   completionScheduledDate: string;
@@ -51,6 +53,7 @@ const escapeHtml = (value: string | number) =>
 
 const createShippingGroupKey = (post: ShippingPost) =>
   [
+    post.postId,
     post.scheduledDate,
     post.customerName,
     post.orderNo,
@@ -71,14 +74,30 @@ export default function ShippingPage() {
     try {
       setLoading(true);
 
-      const [stockResult, customerResult] = await Promise.all([
+      const [stockResult, customerResult, orderResult, shipmentResult] = await Promise.all([
         fetchAllRows((from, to) => supabase.from("v_shipping_candidates")
           .select("post_id,order_no,lot_id,lot_no,product_code,product_name,customer_name,order_amount,delivery_date,completion_scheduled_date,current_stock,available_quantity")
           .gt("available_quantity", 0).order("post_id").order("lot_id").range(from, to)),
         fetchAllRows((from, to) => supabase.from("customer_master").select(CUSTOMER_SELECT_COLUMNS).order("id").range(from, to)),
+        fetchAllRows((from, to) => supabase.from("v_posts_with_master")
+          .select("id,order_no,product_code,product_name,customer_name,order_amount,delivery_date,completion_scheduled_date")
+          .or("delete.is.null,delete.eq.false").is("shipment_closed_at", null).order("id").range(from, to)),
+        fetchAllRows((from, to) => supabase.from("shipments")
+          .select("post_id,order_no,quantity,cancelled").or("cancelled.is.null,cancelled.eq.false").order("id").range(from, to)),
       ]);
       if (stockResult.error) throw stockResult.error;
       if (customerResult.error) throw customerResult.error;
+      if (orderResult.error) throw orderResult.error;
+      if (shipmentResult.error) throw shipmentResult.error;
+      const orders = orderResult.data || [];
+      const shipped = buildShippedAmountMap(orders, shipmentResult.data || []);
+      const outstanding = orders.filter(order => (shipped.get(order.id) || 0) < Number(order.order_amount || 0));
+      const outstandingIds = new Set(outstanding.map(order => order.id));
+      const availableRows = (stockResult.data || []).filter(row => outstandingIds.has(row.post_id));
+      const represented = new Set(availableRows.map(row => row.post_id));
+      const shippingRows = [...availableRows, ...outstanding.filter(order => !represented.has(order.id)).map(order => ({
+        ...order, post_id: order.id, lot_id: "", lot_no: "", current_stock: 0, available_quantity: 0,
+      }))];
 
       const customerList: CustomerMaster[] = (customerResult.data || []).map(
         (row) => ({
@@ -89,7 +108,7 @@ export default function ShippingPage() {
         }),
       );
 
-      const mappedPosts: ShippingPost[] = (stockResult.data || []).map((row) => {
+      const mappedPosts: ShippingPost[] = shippingRows.map((row) => {
         const customer = customerList.find(item => item.customerName === row.customer_name);
         const deliveryDate = String(row.delivery_date || "");
         const scheduledDate = deliveryDate
@@ -101,6 +120,7 @@ export default function ShippingPage() {
           customerName: row.customer_name || "", orderAmount: Number(row.order_amount || 0),
           lotProductionAmount: Number(row.current_stock || 0),
           remainingAmount: Number(row.available_quantity || 0),
+          orderRemaining: Math.max(Number(row.order_amount || 0) - (shipped.get(row.post_id) || 0), 0),
           deliveryDate, scheduledDate, completionScheduledDate: row.completion_scheduled_date || "",
           status: "", shippedAmount: 0,
         };
@@ -345,6 +365,38 @@ export default function ShippingPage() {
     }
   };
 
+  const handleCloseOrder = async (post: ShippingPost) => {
+    if (shippingRef.current) return;
+    const reason = window.prompt(`${post.orderNo} を打ち切ります。理由を入力してください（500文字以内）。`);
+    if (reason === null) return;
+    if (!reason.trim() || reason.trim().length > 500) {
+      alert("打ち切り理由を1〜500文字で入力してください");
+      return;
+    }
+    if (!window.confirm(`${post.orderNo} の残りの注残を打ち切り、完了扱いにします。\n注残数：${(post.orderRemaining ?? post.remainingAmount).toLocaleString("ja-JP")}個（確定時に再計算）\n理由：${reason.trim()}\n出荷数の入力値は出荷しません。在庫数量は減らさず、残りの在庫引当を解除します。\n打ち切り後はこの受注の出荷・出荷取消ができなくなります。よろしいですか？`)) return;
+    shippingRef.current = true;
+    const storageKey = `shipment-closure:${post.postId}:${reason.trim()}`;
+    try {
+      setLoading(true);
+      const requestId = sessionStorage.getItem(storageKey) || crypto.randomUUID();
+      sessionStorage.setItem(storageKey, requestId);
+      const response = await authFetch("/api/shipment-closures", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ post_id: post.postId, reason: reason.trim(), request_id: requestId }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.error || "打ち切りに失敗しました");
+      sessionStorage.removeItem(storageKey);
+      await fetchData();
+      alert("打ち切りを記録し、注残を完了扱いにしました。打ち切り履歴から確認できます。");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "打ち切りに失敗しました");
+    } finally {
+      shippingRef.current = false;
+      setLoading(false);
+    }
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
@@ -379,6 +431,7 @@ export default function ShippingPage() {
           <button className={styles.saveButton} onClick={() => setTargetDate("")}>
             全件表示
           </button>
+          <Link href="/shipping/history" className={styles.backButton}>打ち切り履歴</Link>
         </div>
       </div>
 
@@ -424,6 +477,7 @@ export default function ShippingPage() {
                     <input
                       className={`${styles.tableInput} ${shippingStyles.quantityInput}`}
                       inputMode="numeric"
+                      disabled={loading || post.remainingAmount <= 0}
                       value={getShipAmount(post.rowKey) || ""}
                       onFocus={() => setNumpadPostId(post.rowKey)}
                       onChange={(e) =>
@@ -435,10 +489,12 @@ export default function ShippingPage() {
                     />
                   </td>
                   <td className={styles.actionArea}>
-                    <button className={styles.saveButton} disabled={loading}
+                    <button className={styles.saveButton} disabled={loading || post.remainingAmount <= 0}
                       onClick={() => handleShip(post)}>
                       出荷
                     </button>
+                    {index === 0 && <button className={shippingStyles.closeButton} disabled={loading}
+                      onClick={() => handleCloseOrder(post)}>打ち切り</button>}
                   </td>
                 </tr>
               )),

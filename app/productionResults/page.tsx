@@ -21,7 +21,7 @@ const SCHEDULE_SELECT_COLUMNS =
   "id,post_id,order_no,customer_name,product_name,press_number,lot_no,plan_amount,press_completed_amount,press_completed_date,created_at,updated_at";
 
 const POST_SELECT_COLUMNS =
-  "id,product_id,customer_id,order_no,lot_no,product_code,product_name,customer_name,order_amount,remaining_amount,status,delivery_date,delete";
+  "id,product_id,customer_id,order_no,lot_no,product_code,product_name,customer_name,order_amount,remaining_amount,status,delivery_date,delete,shipment_closed_at";
 
 const ORDER_PROCESS_SELECT_COLUMNS =
   "id,post_id,product_id,customer_id,product_process_id,order_no,product_code,product_name,customer_name,process_name,process_order,overlap_days,planned_amount,completed_amount,completed_date,subcontractor_id,subcontractor_name,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,outsource_status,outsource_note,locked,created_at,updated_at";
@@ -327,7 +327,7 @@ function ProductionResultsContent() {
             .from("v_order_processes_with_master")
             .select(ORDER_PROCESS_SELECT_COLUMNS)
             .order("process_order", { ascending: true }),
-          supabase.from("v_posts_with_master").select(POST_SELECT_COLUMNS),
+          supabase.from("v_posts_with_master").select(POST_SELECT_COLUMNS).is("shipment_closed_at", null),
           supabase
             .from("v_production_results_with_master")
             .select(RESULT_SELECT_COLUMNS)

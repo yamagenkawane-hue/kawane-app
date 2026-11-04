@@ -158,7 +158,7 @@ function OutsourcingContent() {
         authFetch("/api/masters/product-processes"),
         fetchAllRows((from,to)=>supabase.from("outsource_remainder_schedules").select(REMAINDER_COLUMNS)
           .eq("cancelled",false).order("created_at").order("id").range(from,to)),
-        fetchAllRows((from,to)=>supabase.from("posts").select("id,order_no,order_amount,delete").order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("posts").select("id,order_no,order_amount,delete,shipment_closed_at").order("id").range(from,to)),
         fetchAllRows((from,to)=>supabase.from("shipments").select("post_id,order_no,quantity,cancelled").order("id").range(from,to)),
       ]);
 

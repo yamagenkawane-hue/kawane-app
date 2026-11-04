@@ -5,3 +5,6 @@
   max-width: 140px;
   text-align: right;
 }
+
+.closeButton { background: #c2410c; border: 0; border-radius: 10px; color: white; cursor: pointer; font: inherit; font-weight: 800; padding: 10px 16px; white-space: nowrap; }
+.closeButton:disabled { opacity: .5; cursor: not-allowed; }
