@@ -14,6 +14,7 @@ check((await request('/api/shipment-closures','PATCH',null,{})).status,401);
 check(Boolean((await anon.from('order_shipment_closures').select('id').limit(1)).error),true);
 const noAccess=await anon.rpc('close_order_shipments',{p_post_id:'00000000-0000-0000-0000-000000000000',p_reason:'',p_request_id:'00000000-0000-0000-0000-000000000000'});
 check(Boolean(noAccess.error),true);
+check(Boolean((await anon.rpc('ship_stock_and_close_order',{p_post_id:null,p_scheduled_date:null,p_reason:'理由入力なし',p_request_id:null})).error),true);
 check(Boolean((await anon.rpc('restore_order_shipments',{p_closure_id:null,p_request_id:null})).error),true);
 const login=await request('/api/auth/login','POST',null,{loginId:'test',password:process.env.KAWANE_TEST_MIGRATION_PASSWORD});
 check(login.status,200);const session=await login.json();await member.auth.setSession(session);
@@ -28,8 +29,8 @@ try {
  const history=await member.from('order_shipment_closures').select('id').limit(1);check(history.error,null);
  const posts=await member.from('v_posts_with_master').select('id,shipment_closed_at').is('shipment_closed_at',null).limit(1);check(posts.error,null);
  const stock=await member.from('v_shipping_candidates').select('post_id,available_quantity').limit(1);check(stock.error,null);
- const invalid=await member.rpc('close_order_shipments',{p_post_id:'00000000-0000-0000-0000-000000000000',p_reason:'',p_request_id:'00000000-0000-0000-0000-000000000000'});
- check(invalid.error?.code,'P0001');check(invalid.error.message.includes('打ち切り理由'),true);
+ const invalid=await member.rpc('ship_stock_and_close_order',{p_post_id:null,p_scheduled_date:null,p_reason:'理由入力なし',p_request_id:null});
+ check(invalid.error?.code,'P0001');check(invalid.error.message.includes('処理キー'),true);
  const after=await request('/api/shipment-closures','GET',session.access_token);check((await after.json()).length,logs.length);
  console.log(JSON.stringify({mode:'live closure authorization and reads; no valid closure submitted',origin,passed,historyCount:logs.length}));
 } finally {await member.auth.signOut({scope:'local'});}

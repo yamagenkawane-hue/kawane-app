@@ -27,14 +27,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json(data);
     }
     if (req.method === "POST") {
-      const { post_id, reason, request_id } = req.body || {};
+      const { post_id, reason, request_id, scheduled_date } = req.body || {};
       const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (typeof post_id !== "string" || !uuid.test(post_id) || typeof request_id !== "string" || !uuid.test(request_id)
+        || (scheduled_date !== undefined && scheduled_date !== null && (typeof scheduled_date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(scheduled_date)))
         || (reason !== undefined && reason !== null && (typeof reason !== "string" || reason.trim().length > 500))) {
         return res.status(400).json({ error: "注番と打ち切り理由（500文字以内）を確認してください" });
       }
-      const { data, error } = await auth.client.rpc("close_order_shipments", {
-        p_post_id: post_id, p_reason: typeof reason === "string" && reason.trim() ? reason.trim() : "理由入力なし", p_request_id: request_id,
+      const { data, error } = await auth.client.rpc("ship_stock_and_close_order", {
+        p_post_id: post_id, p_scheduled_date: scheduled_date || null, p_reason: typeof reason === "string" && reason.trim() ? reason.trim() : "理由入力なし", p_request_id: request_id,
       });
       if (error) return res.status(error.code === "P0001" ? 409 : error.code === "42501" ? 403 : 500).json({ error: error.message });
       return res.status(201).json(data);

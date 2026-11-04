@@ -16,7 +16,7 @@ function harness({confirm=true,error=false,restored=false,many=false}={}) {
  const nodes=t=>!t||typeof t!=='object'?[]:[t,...React.Children.toArray(t.props?.children).flatMap(nodes)];
  return {states,calls,confirmations,html:()=>renderToStaticMarkup(render()),click:label=>nodes(render()).find(n=>n.type==='button'&&n.props.children===label)?.props.onClick()};
 }
-let h=harness();let html=h.html();check(html.includes('打ち切り中'),true);check(html.includes('復元日時'),true);check((html.match(/>復元<\/button>/g)||[]).length,1);
+let h=harness();let html=h.html();check(html.includes('0個で打ち切り'),true);check(html.includes('復元日時'),true);check((html.match(/>復元<\/button>/g)||[]).length,1);
 await h.click('復元');check(h.calls.length,1);check(h.calls[0].method,'PATCH');check(h.calls[0].body.closure_id,'closure');check(h.html().includes('復元済み'),true);check(h.html().includes('注残に戻しました'),true);check(h.states[0],null);check(h.confirmations[0].includes('在庫引当は自動では戻しません'),true);
 h=harness({confirm:false});await h.click('復元');check(h.calls.length,0);
 h=harness({error:true});await h.click('復元');check(h.html().includes('復元済みです'),true);check(h.html().includes('>復元</button>'),true);check(h.states[0],null);

@@ -69,13 +69,13 @@ export default function ShipmentClosureHistory() {
     {error && <p role="alert">{error}</p>}
     {message && <p className={styles.message} role="status">{message}</p>}
     <div className={styles.tableCard}><table className={styles.table}>
-      <thead><tr>{["打ち切り日時", "注番", "得意先", "製品", "受注数", "出荷済数", "打ち切り数", "操作者", "理由", "状態", "復元日時", "復元操作者", "操作"].map(label => <th key={label}>{label}</th>)}</tr></thead>
+      <thead><tr>{["打ち切り日時", "注番", "得意先", "製品", "受注数", "打ち切り時出荷済合計", "未出荷数", "操作者", "理由", "状態", "復元日時", "復元操作者", "操作"].map(label => <th key={label}>{label}</th>)}</tr></thead>
       <tbody>{filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(row => <tr key={row.id}>
         <td>{new Date(row.closed_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</td>
         <td>{row.order_no}</td><td>{row.customer_name}</td><td>{row.product_name}</td>
         <td>{Number(row.order_amount).toLocaleString("ja-JP")}</td><td>{Number(row.shipped_amount).toLocaleString("ja-JP")}</td>
         <td>{Number(row.closed_quantity).toLocaleString("ja-JP")}</td><td>{row.actor_name}</td><td>{row.reason}</td>
-        <td>{row.restored_at ? "復元済み" : "打ち切り中"}</td>
+        <td>{row.restored_at ? "復元済み" : `${Number(row.shipped_amount).toLocaleString("ja-JP")}個で打ち切り`}</td>
         <td>{row.restored_at ? new Date(row.restored_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "-"}</td>
         <td>{row.restored_actor_name || "-"}</td>
         <td>{!row.restored_at && <button className={styles.saveButton} disabled={restoring !== null}

@@ -367,22 +367,26 @@ export default function ShippingPage() {
 
   const handleCloseOrder = async (post: ShippingPost) => {
     if (shippingRef.current) return;
-    if (!window.confirm(`${post.orderNo} の残りの注残を打ち切り、完了扱いにします。\n注残数：${(post.orderRemaining ?? post.remainingAmount).toLocaleString("ja-JP")}個（確定時に再計算）\n出荷数の入力値は出荷しません。在庫数量は減らさず、残りの在庫引当を解除します。\n打ち切り後はこの受注の出荷・出荷取消ができなくなります。よろしいですか？`)) return;
+    const outstanding = post.orderRemaining ?? post.remainingAmount;
+    const available = posts.filter(row => row.postId === post.postId).reduce((sum, row) => sum + row.remainingAmount, 0);
+    const plannedShipping = Math.min(outstanding, available);
+    const plannedTotal = post.orderAmount - outstanding + plannedShipping;
+    if (!window.confirm(`${post.orderNo} の出荷可能な在庫を出荷・減算し、出荷済合計${plannedTotal.toLocaleString("ja-JP")}個で注残を打ち切り完了にします。\n今回出荷予定：${plannedShipping.toLocaleString("ja-JP")}個\n未出荷終了予定：${Math.max(outstanding - plannedShipping, 0).toLocaleString("ja-JP")}個\n複数ロットも対象です。入力欄の数量ではなく、確定時の注残と出荷可能在庫で計算します。\n在庫が足りる場合は通常の完納になります。打ち切り後は復元するまで、この受注の出荷・出荷取消ができません。よろしいですか？`)) return;
     shippingRef.current = true;
-    const storageKey = `shipment-closure:${post.postId}`;
+    const storageKey = `shipment-cutoff:${post.postId}:${post.scheduledDate}`;
     try {
       setLoading(true);
       const requestId = sessionStorage.getItem(storageKey) || crypto.randomUUID();
       sessionStorage.setItem(storageKey, requestId);
       const response = await authFetch("/api/shipment-closures", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ post_id: post.postId, request_id: requestId }),
+        body: JSON.stringify({ post_id: post.postId, scheduled_date: post.scheduledDate || null, request_id: requestId }),
       });
       const result = await response.json().catch(() => null);
       if (!response.ok) throw new Error(result?.error || "打ち切りに失敗しました");
       sessionStorage.removeItem(storageKey);
       await fetchData();
-      alert("打ち切りを記録し、注残を完了扱いにしました。打ち切り履歴から確認できます。");
+      alert(`今回出荷：${Number(result.shipped_quantity || 0).toLocaleString("ja-JP")}個\n${result.closed_quantity > 0 ? `出荷済合計${Number(result.shipped_total).toLocaleString("ja-JP")}個で注残を打ち切り、完了にしました。未出荷数：${Number(result.closed_quantity).toLocaleString("ja-JP")}個。` : "注残を全て出荷し、完納になりました。"}`);
     } catch (error) {
       alert(error instanceof Error ? error.message : "打ち切りに失敗しました");
     } finally {

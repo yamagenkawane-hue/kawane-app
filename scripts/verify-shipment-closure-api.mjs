@@ -8,7 +8,7 @@ const check=(a,b)=>{assert.deepEqual(a,b);passed++;};
 const body={post_id:'11111111-1111-4111-8111-111111111111',request_id:'22222222-2222-4222-8222-222222222222',reason:' 在庫不足 '};
 async function req(method,values=body){const res={statusCode:200,body:null,headers:{},status(c){this.statusCode=c;return this},json(v){this.body=v;return this},setHeader(k,v){this.headers[k]=v},end(){return this}};await handler({method,body:values},res);return res;}
 authorized=false;check((await req('POST')).statusCode,401);check(calls.length,0);authorized=true;
-check((await req('POST')).statusCode,201);check(calls.at(-1).name,'close_order_shipments');check(calls.at(-1).args.p_reason,'在庫不足');check(Object.keys(calls.at(-1).args).sort().join(','),'p_post_id,p_reason,p_request_id');
+check((await req('POST')).statusCode,201);check(calls.at(-1).name,'ship_stock_and_close_order');check(calls.at(-1).args.p_reason,'在庫不足');check(Object.keys(calls.at(-1).args).sort().join(','),'p_post_id,p_reason,p_request_id,p_scheduled_date');
 for(const fields of [{post_id:'bad'},{request_id:'bad'},{reason:'x'.repeat(501)},{reason:5}])check((await req('POST',{...body,...fields})).statusCode,400);
 for(const reason of [undefined,null,'',' ']){check((await req('POST',{...body,reason})).statusCode,201);check(calls.at(-1).args.p_reason,'理由入力なし');}
 rpcError={code:'P0001',message:'already closed'};check((await req('POST')).statusCode,409);rpcError={code:'42501',message:'forbidden'};check((await req('POST')).statusCode,403);rpcError=null;
