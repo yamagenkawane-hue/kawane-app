@@ -1,18 +1,25 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { requireApiUser } from "@/lib/auth/server";
 import { fetchAllRows } from "@/lib/fetchAllRows";
+import { addShipmentHistoryQuantities } from "@/lib/shipmentHistoryQuantities";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const auth = await requireApiUser(req, res);
   if (!auth) return;
   try {
     if (req.method === "GET") {
-      const { data, error } = await fetchAllRows((from, to) => auth.client
-        .from("order_shipment_closures")
-        .select("id,post_id,order_no,customer_name,product_name,order_amount,shipped_amount,closed_quantity,reason,actor_name,closed_at,restored_at,restored_actor_name,restored_shipment_quantity")
-        .order("closed_at", { ascending: false }).order("id").range(from, to));
-      if (error) throw error;
-      return res.status(200).json(data || []);
+      const [history, orders, shipments] = await Promise.all([
+        fetchAllRows((from, to) => auth.client.from("order_shipment_closures")
+          .select("id,post_id,order_no,customer_name,product_name,order_amount,shipped_amount,closed_quantity,reason,actor_name,closed_at,restored_at,restored_actor_name,restored_shipment_quantity")
+          .order("closed_at", { ascending: false }).order("id").range(from, to)),
+        fetchAllRows((from, to) => auth.client.from("posts").select("id,order_no,order_amount").order("id").range(from, to)),
+        fetchAllRows((from, to) => auth.client.from("shipments")
+          .select("post_id,order_no,lot_id,idempotency_key,quantity,cancelled").order("id").range(from, to)),
+      ]);
+      if (history.error) throw history.error;
+      if (orders.error) throw orders.error;
+      if (shipments.error) throw shipments.error;
+      return res.status(200).json(addShipmentHistoryQuantities(history.data || [], orders.data || [], shipments.data || []));
     }
     if (req.method === "PATCH") {
       const { closure_id, request_id } = req.body || {};

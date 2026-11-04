@@ -1,0 +1,17 @@
+import fs from 'node:fs';import vm from 'node:vm';import ts from 'typescript';import assert from 'node:assert/strict';
+const context={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/shipmentHistoryQuantities.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,context);
+const {addShipmentHistoryQuantities:calc}=context.exports;let passed=0;const check=(a,b)=>{assert.deepEqual(a,b);passed++};
+const orders=[{id:'post',order_no:'A-1',order_amount:100},{id:'other',order_no:'B-1',order_amount:500}];
+const closures=[{id:'closure',post_id:'post',order_no:'A-1',order_amount:999,shipped_amount:0}];
+const normal={post_id:'post',order_no:'A-1',lot_id:'lot',idempotency_key:'normal',quantity:50,cancelled:false};
+const cutoff={...normal,idempotency_key:'cutoff:closure:lot',quantity:49};
+let rows=calc(closures,orders,[normal,cutoff,{...normal,post_id:'other',order_no:'B-1',quantity:300}]);
+check(rows[0].order_amount,100);check(rows[0].shipped_amount,99);check(rows[0].latest_shipped_quantity,49);
+rows=calc(closures,orders,[normal,{...cutoff,cancelled:true}]);check(rows[0].shipped_amount,50);check(rows[0].latest_shipped_quantity,49);
+rows=calc(closures,orders,[normal,{...cutoff,quantity:20},{...cutoff,lot_id:'lot2',idempotency_key:'cutoff:closure:lot2',quantity:29}]);check(rows[0].shipped_amount,99);check(rows[0].latest_shipped_quantity,49);
+rows=calc(closures,orders,[{...normal,post_id:null},cutoff]);check(rows[0].shipped_amount,99);
+rows=calc(closures,orders,[{...cutoff,post_id:'other',order_no:'A-1'}]);check(rows[0].shipped_amount,0);check(rows[0].latest_shipped_quantity,0);
+rows=calc(closures,orders,[{...cutoff,idempotency_key:'cutoff:old:lot'}]);check(rows[0].shipped_amount,49);check(rows[0].latest_shipped_quantity,0);
+rows=calc([...closures,{...closures[0],id:'second'}],orders,[normal,cutoff,{...cutoff,idempotency_key:'cutoff:second:lot',quantity:1}]);check(rows[0].shipped_amount,100);check(rows[1].shipped_amount,100);check(rows[0].latest_shipped_quantity,49);check(rows[1].latest_shipped_quantity,1);
+rows=calc(closures,orders,[]);check(rows[0].shipped_amount,0);check(rows[0].latest_shipped_quantity,0);
+console.log(JSON.stringify({mode:'order quantity, 50+49 shipments, per-cutoff quantity, cancellations and multi-lot history',passed}));

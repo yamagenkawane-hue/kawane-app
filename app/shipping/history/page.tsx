@@ -5,7 +5,7 @@ import { authFetch } from "@/lib/auth/client";
 import styles from "../../masterCommon.module.css";
 
 type Closure = { id: string; order_no: string; customer_name: string; product_name: string;
-  order_amount: number; shipped_amount: number; closed_quantity: number; reason: string; actor_name: string; closed_at: string; restored_at: string | null; restored_actor_name: string | null; restored_shipment_quantity: number };
+  order_amount: number; shipped_amount: number; latest_shipped_quantity: number; closed_quantity: number; reason: string; actor_name: string; closed_at: string; restored_at: string | null; restored_actor_name: string | null; restored_shipment_quantity: number };
 const PAGE_SIZE = 30;
 export default function ShipmentClosureHistory() {
   const restoringRef = useRef(false);
@@ -47,13 +47,23 @@ export default function ShipmentClosureHistory() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "復元に失敗しました");
       sessionStorage.removeItem(storageKey);
-      setRows(previous => previous.map(item => item.id === row.id ? { ...item, ...result } : item));
+      setRows(previous => previous.map(item => item.id === row.id ? { ...item,
+        restored_at: result.restored_at, restored_actor_name: result.restored_actor_name,
+        restored_shipment_quantity: result.restored_shipment_quantity } : item));
+      try {
+        const refreshed = await authFetch("/api/shipment-closures");
+        const history = await refreshed.json();
+        if (!refreshed.ok) throw new Error(history.error || "履歴を再取得できませんでした");
+        setRows(history);
+      } catch {
+        setError("復元は完了しましたが、数量の再読込に失敗しました。ページを再読込してください。");
+      }
       setMessage(`${row.order_no} を注残に戻し、打ち切り時に出荷した${Number(result.restored_shipment_quantity || 0).toLocaleString("ja-JP")}個を在庫に戻しました。以前の通常出荷は維持しています。`);
     } catch (e) { setError(e instanceof Error ? e.message : "復元に失敗しました"); }
     finally { restoringRef.current = false; setRestoring(null); }
   };
   const keyword = search.trim().toLocaleLowerCase("ja-JP");
-  const filtered = rows.filter(row => [row.order_no, row.customer_name, row.product_name, row.reason, row.actor_name]
+  const filtered = rows.filter(row => [row.order_no, row.customer_name, row.product_name, row.actor_name]
     .some(value => value.toLocaleLowerCase("ja-JP").includes(keyword)));
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   return <div className={styles.container}>
@@ -62,20 +72,20 @@ export default function ShipmentClosureHistory() {
       <h1 className={styles.title}>打ち切り履歴</h1>
     </div>
     <div className={styles.formCard}>
-      <input className={styles.input} aria-label="打ち切り履歴を検索" placeholder="注番・得意先・製品・理由・操作者で検索"
+      <input className={styles.input} aria-label="打ち切り履歴を検索" placeholder="注番・得意先・製品・操作者で検索"
         value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
     </div>
     {loading && <p>読み込み中...</p>}
     {error && <p role="alert">{error}</p>}
     {message && <p className={styles.message} role="status">{message}</p>}
     <div className={styles.tableCard}><table className={styles.table}>
-      <thead><tr>{["打ち切り日時", "注番", "得意先", "製品", "受注数", "打ち切り時出荷済合計", "未出荷数", "操作者", "理由", "状態", "復元日時", "復元操作者", "在庫復元数", "操作"].map(label => <th key={label}>{label}</th>)}</tr></thead>
+      <thead><tr>{["打ち切り日時", "注番", "得意先", "製品", "受注数", "出荷済み数量", "直近の出荷数", "未出荷数", "操作者", "復元日時", "復元操作者", "在庫復元数", "操作"].map(label => <th key={label}>{label}</th>)}</tr></thead>
       <tbody>{filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(row => <tr key={row.id}>
         <td>{new Date(row.closed_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</td>
         <td>{row.order_no}</td><td>{row.customer_name}</td><td>{row.product_name}</td>
         <td>{Number(row.order_amount).toLocaleString("ja-JP")}</td><td>{Number(row.shipped_amount).toLocaleString("ja-JP")}</td>
-        <td>{Number(row.closed_quantity).toLocaleString("ja-JP")}</td><td>{row.actor_name}</td><td>{row.reason}</td>
-        <td>{row.restored_at ? "復元済み" : `${Number(row.shipped_amount).toLocaleString("ja-JP")}個で打ち切り`}</td>
+        <td>{Number(row.latest_shipped_quantity || 0).toLocaleString("ja-JP")}</td>
+        <td>{Number(row.closed_quantity).toLocaleString("ja-JP")}</td><td>{row.actor_name}</td>
         <td>{row.restored_at ? new Date(row.restored_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "-"}</td>
         <td>{row.restored_actor_name || "-"}</td>
         <td>{row.restored_at ? Number(row.restored_shipment_quantity || 0).toLocaleString("ja-JP") : "-"}</td>
