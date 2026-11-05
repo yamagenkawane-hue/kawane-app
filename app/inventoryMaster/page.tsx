@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { availableInventoryQuantity, isInventoryVisible } from "@/lib/inventoryVisibility";
 import { InventoryItem } from "@/app/type";
 import styles from "../masterCommon.module.css";
 
@@ -25,6 +27,11 @@ const mapInventoryItem = (row: Record<string, unknown>): InventoryItem => ({
   updatedAt: String(row.updated_at || ""),
 });
 
+const fetchInventoryRows = () => fetchAllRows((from, to) => supabase
+  .from("v_inventory_items_with_master")
+  .select(INVENTORY_SELECT_COLUMNS)
+  .order("updated_at", { ascending: false }).order("id").range(from, to));
+
 export default function InventoryMasterPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [form, setForm] = useState({
@@ -37,32 +44,26 @@ export default function InventoryMasterPage() {
   const [numpadTarget, setNumpadTarget] = useState<NumpadTarget>(null);
 
   const fetchItems = async () => {
-    const { data, error } = await supabase
-      .from("v_inventory_items_with_master")
-      .select(INVENTORY_SELECT_COLUMNS)
-      .order("updated_at", { ascending: false });
+    const { data, error } = await fetchInventoryRows();
 
     if (error) {
       alert("在庫マスタの取得に失敗しました");
       return;
     }
 
-    setItems((data || []).map(mapInventoryItem));
+    setItems((data || []).map(mapInventoryItem).filter(isInventoryVisible));
   };
 
   useEffect(() => {
     const loadItems = async () => {
-      const { data, error } = await supabase
-        .from("v_inventory_items_with_master")
-        .select(INVENTORY_SELECT_COLUMNS)
-        .order("updated_at", { ascending: false });
+      const { data, error } = await fetchInventoryRows();
 
       if (error) {
         alert("在庫マスタの取得に失敗しました");
         return;
       }
 
-      setItems((data || []).map(mapInventoryItem));
+      setItems((data || []).map(mapInventoryItem).filter(isInventoryVisible));
     };
 
     void loadItems();
@@ -276,6 +277,7 @@ export default function InventoryMasterPage() {
           </button>
         </div>
       </div>
+      <p className={styles.countText}>引当可能数がある在庫を表示しています。</p>
       <div className={styles.tableCard}>
         <table className={styles.table}>
           <thead>
@@ -363,10 +365,7 @@ export default function InventoryMasterPage() {
                   />
                 </td>
                 <td>
-                  {Math.max(
-                    0,
-                    Number(item.currentStock) - Number(item.allocatedStock),
-                  )}
+                  {availableInventoryQuantity(item)}
                 </td>
                 <td>{item.updatedAt ? item.updatedAt.slice(0, 16) : "-"}</td>
                 <td className={styles.actionArea}>
