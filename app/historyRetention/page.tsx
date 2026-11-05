@@ -1,10 +1,13 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Numpad from "@/app/components/Numpad/Numpad";
 import { authFetch } from "@/lib/auth/client";
 import { parseArchivePacket, type RetentionSettings } from "@/lib/historyRetention";
 import styles from "./page.module.css";
 import masterStyles from "../masterCommon.module.css";
+
+type NumberField = "detail_years" | "ai_years" | "prediction_days";
 
 type Candidate = { post_id: string; order_no: string; product_name: string; finished_at: string | null; eligible: boolean; reason: string };
 type Event = { id: string; action: string; created_at: string; post_id: string | null; actor_id: string | null };
@@ -14,6 +17,7 @@ const actions: Record<string, string> = { settings: "設定変更", export: "退
 
 export default function HistoryRetentionPage() {
   const loadVersion = useRef(0);
+  const [numpadField, setNumpadField] = useState<NumberField | null>(null);
   const [view, setView] = useState<View | null>(null);
   const [settings, setSettings] = useState<RetentionSettings | null>(null);
   const [page, setPage] = useState(0);
@@ -44,15 +48,15 @@ export default function HistoryRetentionPage() {
     try { await action(); } catch (error) { setMessage(error instanceof Error ? error.message : "処理に失敗しました"); }
     finally { setBusy(false); }
   }
-  return <main className={`${masterStyles.container} ${styles.page}`}>
+  return <><main className={`${masterStyles.container} ${styles.page}`}>
     <div className={masterStyles.headerArea}><Link href="/masterSettings" className={masterStyles.backButton}>← マスタ設定に戻る</Link><h1 className={masterStyles.title}>履歴管理マスタ</h1></div>
     <p>保存期間を過ぎた詳細履歴を、注文ごとに確認して整理します。自動削除は行いません。</p>
     <p>注文・ロット・工程・在庫・出荷の基本情報と、参照に必要な実績は残します。業務を訂正するときは先に詳細履歴を復元してください。</p>
     {message && <p role="status" className={styles.message}>{message}</p>}
     {settings && <section><h2>保存期間</h2><form onSubmit={event => { event.preventDefault(); void run(async () => { await request(settings, "PUT"); await load(); setMessage("設定を保存しました。履歴は削除していません。"); }); }}>
-      <label>業務の詳細履歴（年）<input type="number" min={1} max={30} required value={settings.detail_years} onChange={e => setSettings({ ...settings, detail_years: Number(e.target.value) })}/></label>
-      <label>AI用実績（年）<input type="number" min={settings.detail_years} max={30} required value={settings.ai_years} onChange={e => setSettings({ ...settings, ai_years: Number(e.target.value) })}/></label>
-      <label>AI予測結果・入力記録（日）<input type="number" min={30} max={3650} required value={settings.prediction_days} onChange={e => setSettings({ ...settings, prediction_days: Number(e.target.value) })}/></label>
+      <label>業務の詳細履歴（年）<input type="number" min={1} max={30} required inputMode="numeric" className={masterStyles.numpadInput} disabled={busy} onFocus={() => setNumpadField("detail_years")} onClick={() => setNumpadField("detail_years")} value={settings.detail_years} onChange={e => setSettings({ ...settings, detail_years: Number(e.target.value) })}/></label>
+      <label>AI用実績（年）<input type="number" min={settings.detail_years} max={30} required inputMode="numeric" className={masterStyles.numpadInput} disabled={busy} onFocus={() => setNumpadField("ai_years")} onClick={() => setNumpadField("ai_years")} value={settings.ai_years} onChange={e => setSettings({ ...settings, ai_years: Number(e.target.value) })}/></label>
+      <label>AI予測結果・入力記録（日）<input type="number" min={30} max={3650} required inputMode="numeric" className={masterStyles.numpadInput} disabled={busy} onFocus={() => setNumpadField("prediction_days")} onClick={() => setNumpadField("prediction_days")} value={settings.prediction_days} onChange={e => setSettings({ ...settings, prediction_days: Number(e.target.value) })}/></label>
       <p>AIの最大参照期間：{view?.reference_days}日（AI予測設定を継承）。AI用実績はこの期間以上必要です。保存期間を延長しても、既に削除した明細や期限切れのAI用実績は自動復元されません。</p>
       <button disabled={busy}>設定を保存</button>
     </form></section>}
@@ -69,7 +73,7 @@ export default function HistoryRetentionPage() {
       <div className={styles.paging}><button disabled={busy || page === 0} onClick={() => setPage(page - 1)}>前へ</button><span>{page + 1} / {Math.max(1, Math.ceil((view?.preview.total || 0) / 30))}</span><button disabled={busy || (page + 1) * 30 >= (view?.preview.total || 0)} onClick={() => setPage(page + 1)}>次へ</button></div>
     </section>
     <section><h2>退避ファイルの確認・削除・復元</h2><p>保存したファイルを再読込します。削除前に、AI用実績の保存とDB内での削除・復元検証を行います。データが変わっている場合は中止します。</p>
-      <label>退避ファイル<input type="file" accept=".json,application/json" disabled={busy} onChange={event => { const file = event.target.files?.[0]; setArchive(null); setStored(false); setConfirmation(""); setFileName(""); if (!file) return; void run(async () => {
+      <label>退避ファイル<input className={styles.fileInput} type="file" accept=".json,application/json" disabled={busy} onChange={event => { const file = event.target.files?.[0]; setArchive(null); setStored(false); setConfirmation(""); setFileName(""); if (!file) return; void run(async () => {
         if (file.size > 16 * 1024 * 1024) throw new Error("ファイルは16MB以内にしてください");
         setArchive(parseArchivePacket(JSON.parse(await file.text()))); setFileName(file.name); setMessage("ファイルを読み込みました。登録内容との一致は実行時にサーバーで検証します。");
       }); }}/></label>
@@ -81,5 +85,13 @@ export default function HistoryRetentionPage() {
       </>}
     </section>
     <section><h2>操作記録（新しい順・最新30件）</h2><ul>{view?.events.map(event => <li key={event.id}>{new Date(event.created_at).toLocaleString("ja-JP")}　{actions[event.action] || event.action}　{event.post_id}　実行者：{event.actor_id || "システム"}</li>)}</ul></section>
-  </main>;
+  </main>
+    {settings && numpadField && <Numpad key={numpadField} open replaceOnFirstInput
+      value={String(settings[numpadField])}
+      onChange={value => {
+        if (!/^\d*$/.test(value)) return;
+        setSettings(previous => previous ? { ...previous, [numpadField]: Number(value || 0) } : previous);
+      }}
+      onClose={() => setNumpadField(null)} />}
+  </>;
 }
