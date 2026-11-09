@@ -303,6 +303,7 @@ export type AiPredictionSettings = {
 
 export type ProcessResult = {
   id: string;
+  lotId?: string;
   postId: string;
   scheduleId?: string;
   orderProcessId?: string;
@@ -343,6 +344,7 @@ export type OrderProcess = {
 
 export type ProductionSchedule = {
   id: string;
+  productId?: string;
   postId?: string;
   orderNo?: string;
   department?: string;

@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useAppAuth } from "@/app/components/AuthProvider/AuthProvider";
 import { useParams } from "next/navigation";
 import supabase from "@/lib/supabase";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { lotHistoryBelongsTo } from "@/lib/lotHistoryIdentity";
 import styles from "../page.module.css";
 
 type LotFlowRow = {
@@ -203,6 +205,14 @@ export default function LotDetailPage() {
   const [message, setMessage] = useState("");
 
   const loadHistory = useCallback(async (targetLot: LotFlowRow) => {
+    const siblingLots = await fetchAllRows((from, to) => supabase.from("lots")
+      .select("id,post_id,lot_no").eq("post_id", targetLot.postId)
+      .eq("lot_no", targetLot.lotNo).order("id").range(from, to));
+    if (siblingLots.error) throw siblingLots.error;
+    const legacyIsUnambiguous = siblingLots.data?.length === 1 && siblingLots.data[0].id === targetLot.id;
+    const historyFilter = legacyIsUnambiguous && targetLot.postId
+      ? `lot_id.eq.${targetLot.id},and(lot_id.is.null,post_id.eq.${targetLot.postId})`
+      : `lot_id.eq.${targetLot.id}`;
     const [
       orderResult,
       lotResult,
@@ -239,21 +249,21 @@ export default function LotDetailPage() {
         .order("created_at", { ascending: true }),
       supabase
         .from("inventory_items")
-        .select("id,current_stock,allocated_stock,created_at,updated_at")
+        .select("id,current_stock,allocated_stock,updated_at")
         .eq("lot_id", targetLot.id)
-        .order("created_at", { ascending: true }),
-      supabase
+        .order("updated_at", { ascending: true }),
+      fetchAllRows((from, to) => supabase
         .from("inventory_allocations")
-        .select("id,allocated_amount,shipped_amount,confirmed_at,lot_no")
-        .or(`lot_id.eq.${targetLot.id},lot_no.eq.${targetLot.lotNo}`)
-        .order("confirmed_at", { ascending: true }),
-      supabase
+        .select("id,post_id,lot_id,allocated_amount,shipped_amount,confirmed_at,lot_no")
+        .or(historyFilter)
+        .order("confirmed_at", { ascending: true }).order("id").range(from, to)),
+      fetchAllRows((from, to) => supabase
         .from("shipments")
         .select(
-          "id,quantity,scheduled_date,delivery_date,customer_name,created_at,lot_no,cancelled,cancelled_at,cancelled_reason",
+          "id,post_id,lot_id,quantity,scheduled_date,delivery_date,customer_name,created_at,lot_no,cancelled,cancelled_at,cancelled_reason",
         )
-        .or(`lot_id.eq.${targetLot.id},lot_no.eq.${targetLot.lotNo}`)
-        .order("scheduled_date", { ascending: true }),
+        .or(historyFilter)
+        .order("scheduled_date", { ascending: true }).order("id").range(from, to)),
       supabase.from("outsource_remainder_schedules").select("*,order_processes!inner(post_id)")
         .eq("order_processes.post_id",targetLot.postId).order("dispatch_no"),
     ]);
@@ -402,7 +412,7 @@ export default function LotDetailPage() {
 
     const allocationRows = (
       (allocationResult.error ? [] : allocationResult.data || []) as Record<string, unknown>[]
-    ).map((row) => ({
+    ).filter((row) => lotHistoryBelongsTo(row, targetLot, legacyIsUnambiguous)).map((row) => ({
       id: `allocation-${String(row.id || "")}`,
       date: String(row.confirmed_at || ""),
       sortOrder: 80,
@@ -417,7 +427,7 @@ export default function LotDetailPage() {
 
     const shipmentRows = (
       (shipmentResult.error ? [] : shipmentResult.data || []) as Record<string, unknown>[]
-    ).map((row) => {
+    ).filter((row) => lotHistoryBelongsTo(row, targetLot, legacyIsUnambiguous)).map((row) => {
       const cancelled = Boolean(row.cancelled);
       const detailParts = [
         `得意先: ${String(row.customer_name || targetLot.customerName || "-")}`,

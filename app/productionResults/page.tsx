@@ -4,6 +4,7 @@ import { authFetch } from "@/lib/auth/client";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { manufacturingPostId, productionResultErrorComment } from "@/lib/manufacturingIdentity";
 import { orderProcessesHref } from "@/lib/orderProcessNavigation";
 import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "@/lib/supabase";
@@ -18,7 +19,7 @@ import styles from "./page.module.css";
 const postScheduleId = (postId: string) => `post:${postId}`;
 
 const SCHEDULE_SELECT_COLUMNS =
-  "id,post_id,order_no,customer_name,product_name,press_number,lot_no,plan_amount,press_completed_amount,press_completed_date,created_at,updated_at";
+  "id,post_id,product_id,order_no,customer_name,product_name,press_number,lot_no,plan_amount,press_completed_amount,press_completed_date,created_at,updated_at";
 
 const POST_SELECT_COLUMNS =
   "id,product_id,customer_id,order_no,lot_no,product_code,product_name,customer_name,order_amount,remaining_amount,status,delivery_date,delete,shipment_closed_at";
@@ -27,16 +28,14 @@ const ORDER_PROCESS_SELECT_COLUMNS =
   "id,post_id,product_id,customer_id,product_process_id,order_no,product_code,product_name,customer_name,process_name,process_order,overlap_days,planned_amount,completed_amount,completed_date,subcontractor_id,subcontractor_name,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,outsource_status,outsource_note,locked,created_at,updated_at";
 
 const RESULT_SELECT_COLUMNS =
-  "id,post_id,schedule_id,order_process_id,process_name,date,amount,created_at";
+  "id,post_id,schedule_id,lot_id,order_process_id,process_name,date,amount,created_at";
 
 const isPostScheduleId = (id: string) => id.startsWith("post:");
-
-const getPostIdFromScheduleId = (id: string) =>
-  isPostScheduleId(id) ? id.replace("post:", "") : "";
 
 const mapScheduleRow = (row: Record<string, unknown>): ProductionSchedule => ({
   id: String(row.id || ""),
   postId: row.post_id ? String(row.post_id) : "",
+  productId: row.product_id ? String(row.product_id) : "",
   orderNo: String(row.order_no || ""),
   customerName: String(row.customer_name || ""),
   productName: String(row.product_name || ""),
@@ -67,6 +66,7 @@ const mapPostRow = (row: Record<string, unknown>): PostData => ({
 const mapPostToSchedule = (row: Record<string, unknown>): ProductionSchedule => ({
   id: postScheduleId(String(row.id || "")),
   postId: String(row.id || ""),
+  productId: row.product_id ? String(row.product_id) : "",
   orderNo: String(row.order_no || ""),
   customerName: String(row.customer_name || ""),
   productName: String(row.product_name || ""),
@@ -111,6 +111,7 @@ const mapResultRow = (row: Record<string, unknown>): ProcessResult => ({
   id: String(row.id || ""),
   postId: String(row.post_id || ""),
   scheduleId: String(row.schedule_id || ""),
+  lotId: String(row.lot_id || ""),
   orderProcessId: String(row.order_process_id || ""),
   processId: String(row.order_process_id || row.process_name || ""),
   processName: String(row.process_name || ""),
@@ -133,30 +134,6 @@ const filterSchedulesByActivePosts = (
   });
 };
 
-const getProductionResultErrorComment = (error: unknown, lotNo: string) => {
-  const message =
-    typeof error === "object" && error !== null && "message" in error
-      ? String(error.message)
-      : "";
-  const code =
-    typeof error === "object" && error !== null && "code" in error
-      ? String(error.code)
-      : "";
-  const isDuplicateLot =
-    code === "23505" ||
-    message.includes("duplicate key") ||
-    message.includes("already exists") ||
-    message.includes("unique");
-
-  if (isDuplicateLot) {
-    return `コメント: 入力されたロットNo「${lotNo}」はすでに登録されています。別のロットNoを入力してください。`;
-  }
-
-  return message
-    ? `コメント: ${message}`
-    : "コメント: 製造実績の登録に失敗しました。入力内容を確認してください。";
-};
-
 function ProductionResultsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -166,6 +143,7 @@ function ProductionResultsContent() {
   const [orderProcesses, setOrderProcesses] = useState<OrderProcess[]>([]);
   const [posts, setPosts] = useState<PostData[]>([]);
   const [results, setResults] = useState<ProcessResult[]>([]);
+  const [resultLotNumbers, setResultLotNumbers] = useState<Record<string, string>>({});
   const [scheduleId, setScheduleId] = useState("");
   const [orderProcessId, setOrderProcessId] = useState("");
   const [lotNo, setLotNo] = useState("");
@@ -176,30 +154,17 @@ function ProductionResultsContent() {
   const [numpadOpen, setNumpadOpen] = useState(false);
   const [lotComment, setLotComment] = useState("");
   const queryAppliedRef = useRef(false);
+  const registrationRequestRef = useRef<{ fingerprint: string; key: string } | null>(null);
 
   const selectedSchedule = useMemo(
     () => schedules.find((item) => item.id === scheduleId),
     [scheduleId, schedules],
   );
 
-  const selectedPostId = useMemo(() => {
-    if (!selectedSchedule) return "";
-    if (selectedSchedule.postId) return selectedSchedule.postId;
-
-    const schedulePostId = getPostIdFromScheduleId(selectedSchedule.id);
-    if (schedulePostId) return schedulePostId;
-
-    const matched = posts.find((post) => {
-      const sameOrder =
-        selectedSchedule.orderNo && post.orderNo === selectedSchedule.orderNo;
-      const sameLot =
-        selectedSchedule.lotNo && post.lotNo === selectedSchedule.lotNo;
-
-      return Boolean(sameOrder || sameLot);
-    });
-
-    return matched?.id || "";
-  }, [posts, selectedSchedule]);
+  const selectedPostId = useMemo(
+    () => selectedSchedule ? manufacturingPostId(selectedSchedule, posts) : "",
+    [posts, selectedSchedule],
+  );
 
   const selectedScheduleOrderProcesses = useMemo(
     () =>
@@ -254,21 +219,7 @@ function ProductionResultsContent() {
   };
 
   const findPostIdForSchedule = useCallback(
-    (schedule: ProductionSchedule, postList = posts) => {
-      if (schedule.postId) return schedule.postId;
-
-      const schedulePostId = getPostIdFromScheduleId(schedule.id);
-      if (schedulePostId) return schedulePostId;
-
-      const matched = postList.find((post) => {
-        const sameOrder = schedule.orderNo && post.orderNo === schedule.orderNo;
-        const sameLot = schedule.lotNo && post.lotNo === schedule.lotNo;
-
-        return Boolean(sameOrder || sameLot);
-      });
-
-      return matched?.id || "";
-    },
+    (schedule: ProductionSchedule, postList = posts) => manufacturingPostId(schedule, postList),
     [posts],
   );
 
@@ -342,6 +293,13 @@ function ProductionResultsContent() {
       if (orderProcessResult.error) throw orderProcessResult.error;
       if (postResult.error) throw postResult.error;
       if (resultResult.error) throw resultResult.error;
+      const resultLotIds = [...new Set((resultResult.data || []).map((row) => String(row.lot_id || "")).filter(Boolean))];
+      const resultLots = resultLotIds.length
+        ? await supabase.from("lots").select("id,lot_no").in("id", resultLotIds)
+        : { data: [], error: null };
+      if (resultLots.error) throw resultLots.error;
+      setResultLotNumbers(Object.fromEntries((resultLots.data || []).map((row) => [row.id, row.lot_no])));
+
 
       const dailyRows: Record<string, unknown>[] = await dailyScheduleResult.json();
       const activePosts: PostData[] = (dailyRows || [])
@@ -421,7 +379,7 @@ function ProductionResultsContent() {
       return;
     }
 
-    if (!selectedOrderProcess) {
+    if (!selectedOrderProcess || !selectedPostId || selectedOrderProcess.postId !== selectedPostId) {
       alert("製造工程予定がありません。製品工程マスタを確認してください。");
       return;
     }
@@ -430,11 +388,6 @@ function ProductionResultsContent() {
       setLoading(true);
 
       const resultAmount = Number(amount);
-      const now = new Date().toISOString();
-      const idempotencyKey =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random()}`;
 
       if (!Number.isFinite(resultAmount) || resultAmount <= 0) {
         alert("数量は1以上で入力してください");
@@ -454,6 +407,15 @@ function ProductionResultsContent() {
       }
 
       const trimmedLotNo = lotNo.trim();
+      const fingerprint = JSON.stringify([selectedOrderProcess.id, selectedSchedule.id, date, resultAmount, trimmedLotNo, materialLotNo.trim()]);
+      if (registrationRequestRef.current?.fingerprint !== fingerprint) {
+        registrationRequestRef.current = {
+          fingerprint,
+          key: typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+        };
+      }
+      const idempotencyKey = registrationRequestRef.current.key;
       const { error } = await supabase.rpc("register_manufacturing_lot_result", {
         p_order_process_id: selectedOrderProcess.id,
         p_schedule_id: isPostScheduleId(selectedSchedule.id)
@@ -467,20 +429,7 @@ function ProductionResultsContent() {
       });
 
       if (error) throw error;
-
-      if (!isPostScheduleId(selectedSchedule.id)) {
-        const { error: scheduleError } = await supabase
-          .from("production_schedules")
-          .update({
-            press_completed_amount:
-              Number(selectedSchedule.pressCompletedAmount || 0) + resultAmount,
-            press_completed_date: date,
-            updated_at: now,
-          })
-          .eq("id", selectedSchedule.id);
-
-        if (scheduleError) throw scheduleError;
-      }
+      registrationRequestRef.current = null;
 
       setAmount("");
       setLotNo("");
@@ -490,7 +439,7 @@ function ProductionResultsContent() {
       router.push("/reservation");
     } catch (error) {
       console.error(error);
-      const message = getProductionResultErrorComment(error, lotNo.trim());
+      const message = productionResultErrorComment(error, lotNo.trim());
       setLotComment(message);
       alert(message);
     } finally {
@@ -511,15 +460,9 @@ function ProductionResultsContent() {
   };
 
   const getResultLotNo = (result: ProcessResult) => {
-    const scheduleLotNo = schedules.find(
-      (schedule) =>
-        schedule.id === result.scheduleId || schedule.postId === result.postId,
-    )?.lotNo;
-    if (scheduleLotNo) return scheduleLotNo;
-
-    const postLotNo = posts.find((post) => post.id === result.postId)?.lotNo;
-
-    return postLotNo || "-";
+    if (result.lotId) return resultLotNumbers[result.lotId] || "-";
+    // Legacy results have no confirmed lot. Never substitute a planned lot number.
+    return "-";
   };
 
   return (
