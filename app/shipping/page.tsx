@@ -93,11 +93,9 @@ export default function ShippingPage() {
       const shipped = buildShippedAmountMap(orders, shipmentResult.data || []);
       const outstanding = orders.filter(order => (shipped.get(order.id) || 0) < Number(order.order_amount || 0));
       const outstandingIds = new Set(outstanding.map(order => order.id));
-      const availableRows = (stockResult.data || []).filter(row => outstandingIds.has(row.post_id));
-      const represented = new Set(availableRows.map(row => row.post_id));
-      const shippingRows = [...availableRows, ...outstanding.filter(order => !represented.has(order.id)).map(order => ({
-        ...order, post_id: order.id, lot_id: "", lot_no: "", current_stock: 0, available_quantity: 0,
-      }))];
+      const shippingRows = (stockResult.data || []).filter(
+        row => outstandingIds.has(row.post_id) && Number(row.available_quantity) > 0,
+      );
 
       const customerList: CustomerMaster[] = (customerResult.data || []).map(
         (row) => ({
