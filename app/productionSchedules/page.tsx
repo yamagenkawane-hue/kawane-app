@@ -13,7 +13,7 @@ const emptyForm = {
   customerName: "",
   productName: "",
   pressNumber: "",
-  lotNo: "",
+  plannedStartDate: "",
   planAmount: 0,
   pressCompletedAmount: 0,
   pressCompletedDate: "",
@@ -28,7 +28,7 @@ type ScheduleSearch = {
   customerName: string;
   productName: string;
   pressNumber: string;
-  lotNo: string;
+  plannedStartDate: string;
 };
 
 type DailySchedulePost = PostData & {
@@ -41,6 +41,7 @@ type LotProcessBalanceRow = {
   postId: string;
   orderNo: string;
   lotNo: string;
+  plannedStartDate: string;
   processName: string;
   processOrder: number;
   quantity: number;
@@ -59,6 +60,7 @@ type CompletedPostSummary = {
   productName: string;
   orderAmount: number;
   deliveryDate: string;
+  plannedStartDate: string;
 };
 
 type ProductPlanRow = {
@@ -84,7 +86,7 @@ type EditingRow =
   | null;
 
 const SCHEDULE_SELECT_COLUMNS =
-  "id,post_id,order_no,customer_name,product_name,press_number,lot_no,plan_amount,press_completed_amount,press_completed_date,shipping_scheduled_start,shipping_scheduled_end,delivery_date,created_at,updated_at,department,product_plan_amount";
+  "id,post_id,order_no,customer_name,product_name,press_number,lot_no,planned_start_date,plan_amount,press_completed_amount,press_completed_date,shipping_scheduled_start,shipping_scheduled_end,delivery_date,created_at,updated_at,department,product_plan_amount";
 
 const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
   "id,post_id,order_no,lot_no,process_name,process_order,quantity,completed_amount,completed_date,customer_name,product_name,delivery_date";
@@ -101,6 +103,7 @@ const mapSchedule = (row: Record<string, unknown>): ProductionSchedule => ({
   productName: String(row.product_name || ""),
   pressNumber: String(row.press_number || ""),
   lotNo: String(row.lot_no || ""),
+  plannedStartDate: String(row.planned_start_date || ""),
   planAmount: Number(row.plan_amount || 0),
   productPlanAmount: Number(row.product_plan_amount || 0),
   pressCompletedAmount: Number(row.press_completed_amount || 0),
@@ -116,6 +119,7 @@ const mapPost = (row: Record<string, unknown>): PostData => ({
   id: String(row.id || ""),
   orderNo: String(row.order_no || ""),
   lotNo: String(row.lot_no || ""),
+  plannedStartDate: String(row.planned_start_date || ""),
   productName: String(row.product_name || ""),
   customerName: String(row.customer_name || ""),
   orderAmount: Number(row.order_amount || 0),
@@ -128,11 +132,13 @@ const mapPost = (row: Record<string, unknown>): PostData => ({
 
 const mapLotProcessBalance = (
   row: Record<string, unknown>,
+  postMap: Map<string, CompletedPostSummary>,
 ): LotProcessBalanceRow => ({
   id: String(row.id || ""),
   postId: String(row.post_id || ""),
   orderNo: String(row.order_no || ""),
   lotNo: String(row.lot_no || ""),
+  plannedStartDate: postMap.get(String(row.post_id || ""))?.plannedStartDate || "",
   processName: String(row.process_name || ""),
   processOrder: Number(row.process_order || 0),
   quantity: Number(row.quantity || 0),
@@ -157,6 +163,7 @@ const mapCompletedLotProcess = (
     postId,
     orderNo: String(row.order_no || post?.orderNo || ""),
     lotNo: `${String(row.lot_no || "")} / 完了`,
+    plannedStartDate: post?.plannedStartDate || "",
     processName: String(row.from_process_name || "梱包"),
     processOrder: Number(row.from_process_order || 0),
     quantity,
@@ -235,7 +242,7 @@ const matchesSearch = (
     customerName?: string;
     productName?: string;
     pressNumber?: string;
-    lotNo?: string;
+    plannedStartDate?: string;
   },
   search: ScheduleSearch,
 ) =>
@@ -246,7 +253,7 @@ const matchesSearch = (
     normalizeText(row.productName).includes(normalizeText(search.productName))) &&
   (!search.pressNumber ||
     normalizeText(row.pressNumber).includes(normalizeText(search.pressNumber))) &&
-  (!search.lotNo || normalizeText(row.lotNo).includes(normalizeText(search.lotNo)));
+  (!search.plannedStartDate || row.plannedStartDate === search.plannedStartDate);
 
 const getProductPlanKey = (
   productCode?: string,
@@ -269,7 +276,7 @@ export default function ProductionSchedulesPage() {
     customerName: "",
     productName: "",
     pressNumber: "",
-    lotNo: "",
+    plannedStartDate: "",
   });
   const [loading, setLoading] = useState(false);
   const [numpadTarget, setNumpadTarget] = useState<NumpadTarget | null>(null);
@@ -351,7 +358,7 @@ export default function ProductionSchedulesPage() {
           .order("created_at", { ascending: false }),
         supabase
           .from("v_posts_with_master")
-          .select("id,order_no,customer_name,product_name,order_amount,delivery_date")
+          .select("id,order_no,customer_name,product_name,order_amount,delivery_date,planned_start_date")
           .or("delete.is.null,delete.eq.false"),
         supabase
           .from("shipments")
@@ -408,6 +415,7 @@ export default function ProductionSchedulesPage() {
             productName: String(row.product_name || ""),
             orderAmount: Number(row.order_amount || 0),
             deliveryDate: String(row.delivery_date || ""),
+            plannedStartDate: String(row.planned_start_date || ""),
           },
         ]),
       );
@@ -422,7 +430,7 @@ export default function ProductionSchedulesPage() {
       );
       const mappedSchedules = (scheduleResult.data || []).map(mapSchedule);
       const mappedBalances = [
-        ...(balanceResult.data || []).map(mapLotProcessBalance),
+        ...(balanceResult.data || []).map((row) => mapLotProcessBalance(row, postMap)),
         ...(completedResult.data || [])
           .filter((row) => {
             const postId = String(row.post_id || "");
@@ -524,7 +532,7 @@ export default function ProductionSchedulesPage() {
           customer_name: schedule.customerName,
           product_name: schedule.productName,
           press_number: schedule.pressNumber,
-          lot_no: schedule.lotNo,
+          planned_start_date: schedule.plannedStartDate || null,
           plan_amount: planAmount,
           press_completed_amount: pressCompletedAmount,
           press_completed_date: schedule.pressCompletedDate || null,
@@ -629,6 +637,7 @@ export default function ProductionSchedulesPage() {
         product_name: post.productName,
         press_number: post.pressNumber || "",
         lot_no: post.lotNo || "",
+        planned_start_date: post.plannedStartDate || null,
         plan_amount: Number(post.remainingAmount || post.orderAmount || 0),
         press_completed_amount: 0,
         press_completed_date: completedDate,
@@ -756,10 +765,6 @@ export default function ProductionSchedulesPage() {
 
     return {
       ...post,
-      lotNo:
-        balances.map((balance) => balance.lotNo).filter(Boolean).join(" / ") ||
-        post.lotNo ||
-        "-",
       manufacturingCompletedDate: datesForDepartment("製造G"),
       qualityCompletedDate: datesForDepartment("品質管理G"),
       shippingCompletedDate: datesForDepartment("梱包出荷G"),
@@ -838,9 +843,11 @@ export default function ProductionSchedulesPage() {
           />
           <input
             className={styles.input}
-            placeholder="ロットNo"
-            value={form.lotNo}
-            onChange={(e) => setForm({ ...form, lotNo: e.target.value })}
+            type="date"
+            aria-label="開始予定日で検索"
+            title="開始予定日で検索"
+            value={form.plannedStartDate}
+            onChange={(e) => setForm({ ...form, plannedStartDate: e.target.value })}
           />
           <input
             className={styles.input}
@@ -879,7 +886,7 @@ export default function ProductionSchedulesPage() {
               customerName: form.customerName,
               productName: form.productName,
               pressNumber: form.pressNumber,
-              lotNo: form.lotNo,
+              plannedStartDate: form.plannedStartDate,
             })
           }
         >
@@ -911,7 +918,7 @@ export default function ProductionSchedulesPage() {
               <th>注番</th>
               <th>取引先名</th>
               <th>製品名</th>
-              <th>ロット</th>
+              <th>開始予定日</th>
               <th>数量</th>
               {showManufacturingColumns && (
                 <>
@@ -1001,13 +1008,14 @@ export default function ProductionSchedulesPage() {
                       <input
                         className={`${styles.tableInput} ${styles.lotInput}`}
                         disabled
-                        value={post.lotNo || ""}
+                        type="date"
+                        value={post.plannedStartDate || ""}
                         onChange={(e) =>
-                          handlePostChange(post.id, "lotNo", e.target.value)
+                          handlePostChange(post.id, "plannedStartDate", e.target.value)
                         }
                       />
                     ) : (
-                      renderCellText(post.lotNo)
+                      renderCellText(post.plannedStartDate)
                     )}
                   </td>
                   <td>
@@ -1144,13 +1152,14 @@ export default function ProductionSchedulesPage() {
                     <input
                       className={`${styles.tableInput} ${styles.lotInput}`}
                       disabled
-                      value={schedule.lotNo}
+                      type="date"
+                      value={schedule.plannedStartDate || ""}
                       onChange={(e) =>
-                        handleChange(schedule.id, "lotNo", e.target.value)
+                        handleChange(schedule.id, "plannedStartDate", e.target.value)
                       }
                     />
                   ) : (
-                    renderCellText(schedule.lotNo)
+                    renderCellText(schedule.plannedStartDate)
                   )}
                 </td>
                 <td>
@@ -1263,7 +1272,7 @@ export default function ProductionSchedulesPage() {
                   <td>{renderCellText(row.orderNo)}</td>
                   <td>{renderCellText(row.customerName)}</td>
                   <td>{renderCellText(row.productName)}</td>
-                  <td>{renderCellText(row.lotNo)}</td>
+                  <td>{renderCellText(row.plannedStartDate)}</td>
                   <td>{renderCellText(row.quantity)}</td>
                   <td>{renderCellText(row.completedAmount)}</td>
                   <td>{renderCellText(row.completedDate)}</td>
@@ -1289,7 +1298,7 @@ export default function ProductionSchedulesPage() {
                     <td>{renderCellText(row.orderNo)}</td>
                     <td>{renderCellText(row.customerName)}</td>
                     <td>{renderCellText(row.productName)}</td>
-                    <td>{renderCellText(row.lotNo)}</td>
+                    <td>{renderCellText(row.plannedStartDate)}</td>
                     <td>{renderCellText(row.orderAmount)}</td>
                     <td>{renderCellText(row.planAmount || 0)}</td>
                     <td>{renderCellText(row.pressNumber || "-")}</td>

@@ -176,6 +176,7 @@ export type PostData = {
   customerId?: string;
   orderNo: string;
   lotNo?: string;
+  plannedStartDate?: string;
   productCode?: string;
   productName: string;
   customerName: string;
@@ -352,6 +353,7 @@ export type ProductionSchedule = {
   productName: string;
   pressNumber: string;
   lotNo: string;
+  plannedStartDate?: string;
   planAmount: number;
   productPlanAmount?: number;
   pressCompletedAmount: number;

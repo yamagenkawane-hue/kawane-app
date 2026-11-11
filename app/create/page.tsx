@@ -5,6 +5,8 @@ import Link from "next/link";
 import Numpad from "@/app/components/Numpad/Numpad";
 import supabase from "../../lib/supabase";
 import styles from "./page.module.css";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { completionDateForCustomer, plannedStartDateError, productsForCustomer } from "@/lib/orderEntry";
 import { CustomerMaster, ProductMaster } from "../type";
 
 const PRODUCT_SELECT_COLUMNS =
@@ -16,240 +18,103 @@ const Create = () => {
   const [products, setProducts] = useState<ProductMaster[]>([]);
   const [customers, setCustomers] = useState<CustomerMaster[]>([]);
   const [orderNo, setOrderNo] = useState("");
-  const [lotNo, setLotNo] = useState("");
-  const [productCode, setProductCode] = useState("");
-  const [productName, setProductName] = useState("");
-  const [customerName, setCustomerName] = useState("");
+  const [plannedStartDate, setPlannedStartDate] = useState("");
+  const [customerId, setCustomerId] = useState("");
+  const [productId, setProductId] = useState("");
   const [orderAmount, setOrderAmount] = useState("");
-  const [completionScheduledDate, setCompletionScheduledDate] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
   const [remark, setRemark] = useState("");
   const [orderAmountNumpadOpen, setOrderAmountNumpadOpen] = useState(false);
+  const [mastersLoading, setMastersLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const selectedCustomer = customers.find((customer) => customer.id === customerId);
+  const customerProducts = productsForCustomer(products, customers, customerId);
+  const selectedProduct = customerProducts.find((product) => product.id === productId);
+  const productCode = selectedProduct?.productCode || "";
+  const completionScheduledDate = completionDateForCustomer(deliveryDate, selectedCustomer);
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      const [productResult, customerResult] = await Promise.all([
-        supabase
-          .from("v_product_master_with_customer")
-          .select(PRODUCT_SELECT_COLUMNS)
-          .order("product_code", { ascending: true }),
-        supabase
-          .from("customer_master")
-          .select(CUSTOMER_SELECT_COLUMNS)
-          .order("customer_name", { ascending: true }),
-      ]);
-
-      const { data, error } = productResult;
-
-      if (error) {
-        alert("製品マスタの取得に失敗しました");
-        return;
+    let active = true;
+    const fetchMasters = async () => {
+      try {
+        const [productResult, customerResult] = await Promise.all([
+          fetchAllRows((from, to) => supabase.from("v_product_master_with_customer").select(PRODUCT_SELECT_COLUMNS)
+            .order("product_code").order("id").range(from, to)),
+          fetchAllRows((from, to) => supabase.from("customer_master").select(CUSTOMER_SELECT_COLUMNS)
+            .order("customer_name").order("id").range(from, to)),
+        ]);
+        if (productResult.error) throw productResult.error;
+        if (customerResult.error) throw customerResult.error;
+        if (!active) return;
+        setProducts((productResult.data || []).map((row) => ({
+          id: row.id, customerId: row.customer_id || "", productCode: row.product_code || "",
+          productName: row.product_name || "", customerName: row.customer_name || "", standard: row.standard || "",
+          unit: row.unit || "", unitWeight: Number(row.unit_weight || 0),
+        })));
+        setCustomers((customerResult.data || []).map((row) => ({
+          id: row.id, customerName: row.customer_name || "", shippingOffsetDays: Number(row.shipping_offset_days || 0), note: row.note || "",
+        })));
+      } catch (error) {
+        console.error(error);
+        if (active) alert("得意先・製品マスタの取得に失敗しました");
+      } finally {
+        if (active) setMastersLoading(false);
       }
-
-      if (customerResult.error) {
-        alert("得意先マスタの取得に失敗しました");
-        return;
-      }
-
-      setProducts(
-        (data || []).map((row) => ({
-          id: row.id,
-          customerId: row.customer_id || "",
-          productCode: row.product_code || "",
-          productName: row.product_name || "",
-          customerName: row.customer_name || "",
-          standard: row.standard || "",
-          unit: row.unit || "",
-          unitWeight: Number(row.unit_weight || 0),
-        })),
-      );
-
-      setCustomers(
-        (customerResult.data || []).map((row) => ({
-          id: row.id,
-          customerName: row.customer_name || "",
-          shippingOffsetDays: row.shipping_offset_days || 0,
-          note: row.note || "",
-        })),
-      );
     };
-
-    void fetchProducts();
+    void fetchMasters();
+    return () => { active = false; };
   }, []);
 
-  const calculateCompletionScheduledDate = (
-    nextDeliveryDate: string,
-    nextCustomerName: string,
-  ) => {
-    if (!nextDeliveryDate || !nextCustomerName) return "";
-
-    const customer = customers.find(
-      (item) => item.customerName === nextCustomerName,
-    );
-    const offsetDays = Number(customer?.shippingOffsetDays || 0);
-    const date = new Date(`${nextDeliveryDate}T00:00:00`);
-    date.setDate(date.getDate() - offsetDays);
-
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
+  const handleCustomerChange = (value: string) => {
+    setCustomerId(value);
+    setProductId("");
   };
-
-  const handleProductCodeChange = (value: string) => {
-    const selectedProduct = products.find(
-      (product) => product.productCode === value,
-    );
-    applySelectedProduct(selectedProduct);
-  };
-
-  const handleProductNameChange = (value: string) => {
-    const selectedProduct = products.find(
-      (product) => product.id === value || product.productName === value,
-    );
-    applySelectedProduct(selectedProduct);
-  };
-
-  const applySelectedProduct = (selectedProduct?: ProductMaster) => {
-    if (!selectedProduct) {
-      setProductCode("");
-      setProductName("");
-      setCustomerName("");
-      return;
-    }
-
-    setProductCode(selectedProduct.productCode);
-    setProductName(selectedProduct.productName);
-    setCustomerName(selectedProduct.customerName);
-    setCompletionScheduledDate(
-      calculateCompletionScheduledDate(
-        deliveryDate,
-        selectedProduct.customerName,
-      ),
-    );
-  };
-
-  const handleDeliveryDateChange = (value: string) => {
-    setDeliveryDate(value);
-    setCompletionScheduledDate(
-      calculateCompletionScheduledDate(value, customerName),
-    );
-  };
-
-  const handleCsvImportClick = () => {
-    alert("CSV入力機能は今後追加予定です。");
-  };
+  const handleCsvImportClick = () => alert("CSV入力機能は今後追加予定です。");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving || mastersLoading) return;
     const normalizedOrderAmount = Number(orderAmount);
     const normalizedOrderNo = orderNo.trim();
-
-    if (
-      !normalizedOrderNo ||
-      !productCode ||
-      !productName ||
-      !customerName ||
-      !completionScheduledDate ||
-      !deliveryDate ||
-      orderAmount === "" ||
-      !Number.isInteger(normalizedOrderAmount) ||
-      normalizedOrderAmount <= 0
-    ) {
+    if (!normalizedOrderNo || !selectedCustomer || !selectedProduct || !productCode || !completionScheduledDate
+      || !deliveryDate || !orderAmount || !Number.isInteger(normalizedOrderAmount) || normalizedOrderAmount <= 0) {
       alert("必須項目を入力してください");
       return;
     }
-
-    const now = new Date().toISOString();
-    const selectedProduct = products.find(
-      (product) =>
-        product.productCode === productCode &&
-        product.productName === productName,
-    );
-    const selectedCustomer = customers.find(
-      (customer) => customer.customerName === customerName,
-    );
-
-    const { data: existingOrder, error: existingOrderError } = await supabase
-      .from("posts")
-      .select("id")
-      .eq("order_no", normalizedOrderNo)
-      .maybeSingle();
-
-    if (existingOrderError) {
-      console.error("Supabase duplicate check error:", existingOrderError);
-      alert("注番の重複確認に失敗しました");
-      return;
-    }
-
-    if (existingOrder) {
-      alert("同じ注番がすでに登録されています");
-      return;
-    }
-
-    const { data: insertedPost, error } = await supabase.from("posts").insert({
-      order_no: normalizedOrderNo,
-      lot_no: lotNo,
-      product_code: productCode,
-      product_name: productName,
-      product_id: selectedProduct?.id || null,
-      customer_name: customerName,
-      customer_id: selectedProduct?.customerId || selectedCustomer?.id || null,
-      order_amount: normalizedOrderAmount,
-      completion_scheduled_date: completionScheduledDate,
-      delivery_date: deliveryDate,
-      remark,
-      status: "未着手",
-      delete: false,
-      created_at: now,
-      updated_at: now,
-    }).select("id").single();
-
-    if (error) {
-      if (error.code === "23505") {
-        alert("同じ注番がすでに登録されています");
-        return;
+    const dateError = plannedStartDateError(plannedStartDate, completionScheduledDate, deliveryDate);
+    if (dateError) { alert(dateError); return; }
+    try {
+      setSaving(true);
+      const { data: existingOrder, error: duplicateError } = await supabase.from("posts").select("id")
+        .eq("order_no", normalizedOrderNo).maybeSingle();
+      if (duplicateError) throw duplicateError;
+      if (existingOrder) { alert("同じ注番がすでに登録されています"); return; }
+      const now = new Date().toISOString();
+      const { data: insertedPost, error } = await supabase.from("posts").insert({
+        order_no: normalizedOrderNo,
+        planned_start_date: plannedStartDate || null,
+        product_code: selectedProduct.productCode, product_name: selectedProduct.productName, product_id: selectedProduct.id,
+        customer_name: selectedCustomer.customerName, customer_id: selectedCustomer.id,
+        order_amount: normalizedOrderAmount, completion_scheduled_date: completionScheduledDate, delivery_date: deliveryDate,
+        remark, status: "未着手", delete: false, created_at: now, updated_at: now,
+      }).select("id").single();
+      if (error) throw error;
+      if (insertedPost?.id) {
+        const { error: processError } = await supabase.rpc("create_order_processes_for_post", { p_post_id: insertedPost.id });
+        if (processError) {
+          console.error(processError);
+          alert("受注は登録しましたが、工程予定の自動作成に失敗しました。受注別工程管理で確認してください。");
+          return;
+        }
       }
-
-      console.error("Supabase insert error:", {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint,
-      });
-      alert(
-        `登録に失敗しました\n\ncode: ${error.code}\nmessage: ${error.message}`,
-      );
-      return;
-    }
-
-    if (insertedPost?.id) {
-      const { error: processError } = await supabase.rpc(
-        "create_order_processes_for_post",
-        { p_post_id: insertedPost.id },
-      );
-
-      if (processError) {
-        console.error("Supabase order process create error:", processError);
-        alert(
-          `受注は登録しましたが、工程予定の自動作成に失敗しました。\n\nmessage: ${processError.message}`,
-        );
-        return;
-      }
-    }
-
-    alert("製品を登録しました");
-
-    setOrderNo("");
-    setLotNo("");
-    setProductCode("");
-    setProductName("");
-    setCustomerName("");
-    setOrderAmount("");
-    setCompletionScheduledDate("");
-    setDeliveryDate("");
-    setRemark("");
+      alert("受注を登録しました");
+      setOrderNo(""); setPlannedStartDate(""); setCustomerId(""); setProductId("");
+      setOrderAmount(""); setDeliveryDate(""); setRemark("");
+    } catch (error) {
+      console.error(error);
+      const fields = typeof error === "object" && error !== null ? error as Record<string, unknown> : {};
+      alert(fields.code === "23505" ? "同じ注番がすでに登録されています" : "受注の登録に失敗しました。入力内容を確認してください。");
+    } finally { setSaving(false); }
   };
 
   return (
@@ -287,61 +152,31 @@ const Create = () => {
           />
         </div>
 
-        {/* 製品コード */}
         <div className={styles.formGroup}>
-          <label>ロットNo</label>
-          <input
-            type="text"
-            value={lotNo}
-            onChange={(e) => setLotNo(e.target.value)}
-            placeholder="0001 / T-0001 / S-0001"
-          />
+          <label htmlFor="planned-start-date">開始予定日</label>
+          <input id="planned-start-date" type="date" value={plannedStartDate}
+            max={completionScheduledDate || deliveryDate || undefined}
+            onChange={(e) => setPlannedStartDate(e.target.value)} disabled={saving} />
         </div>
-
-        {/* 製品コード */}
         <div className={styles.formGroup}>
-          <label>製品コード</label>
-          <select
-            value={productCode}
-            onChange={(e) => handleProductCodeChange(e.target.value)}
-            required
-          >
-            <option value="">製品コードを選択</option>
-            {products.map((product) => (
-              <option key={product.id} value={product.productCode}>
-                {product.productCode}
-              </option>
-            ))}
+          <label htmlFor="customer-id">得意先名</label>
+          <select id="customer-id" value={customerId} onChange={(e) => handleCustomerChange(e.target.value)}
+            required disabled={mastersLoading || saving}>
+            <option value="">得意先名を選択</option>
+            {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.customerName}</option>)}
           </select>
         </div>
-
-        {/* 製品名 */}
         <div className={styles.formGroup}>
-          <label>製品名</label>
-          <select
-            value={productName}
-            onChange={(e) => handleProductNameChange(e.target.value)}
-            required
-          >
-            <option value="">製品名を選択</option>
-            {products.map((product) => (
-              <option key={product.id} value={product.productName}>
-                {product.productName}
-              </option>
-            ))}
+          <label htmlFor="product-id">製品名</label>
+          <select id="product-id" value={productId} onChange={(e) => setProductId(e.target.value)}
+            required disabled={!selectedCustomer || mastersLoading || saving}>
+            <option value="">{!selectedCustomer ? "先に得意先名を選択" : customerProducts.length ? "製品名を選択" : "該当する製品がありません"}</option>
+            {customerProducts.map((product) => <option key={product.id} value={product.id}>{product.productName} / {product.productCode}</option>)}
           </select>
         </div>
-
-        {/* 客先名 */}
         <div className={styles.formGroup}>
-          <label>得意先名</label>
-          <input
-            type="text"
-            value={customerName}
-            readOnly
-            placeholder="株式会社○○"
-            required
-          />
+          <label htmlFor="product-code">製品コード</label>
+          <input id="product-code" type="text" value={productCode} readOnly placeholder="製品を選択すると自動入力" />
         </div>
 
         {/* 受注数量 */}
@@ -376,7 +211,7 @@ const Create = () => {
           <input
             type="date"
             value={deliveryDate}
-            onChange={(e) => handleDeliveryDateChange(e.target.value)}
+            onChange={(e) => setDeliveryDate(e.target.value)}
             required
           />
         </div>
@@ -392,8 +227,8 @@ const Create = () => {
         </div>
 
         {/* 登録ボタン */}
-        <button type="submit" className={styles.submitButton}>
-          登録
+        <button type="submit" className={styles.submitButton} disabled={saving || mastersLoading || !selectedProduct}>
+          {saving ? "登録中…" : "登録"}
         </button>
       </form>
 

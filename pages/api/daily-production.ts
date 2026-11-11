@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 
 
 const DAILY_PRODUCTION_SELECT_COLUMNS =
-  "id,product_id,customer_id,delete,order_no,lot_no,product_code,product_name,customer_name,order_amount,remaining_amount,status,delivery_date,completion_scheduled_date,remark,created_at,updated_at,shipping_scheduled_start,shipping_scheduled_end";
+  "id,product_id,customer_id,delete,order_no,lot_no,planned_start_date,product_code,product_name,customer_name,order_amount,remaining_amount,status,delivery_date,completion_scheduled_date,remark,created_at,updated_at,shipping_scheduled_start,shipping_scheduled_end";
 
 const toToday = () =>
   new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });

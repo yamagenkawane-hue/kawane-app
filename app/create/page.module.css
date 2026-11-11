@@ -157,3 +157,9 @@
     grid-template-columns: 1fr;
   }
 }
+.submitButton:disabled,
+.submitButton:disabled:hover {
+  background: #94a3b8;
+  box-shadow: none;
+  cursor: not-allowed;
+}

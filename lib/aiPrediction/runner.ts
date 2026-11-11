@@ -1,3 +1,4 @@
+import { manufacturingPlannedStart } from "@/lib/orderEntry";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { mergeRetainedResults } from "@/lib/historyRetention";
 import { actualDate, processActuals, PREDICTION_DATE_VERSION } from "./actuals";
@@ -267,7 +268,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
       await Promise.all([
         supabaseAdmin
           .from("posts")
-          .select("id,order_no,product_id,product_name,order_amount,delivery_date,delete")
+          .select("id,order_no,product_id,product_name,order_amount,delivery_date,delete,planned_start_date")
           .eq("delete", false).is("shipment_closed_at", null),
         supabaseAdmin.from("order_processes").select("*"),
         fetchProductionResults(),
@@ -277,7 +278,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
         supabaseAdmin.from("process_master").select("id,process_id,name,outsourcing,enabled"),
         supabaseAdmin.from("company_calendar").select("date,is_holiday"),
         supabaseAdmin.from("ai_prediction_reference_starts").select("product_id,process_id,press_number,subcontractor_id,reference_start_date"),
-        supabaseAdmin.from("production_schedules").select("post_id,order_no,press_number,shipping_scheduled_start,department,created_at").eq("department", "製造G").order("created_at", { ascending: false }),
+        supabaseAdmin.from("production_schedules").select("post_id,order_no,press_number,planned_start_date,shipping_scheduled_start,department,created_at").eq("department", "製造G").order("created_at", { ascending: false }),
         supabaseAdmin.from("subcontractors").select("id,name"),
         supabaseAdmin.from("product_processes").select("id,overlap_days"),
       ]);
@@ -384,7 +385,7 @@ export async function runAiPrediction(triggerType: "manual" | "scheduled") {
           (!schedule.post_id && textValue(schedule.order_no) === textValue(post.order_no)),
       );
       const pressNumber = textValue(manufacturingSchedule?.press_number) || null;
-      const plannedStartDate = textValue(manufacturingSchedule?.shipping_scheduled_start).slice(0, 10) || null;
+      const plannedStartDate = manufacturingPlannedStart(post.planned_start_date, manufacturingSchedule?.planned_start_date, manufacturingSchedule?.shipping_scheduled_start);
       const currentProcessResults = resultsByProcess.get(textValue(process.id)) || [];
       const lastActualDate = currentProcessResults
         .map((result) => textValue(result.date).slice(0, 10))

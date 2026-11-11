@@ -28,6 +28,13 @@ function loadRunner(db, fetchImpl, env = {}) {
   const context = {
     exports: {}, process: { env }, fetch: fetchImpl,
     require(name) {
+      if (name === '@/lib/orderEntry') {
+        const orderContext = { exports: {} };
+        vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/orderEntry.ts','utf8'), {
+          compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+        }).outputText, orderContext);
+        return orderContext.exports;
+      }
       if (name === './actuals') return actualContext.exports;
       if (name === './legacy') return legacyContext.exports;
       if(name==='@/lib/historyRetention') return {mergeRetainedResults:(live,retained)=>[...new Map([...retained,...live].map(row=>[row.id,row])).values()]};
@@ -267,6 +274,16 @@ async function offline() {
   });
   await test('no Gemini key needed when no history qualifies', async () => {
     assert.equal((await helpers.fetchGeminiPredictions([])).size, 0);
+  });
+  await test('order planned start precedes schedule and legacy date without Gemini calls', async () => {
+    const f = fixture();
+    f.tables.posts[0].planned_start_date = '2098-12-03';
+    f.tables.production_schedules = [{ post_id: 'synthetic-order', department: '製造G', planned_start_date: '2098-11-01', shipping_scheduled_start: '2098-10-01' }];
+    await loadRunner(f.db, noFetch).runAiPrediction('scheduled');
+    const inputs = f.calls.find(c => c.table === 'ai_prediction_input_snapshots' && c.operation === 'insert').payload;
+    assert.equal(inputs[0].aggregate_data.plannedStartDate, '2098-12-03');
+    const latest = f.calls.find(c => c.table === 'ai_prediction_latest' && c.operation === 'upsert').payload;
+    assert.ok(latest[0].predicted_start_date >= '2098-12-03');
   });
   await test('capacity prediction and evaluation survive history cleanup', async () => {
     const f = fixture();
