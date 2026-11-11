@@ -269,7 +269,7 @@ export default function ProductionSchedulesPage() {
     LotProcessBalanceRow[]
   >([]);
   const [selectedDepartment, setSelectedDepartment] =
-    useState<DepartmentFilter>("製造G");
+    useState<DepartmentFilter>("全て");
   const [form, setForm] = useState(emptyForm);
   const [appliedSearch, setAppliedSearch] = useState<ScheduleSearch>({
     orderNo: "",
