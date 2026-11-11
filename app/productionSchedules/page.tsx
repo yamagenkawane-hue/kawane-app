@@ -75,6 +75,7 @@ type NumpadTarget =
   | { kind: "schedule"; id: string; field: "planAmount" | "pressCompletedAmount" };
 
 type AllDepartmentEdit = {
+  manufacturingCompletedDate: string;
   qualityCompletedDate: string;
   shippingCompletedDate: string;
 };
@@ -589,6 +590,7 @@ export default function ProductionSchedulesPage() {
       ...prev,
       [postId]: {
         ...(prev[postId] || {
+          manufacturingCompletedDate: "",
           qualityCompletedDate: "",
           shippingCompletedDate: "",
         }),
@@ -651,6 +653,7 @@ export default function ProductionSchedulesPage() {
 
     try {
       setLoading(true);
+      await saveDepartmentDate("製造G", edit.manufacturingCompletedDate);
       await saveDepartmentDate("品質管理G", edit.qualityCompletedDate);
       await saveDepartmentDate("梱包出荷G", edit.shippingCompletedDate);
 
@@ -768,6 +771,8 @@ export default function ProductionSchedulesPage() {
       manufacturingCompletedDate: datesForDepartment("製造G"),
       qualityCompletedDate: datesForDepartment("品質管理G"),
       shippingCompletedDate: datesForDepartment("梱包出荷G"),
+      manufacturingScheduleDate:
+        scheduleForDepartment("製造G")?.pressCompletedDate || "",
       qualityScheduleDate:
         scheduleForDepartment("品質管理G")?.pressCompletedDate || "",
       shippingScheduleDate:
@@ -1286,6 +1291,7 @@ export default function ProductionSchedulesPage() {
               allDepartmentRows.map((row) => {
                 const editing = isEditing("all", row.id);
                 const edit = allDepartmentEdits[row.id] || {
+                  manufacturingCompletedDate: row.manufacturingScheduleDate,
                   qualityCompletedDate: row.qualityScheduleDate,
                   shippingCompletedDate: row.shippingScheduleDate,
                 };
@@ -1303,12 +1309,25 @@ export default function ProductionSchedulesPage() {
                     <td>{renderCellText(row.planAmount || 0)}</td>
                     <td>{renderCellText(row.pressNumber || "-")}</td>
                     <td>{renderCellText("-")}</td>
-                    <td>{renderCellText(row.manufacturingCompletedDate)}</td>
                     <td>
                       {editing ? (
                         <input
                           className={`${styles.tableInput} ${styles.dateInput}`}
                           type="date"
+                          aria-label="製造Gの完了予定日"
+                          value={edit.manufacturingCompletedDate}
+                          onChange={(e) => handleAllDepartmentChange(row.id, "manufacturingCompletedDate", e.target.value)}
+                        />
+                      ) : (
+                        renderCellText(row.manufacturingCompletedDate)
+                      )}
+                    </td>
+                    <td>
+                      {editing ? (
+                        <input
+                          className={`${styles.tableInput} ${styles.dateInput}`}
+                          type="date"
+                          aria-label="品質管理Gの完了予定日"
                           value={edit.qualityCompletedDate}
                           onChange={(e) =>
                             handleAllDepartmentChange(
@@ -1327,6 +1346,7 @@ export default function ProductionSchedulesPage() {
                         <input
                           className={`${styles.tableInput} ${styles.dateInput}`}
                           type="date"
+                          aria-label="梱包出荷Gの完了予定日"
                           value={edit.shippingCompletedDate}
                           onChange={(e) =>
                             handleAllDepartmentChange(
@@ -1361,6 +1381,7 @@ export default function ProductionSchedulesPage() {
                             setAllDepartmentEdits((prev) => ({
                               ...prev,
                               [row.id]: {
+                                manufacturingCompletedDate: row.manufacturingScheduleDate,
                                 qualityCompletedDate: row.qualityScheduleDate,
                                 shippingCompletedDate: row.shippingScheduleDate,
                               },

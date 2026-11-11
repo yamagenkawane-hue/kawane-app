@@ -104,8 +104,19 @@ const balances = ['検査', '梱包'].map((name, i) => ({ ...base, id: `balance-
 const search = { orderNo: '', customerName: '', productName: '', pressNumber: '', plannedStartDate: '' };
 const sValues = [[schedule], posts, balances, '製造G', { ...search }, { ...search }, false, null, null, {}, false];
 const sh = hooks(sValues);
+const scheduleWrites = [];
+const scheduleDB = { from(table) {
+  let operation = 'read', payload, id;
+  const query = { select() { return query; }, order() { return query; }, or() { return query; }, eq(key, value) { if (key === 'id') id = value; return query; },
+    insert(value) { operation = 'insert'; payload = value; return query; }, update(value) { operation = 'update'; payload = value; return query; },
+    then(resolve, reject) {
+      if (operation !== 'read') scheduleWrites.push({ table, operation, payload, id });
+      return Promise.resolve({ data: [], error: null }).then(resolve, reject);
+    },
+  }; return query;
+} };
 const Schedules = load('app/productionSchedules/page.tsx', { react: sh.react,
-  '@/lib/supabase': { __esModule: true, default: {} }, '@/lib/auth/client': {},
+  '@/lib/supabase': { __esModule: true, default: scheduleDB }, '@/lib/auth/client': { authFetch: async () => ({ ok: true, json: async () => [] }) },
   '@/app/components/Numpad/Numpad': { __esModule: true, default: () => null },
 }).default;
 function renderSchedules() { sh.reset(); return renderToStaticMarkup(Schedules()); }
@@ -116,4 +127,44 @@ for (const department of ['製造G', '品質管理G', '梱包出荷G', '全て']
 }
 sValues[3] = '製造G'; sValues[5] = { ...search, plannedStartDate: '2026-12-04' };
 const filtered = renderSchedules(); check(filtered.includes('2026-12-04'), true); check(filtered.includes('2026-12-03'), false);
+// All-department edit must update/create the manufacturing schedule without changing actual quantities.
+function scheduleTree() { sh.reset(); return Schedules(); }
+function button(tree, label) { return nodes(tree).find((node) => node.type === 'button' && node.props.children === label); }
+function input(tree, label) { return nodes(tree).find((node) => node.type === 'input' && node.props['aria-label'] === label); }
+function resetSchedules(schedules) {
+  sValues[0] = schedules; sValues[1] = [posts[0]]; sValues[2] = []; sValues[3] = '全て';
+  sValues[5] = { ...search }; sValues[8] = null; sValues[9] = {}; scheduleWrites.length = 0;
+}
+resetSchedules([
+  { ...schedule, pressCompletedDate: '2026-12-04' },
+  { ...schedule, id: 'quality', department: '品質管理G', pressCompletedDate: '2026-12-05' },
+  { ...schedule, id: 'shipping', department: '梱包出荷G', pressCompletedDate: '2026-12-06' },
+]);
+let editTree = scheduleTree(); button(editTree, '編集').props.onClick(); editTree = scheduleTree();
+check(input(editTree, '製造Gの完了予定日').props.value, '2026-12-04');
+input(editTree, '製造Gの完了予定日').props.onChange({ target: { value: '2026-12-07' } }); editTree = scheduleTree();
+check(input(editTree, '製造Gの完了予定日').props.value, '2026-12-07');
+await button(editTree, '保存').props.onClick();
+check(scheduleWrites.length, 3);
+check(scheduleWrites.find((write) => write.id === 'schedule').payload.press_completed_date, '2026-12-07');
+check(scheduleWrites.find((write) => write.id === 'quality').payload.press_completed_date, '2026-12-05');
+check(scheduleWrites.find((write) => write.id === 'shipping').payload.press_completed_date, '2026-12-06');
+check(scheduleWrites.every((write) => write.operation === 'update' && !Object.hasOwn(write.payload, 'press_completed_amount')), true);
+resetSchedules([{ ...schedule, pressCompletedDate: '2026-12-04' }]);
+editTree = scheduleTree(); button(editTree, '編集').props.onClick(); editTree = scheduleTree();
+input(editTree, '製造Gの完了予定日').props.onChange({ target: { value: '' } }); editTree = scheduleTree();
+await button(editTree, '保存').props.onClick();
+check(scheduleWrites.length, 1); check(scheduleWrites[0].payload.press_completed_date, null);
+resetSchedules([]);
+editTree = scheduleTree(); button(editTree, '編集').props.onClick(); editTree = scheduleTree();
+check(input(editTree, '製造Gの完了予定日').props.value, '');
+input(editTree, '製造Gの完了予定日').props.onChange({ target: { value: '2026-12-08' } }); editTree = scheduleTree();
+await button(editTree, '保存').props.onClick();
+check(scheduleWrites.length, 1); check(scheduleWrites[0].operation, 'insert');
+check(scheduleWrites[0].payload.department, '製造G'); check(scheduleWrites[0].payload.post_id, 'p1');
+check(scheduleWrites[0].payload.press_completed_date, '2026-12-08'); check(scheduleWrites[0].payload.press_completed_amount, 0);
+check(scheduleWrites[0].payload.planned_start_date, '2026-12-03');
+resetSchedules([]); editTree = scheduleTree(); button(editTree, '編集').props.onClick(); editTree = scheduleTree();
+input(editTree, '製造Gの完了予定日').props.onChange({ target: { value: '2026-12-08' } }); editTree = scheduleTree();
+await button(editTree, 'キャンセル').props.onClick(); check(scheduleWrites.length, 0);
 console.log(JSON.stringify({ mode: 'offline customer/product selection, order submission, planned dates and department schedules', passed }));
