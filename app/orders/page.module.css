@@ -37,6 +37,12 @@
   background: #1d4ed8;
 }
 
+.historyButton { left: auto; right: 0; }
+@media (max-width: 800px) {
+  .headerArea { flex-wrap: wrap; gap: 16px; }
+  .headerArea .backButton { position: static; }
+}
+
 .tableWrapper {
   overflow-x: auto;
   border-radius: 12px;

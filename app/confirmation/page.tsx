@@ -10,7 +10,7 @@ import { usePagination } from "../utills/usePagination";
 import ConfirmationTable from "../components/ConfirmationTable/ConfirmationTable";
 import ManagerSearchForm from "../components/ManagerSearchForm/ManagerSearchForm";
 // import ManagerReservationList from "../components/ManagerReservationList/ManagerReservationList";
-import supabase from "../../lib/supabase";
+import { useOrderCancellation } from "@/app/components/OrderCancellation/useOrderCancellation";
 
 const itemsPerPage = 15;
 
@@ -56,27 +56,11 @@ const Confirmation = () => {
 
   const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
 
+  const { openCancellation, cancellationDialog } = useOrderCancellation(() => {
+    setSelectedIndexes([]); setShouldFetch(true);
+  });
   const handleBulkDelete = async () => {
-    if (window.confirm("選択した注番の誤登録を取り消します。実績などがある注番は取消できません。在庫は減算されません。よろしいですか？")) {
-      const deleteTargets = selectedIndexes.map(
-        (index) => filteredPosts[index],
-      );
-
-      const ids = deleteTargets.map((post) => post.id);
-
-      for (const id of ids) {
-        const { error } = await supabase.rpc("soft_delete_order_post", { p_post_id: id });
-        if (error) {
-          alert(`取消処理を中断しました。先に処理した注番の取消は完了しています。${error.message}`);
-          setSelectedIndexes([]);
-          setShouldFetch(true);
-          return;
-        }
-      }
-
-      setSelectedIndexes([]);
-      setShouldFetch(true);
-    }
+    openCancellation(selectedIndexes.map(index => filteredPosts[index]).filter(Boolean).map(post => ({ id: post.id, label: post.orderNo || "注番" })));
   };
 
   const isAllSelected = paginatedPosts.every((_, i) =>
@@ -105,7 +89,8 @@ const Confirmation = () => {
 
   return (
     <>
-      <div className={styles.reservationImg}>
+      {cancellationDialog}
+    <div className={styles.reservationImg}>
         <Link href="/" className={styles.topPageLink}>
           <button className={styles.topPageButton}>トップページに戻る</button>
         </Link>

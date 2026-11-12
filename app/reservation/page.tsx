@@ -248,7 +248,7 @@ const Reservation = () => {
     progressGroupSummaryMap,
   );
 
-  const handleDelete = useReservationDelete(setShouldFetch);
+  const { handleDelete, cancellationDialog } = useReservationDelete(setShouldFetch);
 
   const registerOutsourceAndTransfer = async (request: OutsourceTransferRequest, amount: number, dates: OutsourceTransferDates, scheduleId?: string) => {
     const { data: moved, error } = await supabase.rpc("register_outsource_progress", {
@@ -439,6 +439,7 @@ const Reservation = () => {
 
   return (
     <>
+      {cancellationDialog}
       {outsourceTransfer && <OutsourceTransferDialog request={outsourceTransfer}
         today={new Intl.DateTimeFormat("en-CA", {timeZone: "Asia/Tokyo",year: "numeric",month: "2-digit",day: "2-digit"}).format(new Date())}
         onCancel={() => setOutsourceTransfer(null)}

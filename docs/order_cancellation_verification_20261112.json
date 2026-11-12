@@ -1,0 +1,386 @@
+{
+  "scope": "synthetic and offline only",
+  "reports": [
+    {
+      "file": "verify-ai-prediction.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "offline",
+        "tests": [
+          {
+            "name": "legacy excludes weekends and company holidays",
+            "status": "passed"
+          },
+          {
+            "name": "legacy honors explicitly working Saturday",
+            "status": "passed"
+          },
+          {
+            "name": "legacy process overlap never starts before preceding start",
+            "status": "passed"
+          },
+          {
+            "name": "legacy partially completed process uses next business day after actual",
+            "status": "passed"
+          },
+          {
+            "name": "legacy completed process preserves actual completion",
+            "status": "passed"
+          },
+          {
+            "name": "legacy ignores unrelated logs and preserves missing capacity fallback",
+            "status": "passed"
+          },
+          {
+            "name": "legacy accepts older processId-linked results",
+            "status": "passed"
+          },
+          {
+            "name": "completed without date remains completed without fabricated dates",
+            "status": "passed"
+          },
+          {
+            "name": "partial logs do not establish full completion date",
+            "status": "passed"
+          },
+          {
+            "name": "missing predecessor date blocks unstarted successor",
+            "status": "passed"
+          },
+          {
+            "name": "invalid calendar dates are rejected",
+            "status": "passed"
+          },
+          {
+            "name": "completed unknown date never calls Gemini or consumes capacity",
+            "status": "passed"
+          },
+          {
+            "name": "runner honors company working Saturday",
+            "status": "passed"
+          },
+          {
+            "name": "internal history does not use record creation as start",
+            "status": "passed"
+          },
+          {
+            "name": "retained actuals preserve AI inputs and deduplicate restored detail",
+            "status": "passed"
+          },
+          {
+            "name": "expired retained samples are excluded and compact details cleared",
+            "status": "passed"
+          },
+          {
+            "name": "old snapshots and changed actual dates are rejected",
+            "status": "passed"
+          },
+          {
+            "name": "gantt renders missing dates without fictitious actual bar",
+            "status": "passed"
+          },
+          {
+            "name": "invalid outsourcing date range cannot qualify as history",
+            "status": "passed"
+          },
+          {
+            "name": "runner saves separate AI and legacy dates",
+            "status": "passed"
+          },
+          {
+            "name": "legacy results after the first 1000 rows are included",
+            "status": "passed"
+          },
+          {
+            "name": "weekend and company holiday excluded",
+            "status": "passed"
+          },
+          {
+            "name": "outsourcing uses calendar days",
+            "status": "passed"
+          },
+          {
+            "name": "zero-day offset rolls holiday forward",
+            "status": "passed"
+          },
+          {
+            "name": "signed business day error",
+            "status": "passed"
+          },
+          {
+            "name": "no Gemini key needed when no history qualifies",
+            "status": "passed"
+          },
+          {
+            "name": "order planned start precedes schedule and legacy date without Gemini calls",
+            "status": "passed"
+          },
+          {
+            "name": "capacity prediction and evaluation survive history cleanup",
+            "status": "passed"
+          },
+          {
+            "name": "zero capacity replaces stale latest with unavailable",
+            "status": "passed"
+          },
+          {
+            "name": "evaluation lead time uses actual completion and Japanese prediction date",
+            "status": "passed"
+          },
+          {
+            "name": "invalid fractional Gemini duration rejected",
+            "status": "passed"
+          }
+        ]
+      }
+    },
+    {
+      "file": "verify-allocation-progress.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "synthetic shipping regression and allocation progress guard",
+        "passed": 104
+      }
+    },
+    {
+      "file": "verify-auth-api.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "offline API authorization",
+        "passed": 47
+      }
+    },
+    {
+      "file": "verify-auth-db.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "in-memory PostgreSQL",
+        "passed": 69
+      }
+    },
+    {
+      "file": "verify-calendar-import.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "real XLSX/XLS/CSV parsing, atomic RPC and retry UI",
+        "passed": 35
+      }
+    },
+    {
+      "file": "verify-history-retention.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "isolated retention deletion/restore/auth regression",
+        "passed": 51
+      }
+    },
+    {
+      "file": "verify-inventory-visibility-db.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "synthetic in-memory PostgreSQL",
+        "passed": 64
+      }
+    },
+    {
+      "file": "verify-inventory-visibility.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "inventory availability list, no physical deletion, restored visibility, edits and pagination",
+        "passed": 20
+      }
+    },
+    {
+      "file": "verify-order-cancellation-api.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "manager password, impersonation prevention, rate limit, session cleanup and atomic RPC API",
+        "passed": 42
+      }
+    },
+    {
+      "file": "verify-order-cancellation-db.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "synthetic atomic order cancellation audit, retries, guards, RLS and bypass prevention",
+        "passed": 23
+      }
+    },
+    {
+      "file": "verify-order-cancellation-ui.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "masked password dialog, no-password prevention, retry key, double-click guard and 30-row history",
+        "passed": 23
+      }
+    },
+    {
+      "file": "verify-order-entry-ui.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "offline customer/product selection, order submission, planned dates and department schedules",
+        "passed": 74
+      }
+    },
+    {
+      "file": "verify-order-navigation.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "order context encoding and identity selection",
+        "passed": 11
+      }
+    },
+    {
+      "file": "verify-order-start-db.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "isolated planned-start schema, view identity, date limits and old/new archive restoration",
+        "passed": 27
+      }
+    },
+    {
+      "file": "verify-outsource-registration.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "in-memory PostgreSQL",
+        "passed": 91
+      }
+    },
+    {
+      "file": "verify-outsource-remainders.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "in-memory PostgreSQL",
+        "passed": 50
+      }
+    },
+    {
+      "file": "verify-outsource-transfer.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "in-memory PostgreSQL",
+        "passed": 25
+      }
+    },
+    {
+      "file": "verify-preproduction-api.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "offline API input, auth outages, paging boundaries and unconfigured LINE",
+        "passed": 188
+      }
+    },
+    {
+      "file": "verify-preproduction-db.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "isolated PostgreSQL 18, five independent sessions, rollback and workflow boundaries",
+        "passed": 48
+      }
+    },
+    {
+      "file": "verify-product-lot-identity.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "synthetic product/lot identity, stock, shipping reversal and retention",
+        "passed": 70
+      }
+    },
+    {
+      "file": "verify-product-lot-ui.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "offline manufacturing submission, retry identity and lot-detail history loading",
+        "passed": 18
+      }
+    },
+    {
+      "file": "verify-progress-shipping-ui.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "offline React rendering and API",
+        "passed": 156
+      }
+    },
+    {
+      "file": "verify-retention-input-ui.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "retention keypad fields, explicit save, numeric limits and file-picker styles",
+        "passed": 43
+      }
+    },
+    {
+      "file": "verify-safe-shipping.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "synthetic in-memory PostgreSQL",
+        "passed": 55
+      }
+    },
+    {
+      "file": "verify-ship-before-cutoff.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "isolated shipment closure, audit, allocation release, rollback and permissions",
+        "passed": 103
+      }
+    },
+    {
+      "file": "verify-shipment-closure-api.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "shipment closure API and outstanding-order visibility",
+        "passed": 37
+      }
+    },
+    {
+      "file": "verify-shipment-closure-db.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "isolated shipment closure, audit, allocation release, rollback and permissions",
+        "passed": 35
+      }
+    },
+    {
+      "file": "verify-shipment-history-quantities.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "order quantity, 50+49 shipments, per-cutoff quantity, cancellations and multi-lot history",
+        "passed": 18
+      }
+    },
+    {
+      "file": "verify-shipment-restoration-db.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "isolated shipment closure, audit, allocation release, rollback and permissions",
+        "passed": 57
+      }
+    },
+    {
+      "file": "verify-shipment-restoration-ui.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "restore history UI, confirmation, retry guard and pagination",
+        "passed": 26
+      }
+    },
+    {
+      "file": "verify-shipping-quantities.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "original shipping UI with stock-capped defaults and narrow input",
+        "passed": 53
+      }
+    },
+    {
+      "file": "verify-transfer-dates.mjs",
+      "exit": 0,
+      "result": {
+        "mode": "in-memory PostgreSQL",
+        "passed": 11
+      }
+    }
+  ]
+}

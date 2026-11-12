@@ -37,7 +37,7 @@ const posts=Array.from({length:9},(_,i)=>({...base,id:`post${i}`,orderNo:`A-${i+
 const mocks={
   "@/lib/supabase":{__esModule:true,default:{}},
   "../utills/useFetchPosts":{useFetchPosts:()=>({posts,setShouldFetch:()=>{}})},
-  "../utills/useReservationDelete":{useReservationDelete:()=>()=>{}},
+  "../utills/useReservationDelete":{useReservationDelete:()=>({handleDelete:()=>{},cancellationDialog:null})},
 };
 const Page=load("app/reservation/page.tsx",mocks).default;
 const page=renderToStaticMarkup(React.createElement(Page));

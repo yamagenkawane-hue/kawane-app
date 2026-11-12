@@ -1,5 +1,6 @@
 "use client";
 
+import { useOrderCancellation } from "@/app/components/OrderCancellation/useOrderCancellation";
 import React, {
   type MouseEvent,
   useCallback,
@@ -73,7 +74,6 @@ const OrdersPage = () => {
   const {profile}=useAppAuth();
   const [posts, setPosts] = useState<AdjustedPost[]>([]);
   const [loadingPostId, setLoadingPostId] = useState("");
-  const [deletingPostId, setDeletingPostId] = useState("");
   const [sortMode, setSortMode] = useState<"delivery" | "customer">("delivery");
   const [editingPostId, setEditingPostId] = useState("");
   const [editingPost, setEditingPost] = useState<AdjustedPost | null>(null);
@@ -428,34 +428,9 @@ const OrdersPage = () => {
     }
   };
 
-  const handleDeleteOrder = async (post: AdjustedPost) => {
-    if (
-      !confirm(
-        `${post.orderNo} / ${post.productName} の誤登録・重複登録を取り消します。在庫は減算されません。実績・ロット・引当・出荷履歴のある注番は削除できません。よろしいですか？`,
-      )
-    ) {
-      return;
-    }
-
-    try {
-      setDeletingPostId(post.id);
-      const { error } = await supabase.rpc("soft_delete_order_post", {
-        p_post_id: post.id,
-      });
-
-      if (error) throw error;
-      await fetchPosts();
-      alert("受注を削除しました");
-    } catch (error) {
-      console.error(error);
-      const message =
-        typeof error === "object" && error !== null && "message" in error
-          ? String(error.message)
-          : "受注の削除に失敗しました";
-      alert(message);
-    } finally {
-      setDeletingPostId("");
-    }
+  const { openCancellation, cancellationDialog } = useOrderCancellation(fetchPosts);
+  const handleDeleteOrder = (post: AdjustedPost) => {
+    if (profile?.manager) openCancellation([{ id: post.id, label: `${post.orderNo} / ${post.productName}` }]);
   };
 
   const sortedPosts = [...posts].sort((a, b) => {
@@ -512,6 +487,7 @@ const OrdersPage = () => {
 
   return (
     <div className={styles.container}>
+      {cancellationDialog}
       {/* ヘッダー */}
       <div className={styles.headerArea}>
         <Link href="/" className={styles.backButton}>
@@ -519,6 +495,7 @@ const OrdersPage = () => {
         </Link>
 
         <h1 className={styles.title}>注残管理一覧</h1>
+        {profile?.manager && <Link href="/orders/history" className={`${styles.backButton} ${styles.historyButton}`}>誤登録取消履歴</Link>}
       </div>
 
       <div className={styles.sortArea}>
@@ -726,11 +703,11 @@ const OrdersPage = () => {
                   <td>
                     <button
                       className={styles.deleteButton}
-                      disabled={!profile?.manager||deletingPostId === post.id}
+                      disabled={!profile?.manager}
                       title={!profile?.manager?"管理者のみ操作できます":undefined}
                       onClick={() => handleDeleteOrder(post)}
                     >
-                      {deletingPostId === post.id ? "取消中" : "誤登録取消"}
+                      誤登録取消
                     </button>
                   </td>
                 </tr>

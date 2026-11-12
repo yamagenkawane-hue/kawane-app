@@ -39,6 +39,6 @@ export default function AuthProvider({children}:{children:ReactNode}) {
   if(loading) return <p role="status">ログイン状態を確認中…</p>;
   return <AuthContext.Provider value={{profile,refresh}}>
     {!profile?<div style={{maxWidth:480,margin:"48px auto",padding:20}}>{message&&<p role="alert">{message}</p>}<LoginForm onLoginSuccess={()=>void refresh()}/></div>
-      :(managerPages.has((pathname||"/").split("/")[1])||pathname?.startsWith("/lots/deleted"))&&!profile.manager?<div><p role="alert">この画面は管理者のみ利用できます。</p><Link href="/">トップページへ戻る</Link></div>:children}
+      :(managerPages.has((pathname||"/").split("/")[1])||pathname?.startsWith("/lots/deleted")||pathname?.startsWith("/orders/history"))&&!profile.manager?<div><p role="alert">この画面は管理者のみ利用できます。</p><Link href="/">トップページへ戻る</Link></div>:children}
   </AuthContext.Provider>;
 }
