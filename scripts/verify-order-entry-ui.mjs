@@ -105,16 +105,17 @@ const search = { orderNo: '', customerName: '', productName: '', pressNumber: ''
 const sValues = [[schedule], posts, balances, '製造G', { ...search }, { ...search }, false, null, null, {}, false];
 const sh = hooks(sValues);
 const scheduleWrites = [];
+let saveError = null;
 const scheduleDB = { from(table) {
   let operation = 'read', payload, id;
-  const query = { select() { return query; }, order() { return query; }, or() { return query; }, eq(key, value) { if (key === 'id') id = value; return query; },
+  const query = { select() { return query; }, order() { return query; }, range() { return query; }, or() { return query; }, eq(key, value) { if (key === 'id') id = value; return query; },
     insert(value) { operation = 'insert'; payload = value; return query; }, update(value) { operation = 'update'; payload = value; return query; },
     then(resolve, reject) {
       if (operation !== 'read') scheduleWrites.push({ table, operation, payload, id });
       return Promise.resolve({ data: [], error: null }).then(resolve, reject);
     },
   }; return query;
-} };
+}, rpc: async (name, payload) => { scheduleWrites.push({ name, payload }); return { error: saveError }; } };
 const Schedules = load('app/productionSchedules/page.tsx', { react: sh.react,
   '@/lib/supabase': { __esModule: true, default: scheduleDB }, '@/lib/auth/client': { authFetch: async () => ({ ok: true, json: async () => [] }) },
   '@/app/components/Numpad/Numpad': { __esModule: true, default: () => null },
@@ -145,26 +146,33 @@ check(input(editTree, '製造Gの完了予定日').props.value, '2026-12-04');
 input(editTree, '製造Gの完了予定日').props.onChange({ target: { value: '2026-12-07' } }); editTree = scheduleTree();
 check(input(editTree, '製造Gの完了予定日').props.value, '2026-12-07');
 await button(editTree, '保存').props.onClick();
-check(scheduleWrites.length, 3);
-check(scheduleWrites.find((write) => write.id === 'schedule').payload.press_completed_date, '2026-12-07');
-check(scheduleWrites.find((write) => write.id === 'quality').payload.press_completed_date, '2026-12-05');
-check(scheduleWrites.find((write) => write.id === 'shipping').payload.press_completed_date, '2026-12-06');
-check(scheduleWrites.every((write) => write.operation === 'update' && !Object.hasOwn(write.payload, 'press_completed_amount')), true);
+check(scheduleWrites.length, 1);
+check(scheduleWrites[0].name, 'save_daily_department_dates');
+check(JSON.stringify(scheduleWrites[0].payload), JSON.stringify({ p_post_id: 'p1', p_manufacturing_date: '2026-12-07', p_quality_date: '2026-12-05', p_shipping_date: '2026-12-06' }));
 resetSchedules([{ ...schedule, pressCompletedDate: '2026-12-04' }]);
 editTree = scheduleTree(); button(editTree, '編集').props.onClick(); editTree = scheduleTree();
 input(editTree, '製造Gの完了予定日').props.onChange({ target: { value: '' } }); editTree = scheduleTree();
 await button(editTree, '保存').props.onClick();
-check(scheduleWrites.length, 1); check(scheduleWrites[0].payload.press_completed_date, null);
+check(scheduleWrites.length, 1); check(scheduleWrites[0].payload.p_manufacturing_date, null);
 resetSchedules([]);
 editTree = scheduleTree(); button(editTree, '編集').props.onClick(); editTree = scheduleTree();
 check(input(editTree, '製造Gの完了予定日').props.value, '');
 input(editTree, '製造Gの完了予定日').props.onChange({ target: { value: '2026-12-08' } }); editTree = scheduleTree();
 await button(editTree, '保存').props.onClick();
-check(scheduleWrites.length, 1); check(scheduleWrites[0].operation, 'insert');
-check(scheduleWrites[0].payload.department, '製造G'); check(scheduleWrites[0].payload.post_id, 'p1');
-check(scheduleWrites[0].payload.press_completed_date, '2026-12-08'); check(scheduleWrites[0].payload.press_completed_amount, 0);
-check(scheduleWrites[0].payload.planned_start_date, '2026-12-03');
+check(scheduleWrites.length, 1); check(scheduleWrites[0].payload.p_manufacturing_date, '2026-12-08');
+// RPC failure retains all editing values for retry.
+resetSchedules([]); editTree = scheduleTree(); button(editTree, '編集').props.onClick(); editTree = scheduleTree();
+input(editTree, '製造Gの完了予定日').props.onChange({ target: { value: '2026-12-09' } }); editTree = scheduleTree();
+saveError = { message: 'synthetic transaction failure' }; await button(editTree, '保存').props.onClick();
+editTree = scheduleTree(); check(input(editTree, '製造Gの完了予定日').props.value, '2026-12-09');
+saveError = null; await button(editTree, '保存').props.onClick(); check(scheduleWrites.length, 2);
 resetSchedules([]); editTree = scheduleTree(); button(editTree, '編集').props.onClick(); editTree = scheduleTree();
 input(editTree, '製造Gの完了予定日').props.onChange({ target: { value: '2026-12-08' } }); editTree = scheduleTree();
 await button(editTree, 'キャンセル').props.onClick(); check(scheduleWrites.length, 0);
+// Saving a department date never writes the inherited display-only start date.
+resetSchedules([{ ...schedule, pressCompletedAmount: 0, pressCompletedDate: '2026-12-04' }]);
+sValues[3] = '製造G'; editTree = scheduleTree(); button(editTree, '編集').props.onClick(); editTree = scheduleTree();
+await button(editTree, '保存').props.onClick();
+check(scheduleWrites.length, 1); check(scheduleWrites[0].operation, 'update');
+check(Object.hasOwn(scheduleWrites[0].payload, 'planned_start_date'), false);
 console.log(JSON.stringify({ mode: 'offline customer/product selection, order submission, planned dates and department schedules', passed }));

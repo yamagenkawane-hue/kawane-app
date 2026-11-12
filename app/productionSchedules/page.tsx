@@ -1,5 +1,6 @@
 "use client";
 import { authFetch } from "@/lib/auth/client";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 
 import { type MouseEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -344,31 +345,31 @@ export default function ProductionSchedulesPage() {
         dailyResult,
         productPlanResult,
       ] = await Promise.all([
-        supabase
+        fetchAllRows((from, to) => supabase
           .from("v_production_schedules_with_master")
           .select(SCHEDULE_SELECT_COLUMNS)
-          .order("created_at", { ascending: false }),
-        supabase
+          .order("created_at", { ascending: false }).order("id").range(from, to)),
+        fetchAllRows((from, to) => supabase
           .from("v_lot_process_balance_with_master")
           .select(LOT_PROCESS_BALANCE_SELECT_COLUMNS)
-          .order("process_order", { ascending: true }),
-        supabase
+          .order("process_order", { ascending: true }).order("id").range(from, to)),
+        fetchAllRows((from, to) => supabase
           .from("v_process_transfer_history_with_master")
           .select(STOCK_IN_HISTORY_SELECT_COLUMNS)
           .eq("movement_type", "stock_in")
-          .order("created_at", { ascending: false }),
-        supabase
+          .order("created_at", { ascending: false }).order("id").range(from, to)),
+        fetchAllRows((from, to) => supabase
           .from("v_posts_with_master")
           .select("id,order_no,customer_name,product_name,order_amount,delivery_date,planned_start_date")
-          .or("delete.is.null,delete.eq.false"),
-        supabase
+          .or("delete.is.null,delete.eq.false").order("id").range(from, to)),
+        fetchAllRows((from, to) => supabase
           .from("shipments")
           .select("post_id,quantity")
-          .eq("cancelled", false),
+          .eq("cancelled", false).order("id").range(from, to)),
         authFetch("/api/daily-production"),
-        supabase
+        fetchAllRows((from, to) => supabase
           .from("v_product_master_with_customer")
-          .select("product_code,product_name,customer_name,plan_amount"),
+          .select("product_code,product_name,customer_name,plan_amount").order("id").range(from, to)),
       ]);
 
       if (scheduleResult.error) throw scheduleResult.error;
@@ -533,7 +534,6 @@ export default function ProductionSchedulesPage() {
           customer_name: schedule.customerName,
           product_name: schedule.productName,
           press_number: schedule.pressNumber,
-          planned_start_date: schedule.plannedStartDate || null,
           plan_amount: planAmount,
           press_completed_amount: pressCompletedAmount,
           press_completed_date: schedule.pressCompletedDate || null,
@@ -606,56 +606,15 @@ export default function ProductionSchedulesPage() {
       return;
     }
 
-    const saveDepartmentDate = async (department: Department, completedDate: string) => {
-      const existingSchedule = schedules.find(
-        (schedule) =>
-          ((schedule.postId && schedule.postId === post.id) ||
-            (!schedule.postId && schedule.orderNo === post.orderNo)) &&
-          (schedule.department || "製造G") === department,
-      );
-      const updatedAt = new Date().toISOString();
-
-      if (existingSchedule) {
-        const { error } = await supabase
-          .from("production_schedules")
-          .update({
-            press_completed_date: completedDate || null,
-            shipping_scheduled_end:
-              post.deliveryDate || existingSchedule.shippingScheduledEnd || null,
-            updated_at: updatedAt,
-          })
-          .eq("id", existingSchedule.id);
-
-        if (error) throw error;
-        return;
-      }
-
-      if (!completedDate) return;
-
-      const { error } = await supabase.from("production_schedules").insert({
-        post_id: post.id || null,
-        order_no: post.orderNo,
-        customer_name: post.customerName,
-        product_name: post.productName,
-        press_number: post.pressNumber || "",
-        lot_no: post.lotNo || "",
-        planned_start_date: post.plannedStartDate || null,
-        plan_amount: Number(post.remainingAmount || post.orderAmount || 0),
-        press_completed_amount: 0,
-        press_completed_date: completedDate,
-        shipping_scheduled_end: post.deliveryDate || null,
-        department,
-        updated_at: updatedAt,
-      });
-
-      if (error) throw error;
-    };
-
     try {
       setLoading(true);
-      await saveDepartmentDate("製造G", edit.manufacturingCompletedDate);
-      await saveDepartmentDate("品質管理G", edit.qualityCompletedDate);
-      await saveDepartmentDate("梱包出荷G", edit.shippingCompletedDate);
+      const { error } = await supabase.rpc("save_daily_department_dates", {
+        p_post_id: post.id,
+        p_manufacturing_date: edit.manufacturingCompletedDate || null,
+        p_quality_date: edit.qualityCompletedDate || null,
+        p_shipping_date: edit.shippingCompletedDate || null,
+      });
+      if (error) throw error;
 
       setEditingRow(null);
       setAllDepartmentEdits((prev) => {

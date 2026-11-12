@@ -45,7 +45,7 @@ const values = [[schedule], [process], posts, [], {}, schedule.id, process.id, '
 const fixture = hooks(values), calls = [], writes = [];
 let fail = true;
 function query(table) {
-  const q = { select() { return q; }, order() { return q; }, is() { return q; }, in() { return q; }, limit() { return q; },
+  const q = { select() { return q; }, order() { return q; }, range() { return q; }, is() { return q; }, in() { return q; }, limit() { return q; },
     update() { writes.push(table); throw Error('Unexpected client-side schedule write'); },
     then(resolve, reject) { return Promise.resolve({ data: [], error: null }).then(resolve, reject); },
   };

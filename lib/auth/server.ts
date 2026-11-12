@@ -12,7 +12,15 @@ export async function requireApiUser(req: NextApiRequest, res: NextApiResponse, 
   try {
     const token=header.slice(7);
     const {data,error}=await supabaseAdmin.auth.getUser(token);
-    if(error||!data.user) {res.status(401).json({error:"ログインの有効期限が切れています"});return null;}
+    if (error) {
+      if (error.status === 400 || error.status === 401 || error.status === 403) {
+        res.status(401).json({error:"ログインの有効期限が切れています"});
+      } else {
+        res.status(503).json({error:"認証サービスに接続できません。時間をおいて再実行してください"});
+      }
+      return null;
+    }
+    if(!data.user) {res.status(401).json({error:"ログインの有効期限が切れています"});return null;}
     const client=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,{
       global:{headers:{Authorization:header}},auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},
     });

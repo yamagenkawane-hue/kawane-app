@@ -2,9 +2,9 @@ import fs from 'node:fs';import vm from 'node:vm';import ts from 'typescript';im
 const require=createRequire(import.meta.url);let passed=0;const check=(a,b)=>{assert.deepEqual(a,b);passed++};
 function harness(source){
  const states=[[],{productCode:'',productName:'',lotNo:'',currentStock:0,allocatedStock:0},null];let si=0;const effects=[],calls=[],alerts=[];
- const client={from(table){let values;const q={select(){return q},order(){return q},range:async(from,to)=>{calls.push({op:'read',from,to});return {data:source.slice(from,to+1),error:null}},update(v){values=v;return q},eq:async(field,id)=>{calls.push({op:'update',id});Object.assign(source.find(r=>r.id===id),values);return {error:null}},delete(){throw Error('Unexpected physical deletion')}};return q}};
+ const client={from(){let values;const q={select(){return q},order(){return q},range:async(from,to)=>{calls.push({op:'read',from,to});return {data:source.slice(from,to+1),error:null}},update(v){values=v;return q},eq:async(field,id)=>{calls.push({op:'update',id});Object.assign(source.find(r=>r.id===id),values);return {error:null}},delete(){throw Error('Unexpected physical deletion')}};return q}};
  function load(file){const context={exports:{},alert:s=>alerts.push(s),require(name){
-  if(name==='react')return {...React,useEffect:f=>effects.push(f),useState:value=>{const i=si++;return [states[i],next=>states[i]=typeof next==='function'?next(states[i]):next]}};
+  if(name==='react')return {...React,useEffect:f=>effects.push(f),useState:()=>{const i=si++;return [states[i],next=>states[i]=typeof next==='function'?next(states[i]):next]}};
   if(name==='@/lib/supabase')return {__esModule:true,default:client};
   if(name==='next/link')return {__esModule:true,default:({children,...p})=>React.createElement('a',p,children)};
   if(name==='@/app/components/Numpad/Numpad')return {__esModule:true,default:()=>null};

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { strFromU8, unzipSync } from "fflate";
 import * as XLSX from "xlsx";
 import supabase from "@/lib/supabase";
+import { validateCalendarYearRows } from "@/lib/calendarImport";
 import { CompanyCalendar } from "@/app/type";
 import styles from "./page.module.css";
 
@@ -12,6 +13,7 @@ const CALENDAR_SELECT_COLUMNS =
   "id,date,name,is_holiday,type";
 
 export default function CalendarPage() {
+  const importingRef = useRef(false);
   const [items, setItems] = useState<CompanyCalendar[]>([]);
   const [date, setDate] = useState("");
   const [name, setName] = useState("");
@@ -566,6 +568,7 @@ export default function CalendarPage() {
   };
 
   const handleImport = async () => {
+    if (importingRef.current) return;
     if (!importYear.match(/^\d{4}$/)) {
       alert("取り込み対象年を4桁で入力してください");
       return;
@@ -582,6 +585,7 @@ export default function CalendarPage() {
     if (!ok) return;
 
     try {
+      importingRef.current = true;
       setImporting(true);
       const fileName = importFile.name.toLowerCase();
       const isExcel = fileName.endsWith(".xlsx") || fileName.endsWith(".xls");
@@ -617,22 +621,11 @@ export default function CalendarPage() {
         return;
       }
 
-      const startDate = `${importYear}-01-01`;
-      const endDate = `${Number(importYear) + 1}-01-01`;
-
-      const { error: deleteError } = await supabase
-        .from("company_calendar")
-        .delete()
-        .gte("date", startDate)
-        .lt("date", endDate);
-
-      if (deleteError) throw deleteError;
-
-      const { error: insertError } = await supabase
-        .from("company_calendar")
-        .insert(rows);
-
-      if (insertError) throw insertError;
+      validateCalendarYearRows(Number(importYear), rows);
+      const { error } = await supabase.rpc("replace_company_calendar_year", {
+        p_year: Number(importYear), p_rows: rows,
+      });
+      if (error) throw error;
 
       alert(`${importYear}年の会社カレンダーを${rows.length}件取り込みました`);
       setImportFile(null);
@@ -641,6 +634,7 @@ export default function CalendarPage() {
       console.error(error);
       alert("会社カレンダーの取り込みに失敗しました");
     } finally {
+      importingRef.current = false;
       setImporting(false);
     }
   };

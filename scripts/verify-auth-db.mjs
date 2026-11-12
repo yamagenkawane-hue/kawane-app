@@ -23,7 +23,10 @@ const extra=String.raw`
     await db.query('insert into auth.sessions values($1,$2),($3,$4)',[adminSession,admin,workerSession,worker]);
     await db.exec('alter table order_processes add column planned_amount integer default 100');
     await db.exec(fs.readFileSync('supabase/migrations/20261029_outsource_remainder_schedules.sql','utf8'));
+    await db.exec('create table shipments(id uuid primary key default gen_random_uuid(),quantity integer,cancelled boolean default false)');
     await db.exec(fs.readFileSync('supabase/migrations/20261030070357_secure_auth_and_permissions.sql','utf8'));
+    await db.exec('alter table lots add column deleted_at timestamptz, add column deleted_reason text');
+    await db.exec(fs.readFileSync('supabase/migrations/20261112000424_sync_workflow_write_boundaries.sql','utf8'));
     const claims=async(id,session,role='authenticated')=>{
       await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:id,session_id:session,role})]);
       await db.exec('set role '+role);
@@ -34,6 +37,7 @@ const extra=String.raw`
     await reject(db.query('select transfer_lot_to_next_process($1,$2,1,null,\'unauth\',\'2026-10-16\')',[flow.lot,flow.source]),/permission denied/);
     await reject(db.query('select * from public."user"'),/permission denied/);
     await db.exec('reset role');await claims(worker,workerSession);
+    for(const sql of ['update posts set "delete"=true','update lots set deleted=true','update shipments set cancelled=true','insert into shipments(quantity) values(1)']) await reject(db.query(sql),/permission denied/);
     check((await db.query('select * from posts')).rows.length>0,true);
     check((await db.query('select * from v_auth_test')).rows.length>0,true);
     check((await db.query('select id,login_id,manager,active from app_profiles')).rows.length,1);

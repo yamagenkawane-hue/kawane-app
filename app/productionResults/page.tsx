@@ -1,5 +1,6 @@
 "use client";
 import { authFetch } from "@/lib/auth/client";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -224,10 +225,10 @@ function ProductionResultsContent() {
   );
 
   const fetchOrderProcesses = useCallback(async () => {
-    const { data, error } = await supabase
+    const { data, error } = await fetchAllRows((from, to) => supabase
       .from("v_order_processes_with_master")
       .select(ORDER_PROCESS_SELECT_COLUMNS)
-      .order("process_order", { ascending: true });
+      .order("process_order", { ascending: true }).order("id").range(from, to));
 
     if (error) throw error;
 
@@ -269,16 +270,16 @@ function ProductionResultsContent() {
         resultResult,
       ] =
         await Promise.all([
-          supabase
+          fetchAllRows((from, to) => supabase
             .from("v_production_schedules_with_master")
             .select(SCHEDULE_SELECT_COLUMNS)
-            .order("created_at", { ascending: false }),
+            .order("created_at", { ascending: false }).order("id").range(from, to)),
           authFetch("/api/daily-production"),
-          supabase
+          fetchAllRows((from, to) => supabase
             .from("v_order_processes_with_master")
             .select(ORDER_PROCESS_SELECT_COLUMNS)
-            .order("process_order", { ascending: true }),
-          supabase.from("v_posts_with_master").select(POST_SELECT_COLUMNS).is("shipment_closed_at", null),
+            .order("process_order", { ascending: true }).order("id").range(from, to)),
+          fetchAllRows((from, to) => supabase.from("v_posts_with_master").select(POST_SELECT_COLUMNS).is("shipment_closed_at", null).order("id").range(from, to)),
           supabase
             .from("v_production_results_with_master")
             .select(RESULT_SELECT_COLUMNS)

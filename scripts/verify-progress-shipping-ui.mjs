@@ -184,7 +184,7 @@ const outsourceRows=[
 ];
 function renderOutsourcing(scoped) {
   const component=load("app/outsourcing/page.tsx",{
-    "react":{...React,useState:(initial)=>Array.isArray(initial)?[outsourceRows,()=>{}]:React.useState(initial)},
+    "react":{...React,useState:(initial)=>{const fallback=React.useState(initial);return Array.isArray(initial)?[outsourceRows,()=>{}]:fallback}},
     "@/lib/supabase":{__esModule:true,default:{}},
     "next/navigation":{useRouter:()=>({push:()=>{}}),useSearchParams:()=>new URLSearchParams(scoped?"orderNo=OUT-2&returnTo=reservation":"")},
   }).default;
@@ -247,7 +247,7 @@ const allocationPosts=[
   {...base,id:"confirmed",orderNo:"ALLOC-CONFIRMED",manufacturingLots:[{id:"lot-a",lotNo:"ACTUAL-A",materialLotNo:"MAT-A"},{id:"lot-b",lotNo:"ACTUAL-B",materialLotNo:"MAT-B"}],remainingAmount:100,allocationConfirmed:true,availableInventoryAmount:100,hasProcessProgress:true},
 ];
 const OrdersPage=load("app/orders/page.tsx",{
-  "react":{...React,useState:(initial)=>Array.isArray(initial)?[allocationPosts,()=>{}]:React.useState(initial)},
+  "react":{...React,useState:(initial)=>{const fallback=React.useState(initial);return Array.isArray(initial)?[allocationPosts,()=>{}]:fallback}},
   "../../lib/supabase":{__esModule:true,default:{}},
 }).default;
 const ordersHtml=renderToStaticMarkup(React.createElement(OrdersPage));
@@ -313,7 +313,7 @@ check(outsourceInitialQuantity(null,[]),null);
 check(outsourceInitialQuantity(10,[{moved_amount:20}]),null);
 check(outsourceInitialQuantity(150,[],true),null);
 const HistoryPage=load("app/outsourcing/history/page.tsx",{
-  "react":{...React,useState:initial=>initial&&typeof initial==="object"&&"rows" in initial?[{rows:[{id:"external",initial_quantity:120,remainders:[{id:"split",dispatch_no:1,quantity:30}],archived:false}],total:1},()=>{}]:React.useState(initial)},
+  "react":{...React,useState:initial=>{const fallback=React.useState(initial);return initial&&typeof initial==="object"&&"rows" in initial?[{rows:[{id:"external",initial_quantity:120,remainders:[{id:"split",dispatch_no:1,quantity:30}],archived:false}],total:1},()=>{}]:fallback}},
 }).default;
 const historyHtml=renderToStaticMarkup(React.createElement(HistoryPage));
 check(historyHtml.includes("初回：120個"),true);

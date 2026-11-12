@@ -1,3 +1,6 @@
+import { mutationPayload, sendMutationError } from "@/lib/apiMutationValidation";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { isCalendarDate } from "@/lib/orderEntry";
 import { requireApiUser } from "@/lib/auth/server";
 import type { NextApiRequest, NextApiResponse } from "next";
 
@@ -60,9 +63,10 @@ export default async function handler(
 
   try {
     if (req.method === "GET") {
-      const today = String(req.query.date || toToday());
+      const today = req.query.date === undefined ? toToday() : req.query.date;
+      if (typeof today !== "string" || !isCalendarDate(today)) return res.status(400).json({ error: "正しい対象日を指定してください" });
       const [postResult, shipmentResult, processResult] = await Promise.all([
-        supabase
+        fetchAllRows((from, to) => supabase
           .from("v_posts_with_master")
           .select(DAILY_PRODUCTION_SELECT_COLUMNS).is("shipment_closed_at", null)
           .or("delete.is.null,delete.eq.false")
@@ -73,14 +77,14 @@ export default async function handler(
               `delivery_date.lt.${today}`,
             ].join(","),
           )
-          .order("customer_name", { ascending: true }),
-        supabase
+          .order("customer_name", { ascending: true }).order("id").range(from, to)),
+        fetchAllRows((from, to) => supabase
           .from("shipments")
           .select("post_id,quantity")
-          .eq("cancelled", false),
-        supabase
+          .eq("cancelled", false).order("id").range(from, to)),
+        fetchAllRows((from, to) => supabase
           .from("v_order_processes_with_master")
-          .select("post_id,process_order,completed_amount"),
+          .select("post_id,process_order,completed_amount").order("id").range(from, to)),
       ]);
 
       if (postResult.error) throw postResult.error;
@@ -104,26 +108,14 @@ export default async function handler(
     }
 
     if (req.method === "POST") {
-      const { customer_name, product_name, press_number, plan_amount } =
-        req.body || {};
-      const department = String(req.body?.department || "製造G");
-
-      if (!customer_name || !product_name || !press_number) {
-        return res.status(400).json({ error: "必須項目が不足しています" });
-      }
-
-      if (!["製造G", "品質管理G", "梱包出荷G"].includes(department)) {
-        return res.status(400).json({ error: "部署の指定が正しくありません" });
-      }
-
-      if (Number(plan_amount) < 0) {
-        return res.status(400).json({ error: "数量は0以上で入力してください" });
-      }
+      const payload = mutationPayload("schedules", req.body);
+      const department = String(payload.department || "製造G");
+      if (!["製造G", "品質管理G", "梱包出荷G"].includes(department)) return res.status(400).json({ error: "部署の指定が正しくありません" });
 
       const now = new Date().toISOString();
       const { data, error } = await supabase
         .from("production_schedules")
-        .insert({ ...req.body, department, created_at: now, updated_at: now })
+        .insert({ ...payload, department, created_at: now, updated_at: now })
         .select()
         .single();
 
@@ -134,6 +126,6 @@ export default async function handler(
     res.setHeader("Allow", ["GET", "POST"]);
     return res.status(405).end("Method Not Allowed");
   } catch (error) {
-    return res.status(500).json({ error: String(error) });
+    return sendMutationError(res, error);
   }
 }

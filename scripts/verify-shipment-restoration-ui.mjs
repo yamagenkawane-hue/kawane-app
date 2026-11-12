@@ -5,7 +5,7 @@ function harness({confirm=true,error=false,restored=false,many=false}={}) {
  const rows=many?Array.from({length:35},(_,i)=>({...sample,id:`c${i}`,order_no:`TEST-${i}`})):[{...sample,...(restored?{restored_at:'2026-11-04T11:00:00Z',restored_actor_name:'operator'}:{})}];
  const states=[null,'',rows,'',1,false,''];const refs=[];let si=0,ri=0;const calls=[],confirmations=[];const storage=new Map();
  const context={exports:{},window:{confirm:s=>{confirmations.push(s);return confirm}},sessionStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},crypto:{randomUUID:()=> 'request'},require(name){
-  if(name==='react')return {...React,useEffect(){},useRef:v=>{const i=ri++;return refs[i]??(refs[i]={current:v})},useState:v=>{const i=si++;return [states[i],next=>states[i]=typeof next==='function'?next(states[i]):next]}};
+  if(name==='react')return {...React,useEffect(){},useRef:v=>{const i=ri++;return refs[i]??(refs[i]={current:v})},useState:()=>{const i=si++;return [states[i],next=>states[i]=typeof next==='function'?next(states[i]):next]}};
   if(name==='next/link')return {__esModule:true,default:({children,...p})=>React.createElement('a',p,children)};
   if(name.endsWith('.css'))return {__esModule:true,default:new Proxy({},{get:(_,k)=>String(k)})};
   if(name==='@/lib/auth/client')return {authFetch:async(url,opts)=>{if(!opts)return {ok:true,json:async()=>states[2].map(row=>({...row,shipped_amount:Math.max(row.shipped_amount-Number(row.restored_shipment_quantity||0),0)}))};calls.push({url,method:opts.method,body:JSON.parse(opts.body)});return {ok:!error,json:async()=>error?{error:'復元済みです'}:{...sample,restored_at:'2026-11-04T11:00:00Z',restored_actor_name:'operator',restored_shipment_quantity:49}}}};

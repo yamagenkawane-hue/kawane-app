@@ -129,6 +129,7 @@ const Reservation = () => {
   const [search, setSearch] = useState("");
   const [outsourceTransfer, setOutsourceTransfer] = useState<OutsourceTransferRequest | null>(null);
   const transferBusyRef = useRef(false);
+  const transferRequestRef = useRef<{ signature: string; key: string } | null>(null);
   const [isDraggingList, setIsDraggingList] = useState(false);
   const listScrollRef = useRef<HTMLDivElement>(null);
   const dragStartXRef = useRef(0);
@@ -351,10 +352,12 @@ const Reservation = () => {
 
       if (!confirmed) return;
 
-      const idempotencyKey =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random()}`;
+      const signature = JSON.stringify([balance.lotId, balance.orderProcessId, transferAmount, workDate, reason, isPackaging]);
+      if (transferRequestRef.current?.signature !== signature) {
+        transferRequestRef.current = { signature, key: typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID() : `${Date.now()}-${Math.random()}` };
+      }
+      const idempotencyKey = transferRequestRef.current.key;
 
       const { error } = await supabase.rpc(isPackaging ? "complete_lot_from_progress" : "transfer_lot_to_next_process", {
         p_lot_id: balance.lotId,
@@ -372,6 +375,7 @@ const Reservation = () => {
         return;
       }
 
+      transferRequestRef.current = null;
       alert(isPackaging ? "完了しました。" : "次工程へ移動しました。");
       setShouldFetch(true);
     } catch (error) {

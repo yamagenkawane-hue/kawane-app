@@ -3,7 +3,7 @@ const require=createRequire(import.meta.url);let passed=0;const check=(a,b)=>{as
 const view={settings:{detail_years:3,ai_years:5,prediction_days:90},preview:{rows:[],total:0},events:[],reference_days:730};
 const states=[null,view,{...view.settings},0,'',false,null,'','',false];let si=0,ri=0;const refs=[],calls=[];
 function load(file){const context={exports:{},require(name){
- if(name==='react')return {...React,useEffect(){},useCallback:f=>f,useRef:v=>{const i=ri++;return refs[i]??(refs[i]={current:v})},useState:v=>{const i=si++;return [states[i],next=>states[i]=typeof next==='function'?next(states[i]):next]}};
+ if(name==='react')return {...React,useEffect(){},useCallback:f=>f,useRef:v=>{const i=ri++;return refs[i]??(refs[i]={current:v})},useState:()=>{const i=si++;return [states[i],next=>states[i]=typeof next==='function'?next(states[i]):next]}};
  if(name==='next/link')return {__esModule:true,default:({children,...p})=>React.createElement('a',p,children)};
  if(name==='@/app/components/Numpad/Numpad')return {__esModule:true,default:()=>null};
  if(name.endsWith('.css'))return {__esModule:true,default:new Proxy({},{get:(_,k)=>String(k)})};

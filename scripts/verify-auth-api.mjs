@@ -5,7 +5,7 @@ import ts from 'typescript';
 let passed=0,role='worker',sessionActive=true,runnerCalls=0,verifyCalls=0;
 const profile={id:'uid',login_id:'worker',manager:false,active:true};
 const scopedClient={from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:sessionActive?{...profile,manager:role==='manager'}:null,error:null})})})})};
-const admin={auth:{getUser:async token=>{verifyCalls++;return token==='valid'?{data:{user:{id:'uid'}},error:null}:{data:{user:null},error:{message:'invalid'}};}}};
+const admin={auth:{getUser:async token=>{verifyCalls++;return token==='valid'?{data:{user:{id:'uid'}},error:null}:{data:{user:null},error:{message:'invalid',status:401}};}}};
 function load(file,mocks) {
   const context={exports:{},process:{env:{NEXT_PUBLIC_SUPABASE_URL:'https://example.invalid',NEXT_PUBLIC_SUPABASE_ANON_KEY:'public'}},require:name=>{
     if(name in mocks) return mocks[name];

@@ -1,3 +1,5 @@
+import { mutationId, mutationPayload, sendMutationError } from "@/lib/apiMutationValidation";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { requireApiUser } from "@/lib/auth/server";
 import type { NextApiRequest, NextApiResponse } from "next";
 
@@ -15,10 +17,10 @@ export default async function handler(
 
   try {
     if (req.method === "GET") {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllRows((from, to) => supabase
         .from("lots")
         .select(LOT_SELECT_COLUMNS)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false }).order("id").range(from, to));
       if (error) throw error;
       return res.status(200).json(data);
     }
@@ -26,7 +28,7 @@ export default async function handler(
     if (req.method === "POST") {
       const { data, error } = await supabase
         .from("lots")
-        .insert(req.body)
+        .insert(mutationPayload("lots", req.body))
         .select()
         .single();
       if (error) throw error;
@@ -34,7 +36,7 @@ export default async function handler(
     }
 
     if (req.method === "PUT") {
-      const { id, ...payload } = req.body;
+      const { id, ...payload } = mutationPayload("lots", req.body, true);
       const { data, error } = await supabase
         .from("lots")
         .update(payload)
@@ -46,7 +48,7 @@ export default async function handler(
     }
 
     if (req.method === "DELETE") {
-      const id = String(req.query.id || req.body?.id || "");
+      const id = mutationId(req.query?.id || req.body?.id);
       const { error } = await supabase.from("lots").delete().eq("id", id);
       if (error) throw error;
       return res.status(204).end();
@@ -55,6 +57,6 @@ export default async function handler(
     res.setHeader("Allow", ["GET", "POST", "PUT", "DELETE"]);
     return res.status(405).end("Method Not Allowed");
   } catch (error) {
-    return res.status(500).json({ error });
+    return sendMutationError(res, error);
   }
 }

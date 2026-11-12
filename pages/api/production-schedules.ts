@@ -1,3 +1,5 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { mutationId, mutationPayload, sendMutationError } from "@/lib/apiMutationValidation";
 import { requireApiUser } from "@/lib/auth/server";
 import type { NextApiRequest, NextApiResponse } from "next";
 
@@ -73,28 +75,19 @@ export default async function handler(
         return res.status(400).json({ error: "部署の指定が正しくありません" });
       }
 
-      const scheduleQuery = supabase
-        .from("v_production_schedules_with_master")
-        .select(SCHEDULE_SELECT_COLUMNS)
-        .order("created_at", { ascending: false });
-
-      const [scheduleResult, postResult, shipmentResult, processResult] =
-        await Promise.all([
-          departmentQuery
-            ? scheduleQuery.eq("department", departmentQuery)
-            : scheduleQuery,
-          supabase
-            .from("v_posts_with_master")
-            .select(POST_SELECT_COLUMNS).is("shipment_closed_at", null)
-            .or("delete.is.null,delete.eq.false"),
-          supabase
-            .from("shipments")
-            .select("post_id,quantity")
-            .eq("cancelled", false),
-          supabase
-            .from("v_order_processes_with_master")
-            .select("post_id,process_order,completed_amount"),
-        ]);
+      const [scheduleResult, postResult, shipmentResult, processResult] = await Promise.all([
+        fetchAllRows((from, to) => {
+          const query = supabase.from("v_production_schedules_with_master").select(SCHEDULE_SELECT_COLUMNS);
+          return (departmentQuery ? query.eq("department", departmentQuery) : query)
+            .order("created_at", { ascending: false }).order("id").range(from, to);
+        }),
+        fetchAllRows((from, to) => supabase.from("v_posts_with_master").select(POST_SELECT_COLUMNS)
+          .is("shipment_closed_at", null).or("delete.is.null,delete.eq.false").order("id").range(from, to)),
+        fetchAllRows((from, to) => supabase.from("shipments").select("post_id,quantity")
+          .eq("cancelled", false).order("id").range(from, to)),
+        fetchAllRows((from, to) => supabase.from("v_order_processes_with_master")
+          .select("post_id,process_order,completed_amount").order("id").range(from, to)),
+      ]);
 
       if (scheduleResult.error) throw scheduleResult.error;
       if (postResult.error) throw postResult.error;
@@ -123,7 +116,7 @@ export default async function handler(
     }
 
     if (req.method === "POST") {
-      const payload = req.body || {};
+      const payload = mutationPayload("schedules", req.body);
       const department = normalizeDepartment(payload.department);
 
       if (!isDepartment(department)) {
@@ -140,7 +133,7 @@ export default async function handler(
     }
 
     if (req.method === "PUT") {
-      const { id, ...payload } = req.body || {};
+      const { id, ...payload } = mutationPayload("schedules", req.body, true);
 
       if (!id) {
         return res.status(400).json({ error: "IDが不足しています" });
@@ -168,7 +161,7 @@ export default async function handler(
     }
 
     if (req.method === "DELETE") {
-      const id = String(req.query.id || req.body?.id || "");
+      const id = mutationId(req.query?.id || req.body?.id);
       const { error } = await supabase
         .from("production_schedules")
         .delete()
@@ -180,6 +173,6 @@ export default async function handler(
     res.setHeader("Allow", ["GET", "POST", "PUT", "DELETE"]);
     return res.status(405).end("Method Not Allowed");
   } catch (error) {
-    return res.status(500).json({ error });
+    return sendMutationError(res, error);
   }
 }
