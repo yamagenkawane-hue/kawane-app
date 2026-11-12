@@ -1,5 +1,6 @@
 "use client";
 import { authFetch } from "@/lib/auth/client";
+import { pressMachineNumber } from "@/lib/pressMachineNumber";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 
 import { type MouseEvent, useEffect, useRef, useState } from "react";
@@ -64,13 +65,6 @@ type CompletedPostSummary = {
   plannedStartDate: string;
 };
 
-type ProductPlanRow = {
-  product_code?: string | null;
-  product_name?: string | null;
-  customer_name?: string | null;
-  plan_amount?: number | string | null;
-};
-
 type NumpadTarget =
   | { kind: "form"; field: "planAmount" | "pressCompletedAmount" }
   | { kind: "all"; id: string; field: "planAmount" };
@@ -97,14 +91,14 @@ const LOT_PROCESS_BALANCE_SELECT_COLUMNS =
 const STOCK_IN_HISTORY_SELECT_COLUMNS =
   "id,post_id,order_no,lot_no,from_process_name,from_process_order,quantity,created_at,customer_name,product_name";
 
-const mapSchedule = (row: Record<string, unknown>): ProductionSchedule => ({
+const mapSchedule = (row: Record<string, unknown>, processNames: readonly string[] = []): ProductionSchedule => ({
   id: String(row.id || ""),
   postId: row.post_id ? String(row.post_id) : "",
   orderNo: String(row.order_no || ""),
   department: String(row.department || "製造G"),
   customerName: String(row.customer_name || ""),
   productName: String(row.product_name || ""),
-  pressNumber: String(row.press_number || ""),
+  pressNumber: pressMachineNumber(row.press_number, processNames),
   lotNo: String(row.lot_no || ""),
   plannedStartDate: String(row.planned_start_date || ""),
   planAmount: Number(row.plan_amount || 0),
@@ -239,13 +233,6 @@ const matchesSearch = (
     normalizeText(row.pressNumber).includes(normalizeText(search.pressNumber))) &&
   (!search.plannedStartDate || row.plannedStartDate === search.plannedStartDate);
 
-const getProductPlanKey = (
-  productCode?: string,
-  productName?: string,
-  customerName?: string,
-) =>
-  [productCode, productName, customerName].map((value) => normalizeText(value)).join("|");
-
 export default function ProductionSchedulesPage() {
   const [schedules, setSchedules] = useState<ProductionSchedule[]>([]);
   const [orderSchedules, setOrderSchedules] = useState<DailySchedulePost[]>([]);
@@ -325,7 +312,7 @@ export default function ProductionSchedulesPage() {
         postResult,
         shipmentResult,
         dailyResult,
-        productPlanResult,
+        processNameResult,
       ] = await Promise.all([
         fetchAllRows((from, to) => supabase
           .from("v_production_schedules_with_master")
@@ -347,11 +334,11 @@ export default function ProductionSchedulesPage() {
         fetchAllRows((from, to) => supabase
           .from("shipments")
           .select("post_id,quantity")
-          .eq("cancelled", false).order("id").range(from, to)),
+          .or("cancelled.is.null,cancelled.eq.false").order("id").range(from, to)),
         authFetch("/api/daily-production"),
         fetchAllRows((from, to) => supabase
-          .from("v_product_master_with_customer")
-          .select("product_code,product_name,customer_name,plan_amount").order("id").range(from, to)),
+          .from("process_master")
+          .select("name").order("id").range(from, to)),
       ]);
 
       if (scheduleResult.error) throw scheduleResult.error;
@@ -359,36 +346,10 @@ export default function ProductionSchedulesPage() {
       if (completedResult.error) throw completedResult.error;
       if (postResult.error) throw postResult.error;
       if (shipmentResult.error) throw shipmentResult.error;
-      if (productPlanResult.error) throw productPlanResult.error;
+      if (processNameResult.error) throw processNameResult.error;
       if (!dailyResult.ok) throw new Error("注残データの取得に失敗しました");
 
       const dailyRows = await dailyResult.json();
-      const productPlanMap = new Map<string, number>();
-      for (const row of (productPlanResult.data || []) as ProductPlanRow[]) {
-        const planAmount = Number(row.plan_amount || 0);
-        const codeKey = getProductPlanKey(row.product_code || "", "", "");
-        const detailKey = getProductPlanKey(
-          "",
-          row.product_name || "",
-          row.customer_name || "",
-        );
-        if (row.product_code) productPlanMap.set(codeKey, planAmount);
-        if (row.product_name || row.customer_name) productPlanMap.set(detailKey, planAmount);
-      }
-      const mappedPosts: DailySchedulePost[] = (dailyRows || []).map(
-        (row: Record<string, unknown>) => {
-          const post = mapPost(row);
-          return {
-            ...post,
-            planAmount:
-              productPlanMap.get(getProductPlanKey(post.productCode, "", "")) ||
-              productPlanMap.get(
-                getProductPlanKey("", post.productName, post.customerName),
-              ) ||
-              0,
-          };
-        },
-      );
       const postMap = new Map(
         (postResult.data || []).map((row) => [
           String(row.id || ""),
@@ -412,7 +373,13 @@ export default function ProductionSchedulesPage() {
         },
         new Map<string, number>(),
       );
-      const mappedSchedules = (scheduleResult.data || []).map(mapSchedule);
+      const mappedPosts: DailySchedulePost[] = (dailyRows || []).map((row: Record<string,unknown>) => {
+        const post = mapPost(row);
+        const remainingAmount = Math.max(post.orderAmount - (shippedMap.get(post.id) || 0), 0);
+        return {...post,remainingAmount,planAmount:remainingAmount};
+      });
+      const processNames = (processNameResult.data || []).map(row => String(row.name || ""));
+      const mappedSchedules = (scheduleResult.data || []).map(row => mapSchedule(row,processNames));
       const mappedBalances = [
         ...(balanceResult.data || []).map((row) => mapLotProcessBalance(row, postMap)),
         ...(completedResult.data || [])
@@ -567,8 +534,8 @@ export default function ProductionSchedulesPage() {
 
     return {
       ...post,
-      pressNumber: Array.from(new Set(schedulesForPost.map(schedule => schedule.pressNumber).filter(Boolean))).join(" / ") || post.pressNumber || "",
-      planAmount: scheduleForDepartment("製造G")?.productPlanAmount ?? post.planAmount ?? 0,
+      pressNumber: Array.from(new Set(schedulesForPost.filter(schedule => (schedule.department || "製造G") === "製造G").map(schedule => pressMachineNumber(schedule.pressNumber)).filter(Boolean))).join(" / ") || "",
+      planAmount: scheduleForDepartment("製造G")?.productPlanAmount ?? post.remainingAmount ?? post.orderAmount ?? 0,
       manufacturingCompletedDate: datesForDepartment("製造G"),
       qualityCompletedDate: datesForDepartment("品質管理G"),
       shippingCompletedDate: datesForDepartment("梱包出荷G"),
@@ -766,7 +733,7 @@ export default function ProductionSchedulesPage() {
                 <td>{renderCellText(post.plannedStartDate)}</td>
                 <td><input className={`${styles.tableInput} ${styles.numberInput}`} disabled inputMode="numeric" value={post.remainingAmount || ""} /></td>
                 <td>{renderCellText(post.planAmount || 0)}</td>
-                <td>{renderCellText(post.pressNumber || "-")}</td>
+                <td>{renderCellText(pressMachineNumber(post.pressNumber) || "-")}</td>
                 <td>-</td>
                 <td><input className={`${styles.tableInput} ${styles.dateInput}`} disabled type="date" value={post.completionScheduledDate || ""} /></td>
                 <td><input className={`${styles.tableInput} ${styles.dateInput}`} disabled type="date" value={post.deliveryDate || ""} /></td>
@@ -780,7 +747,7 @@ export default function ProductionSchedulesPage() {
                 <td>{renderCellText(schedule.plannedStartDate)}</td>
                 <td><input className={`${styles.tableInput} ${styles.numberInput}`} disabled inputMode="numeric" value={schedule.planAmount || ""} /></td>
                 <td>{renderCellText(schedule.productPlanAmount || 0)}</td>
-                <td>{renderCellText(schedule.pressNumber)}</td>
+                <td>{renderCellText(pressMachineNumber(schedule.pressNumber))}</td>
                 <td><input className={`${styles.tableInput} ${styles.numberInput}`} disabled inputMode="numeric" value={schedule.pressCompletedAmount || ""} /></td>
                 <td><input className={`${styles.tableInput} ${styles.dateInput}`} disabled type="date" value={schedule.pressCompletedDate || ""} /></td>
                 <td><input className={`${styles.tableInput} ${styles.dateInput}`} disabled type="date" value={schedule.deliveryDate || ""} /></td>

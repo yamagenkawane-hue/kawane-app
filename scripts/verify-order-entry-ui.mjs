@@ -191,4 +191,14 @@ input(editTree,'Aの計画数').props.onFocus();editTree=scheduleTree();
 nodes(editTree).find(node=>node.props?.open===true&&typeof node.props?.onClose==='function').props.onChange('125');
 editTree=scheduleTree();check(input(editTree,'Aの計画数').props.value,'125');
 input(editTree,'Aの計画数').props.onChange({target:{value:'-1'}});editTree=scheduleTree();await button(editTree,'保存').props.onClick();check(scheduleWrites.length,0);
+// Unconfigured plans default to the order's outstanding amount, retaining zero overrides.
+resetSchedules([]);sValues[1]=[{...posts[0],remainingAmount:40,planAmount:999}];editTree=scheduleTree();button(editTree,'編集').props.onClick();editTree=scheduleTree();check(input(editTree,'Aの計画数').props.value,'40');
+resetSchedules([{...schedule,productPlanAmount:0}]);editTree=scheduleTree();button(editTree,'編集').props.onClick();editTree=scheduleTree();check(input(editTree,'Aの計画数').props.value,'0');
+const {pressMachineNumber}=load('lib/pressMachineNumber.ts');
+for(const label of ['製造','梱包','検査',' 製造 G ','洗浄'])check(pressMachineNumber(label),'');
+check(pressMachineNumber('タップ',['タップ']),'');
+for(const machine of ['1号機','A-02','No.1','製造1号機'])check(pressMachineNumber(machine),machine);
+resetSchedules([{...schedule,pressNumber:'1号機'}, {...schedule,id:'quality',department:'品質管理G',pressNumber:'検査'}, {...schedule,id:'shipping',department:'梱包出荷G',pressNumber:'梱包'}, {...schedule,id:'label',pressNumber:'製造'}]);
+let machines=renderSchedules();check(machines.includes('>1号機</div>'),true);check(machines.includes('>1号機 /'),false);check(machines.includes('>検査</div>'),false);check(machines.includes('>梱包</div>'),false);
+sValues[3]='製造G';machines=renderSchedules();check(machines.includes('>製造</div>'),false);check(machines.includes('>1号機</div>'),true);
 console.log(JSON.stringify({ mode: 'offline customer/product selection, order submission, planned dates and department schedules', passed }));

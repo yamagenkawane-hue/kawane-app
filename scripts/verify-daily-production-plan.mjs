@@ -43,5 +43,17 @@ try{
  check(Number(created.plan_amount),50);check(Number(created.press_completed_amount),0);check(created.press_completed_date,null);
  check((await one("select has_function_privilege('anon','public.save_daily_department_dates(uuid,date,date,date,integer)','EXECUTE') allowed")).allowed,false);
  check((await one("select has_function_privilege('authenticated','public.save_daily_department_dates(uuid,date,date,date,integer)','EXECUTE') allowed")).allowed,true);
+ // The new default is outstanding quantity, not the product master amount.
+ await db.query('update product_master set plan_amount=500 where id=$1',[product]);
+ await db.exec(fs.readFileSync('supabase/migrations/20261112112733_daily_plan_backorder_default.sql','utf8'));
+ check(await plan(a),200);check(await plan(c),75);check(await plan(b),100);
+ const shipped=(await one('insert into shipments(post_id,quantity,cancelled) values($1,25,false) returning id',[b.post])).id;
+ await db.query('insert into shipments(post_id,quantity,cancelled) values($1,10,true),($1,5,null)',[b.post]);
+ check(await plan(b),70);
+ await db.query('update shipments set cancelled=true where id=$1',[shipped]);check(await plan(b),95);
+ await db.query('select save_daily_department_dates($1,null,null,null,0)',[b.post]);check(await plan(b),0);
+ await db.query('update production_schedules set production_plan_amount=null where post_id=$1',[b.post]);check(await plan(b),95);
+ await db.query('insert into shipments(post_id,quantity,cancelled) values($1,200,false)',[b.post]);check(await plan(b),0);
+ check(Number((await one('select plan_amount n from product_master where id=$1',[product])).n),500);
  console.log(JSON.stringify({mode:'per-order plan, zero, master/order/actual isolation, rollback and old-client defaults',passed}));
 }catch(error){console.error(error.message,error.detail||'',error.where||'');process.exitCode=1;}finally{await db.close();}
