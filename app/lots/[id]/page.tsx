@@ -7,12 +7,14 @@ import { useAppAuth } from "@/app/components/AuthProvider/AuthProvider";
 import { useParams } from "next/navigation";
 import supabase from "@/lib/supabase";
 import { fetchAllRows } from "@/lib/fetchAllRows";
+import { createLotHistoryOrder, sortLotHistory, lotPackagingCompletedDate } from "@/lib/lotHistoryOrder";
 import { lotHistoryBelongsTo } from "@/lib/lotHistoryIdentity";
 import styles from "../page.module.css";
 
 type LotFlowRow = {
   id: string;
   postId: string;
+  productId: string;
   orderNo: string;
   productCode: string;
   productName: string;
@@ -37,6 +39,8 @@ type HistoryRow = {
   id: string;
   date: string;
   sortOrder: number;
+  processOrder?: number;
+  eventOrder?: number;
   section: "注番工程履歴" | "ロット履歴";
   action: string;
   amount: number | null;
@@ -52,6 +56,7 @@ const HISTORY_PAGE_SIZE = 30;
 const LOT_SELECT_COLUMNS = [
   "id",
   "post_id",
+  "product_id",
   "order_no",
   "product_code",
   "product_name",
@@ -77,6 +82,7 @@ const toNumber = (value: unknown) => Number(value || 0);
 const mapLotRow = (row: Record<string, unknown>): LotFlowRow => ({
   id: String(row.id || ""),
   postId: String(row.post_id || ""),
+  productId: String(row.product_id || ""),
   orderNo: String(row.order_no || ""),
   productCode: String(row.product_code || ""),
   productName: String(row.product_name || ""),
@@ -112,15 +118,6 @@ const buildDateLabel = (label: string, value: unknown) => {
   return date === "-" ? "" : `${label}: ${date}`;
 };
 
-const sortHistoryRows = (rows: HistoryRow[]) =>
-  [...rows].sort((a, b) => {
-    const aDate = a.date || "";
-    const bDate = b.date || "";
-    const dateCompare = bDate.localeCompare(aDate);
-    if (dateCompare !== 0) return dateCompare;
-    return a.sortOrder - b.sortOrder;
-  });
-
 const buildBaseRows = (lot: LotFlowRow): HistoryRow[] => {
   const rows: Array<HistoryRow | null> = [
     lot.measuredAmount > 0
@@ -138,7 +135,7 @@ const buildBaseRows = (lot: LotFlowRow): HistoryRow[] => {
     lot.packagedAmount > 0
       ? {
           id: `base-packaged-${lot.id}`,
-          date: lot.packagedAt || lot.updatedAt,
+          date: lot.packagedAt,
           sortOrder: 60,
           section: "ロット履歴" as const,
           action: "梱包",
@@ -150,7 +147,7 @@ const buildBaseRows = (lot: LotFlowRow): HistoryRow[] => {
     lot.inventoryAmount > 0
       ? {
           id: `base-inventory-${lot.id}`,
-          date: lot.packagedAt || lot.updatedAt,
+          date: lot.packagedAt,
           sortOrder: 70,
           section: "ロット履歴" as const,
           action: "在庫登録",
@@ -222,36 +219,37 @@ export default function LotDetailPage() {
       allocationResult,
       shipmentResult,
       remainderResult,
+      masterResult,
     ] = await Promise.all([
-      supabase
+      fetchAllRows((from, to) => supabase
         .from("production_results")
-        .select("id,post_id,lot_id,process_name,date,amount,created_at")
+        .select("id,post_id,lot_id,order_process_id,process_name,date,amount,created_at")
         .eq("post_id", targetLot.postId)
-        .order("date", { ascending: true }),
-      supabase
+        .order("date", { ascending: true }).order("id").range(from,to)),
+      fetchAllRows((from, to) => supabase
         .from("production_results")
-        .select("id,process_name,date,amount,created_at")
+        .select("id,order_process_id,process_name,date,amount,created_at")
         .eq("lot_id", targetLot.id)
-        .order("date", { ascending: true }),
-      supabase
+        .order("date", { ascending: true }).order("id").range(from,to)),
+      fetchAllRows((from, to) => supabase
         .from("v_order_processes_with_master")
         .select(
-          "id,process_name,process_order,subcontractor_name,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,outsource_status,outsource_note,completed_amount,completed_date,updated_at",
+          "id,product_process_id,process_name,process_order,subcontractor_name,outsource_sent_date,outsource_expected_return_date,outsource_returned_date,outsource_status,outsource_note,completed_amount,completed_date,updated_at",
         )
         .eq("post_id", targetLot.postId)
-        .order("process_order", { ascending: true }),
-      supabase
+        .order("process_order", { ascending: true }).order("id").range(from,to)),
+      fetchAllRows((from, to) => supabase
         .from("v_process_transfer_history_with_master")
         .select(
-          "id,created_at,from_process_name,to_process_name,from_process_order,to_process_order,quantity,movement_type,before_from_quantity,after_from_quantity,correction_quantity,reason",
+          "id,created_at,from_order_process_id,to_order_process_id,source_result_id,from_process_name,to_process_name,from_process_order,to_process_order,quantity,movement_type,before_from_quantity,after_from_quantity,correction_quantity,reason",
         )
         .eq("lot_id", targetLot.id)
-        .order("created_at", { ascending: true }),
-      supabase
+        .order("created_at", { ascending: true }).order("id").range(from,to)),
+      fetchAllRows((from, to) => supabase
         .from("inventory_items")
         .select("id,current_stock,allocated_stock,updated_at")
         .eq("lot_id", targetLot.id)
-        .order("updated_at", { ascending: true }),
+        .order("updated_at", { ascending: true }).order("id").range(from,to)),
       fetchAllRows((from, to) => supabase
         .from("inventory_allocations")
         .select("id,post_id,lot_id,allocated_amount,shipped_amount,confirmed_at,lot_no")
@@ -264,8 +262,11 @@ export default function LotDetailPage() {
         )
         .or(historyFilter)
         .order("scheduled_date", { ascending: true }).order("id").range(from, to)),
-      supabase.from("outsource_remainder_schedules").select("*,order_processes!inner(post_id)")
-        .eq("order_processes.post_id",targetLot.postId).order("dispatch_no"),
+      fetchAllRows((from,to) => supabase.from("outsource_remainder_schedules").select("*,order_processes!inner(post_id)")
+        .eq("order_processes.post_id",targetLot.postId).order("dispatch_no").order("id").range(from,to)),
+      targetLot.productId ? fetchAllRows((from,to) => supabase.from("product_processes")
+        .select("id,process_name,process_order").eq("product_id",targetLot.productId)
+        .order("process_order").order("id").range(from,to)) : Promise.resolve({data:[],error:null}),
     ]);
 
     if(remainderResult.error) console.warn("外注分割履歴の取得に失敗",remainderResult.error);
@@ -277,10 +278,18 @@ export default function LotDetailPage() {
     if (allocationResult.error) console.warn("ロット引当履歴の取得に失敗", allocationResult.error);
     if (shipmentResult.error) console.warn("ロット出荷履歴の取得に失敗", shipmentResult.error);
 
+    if (masterResult.error) throw masterResult.error;
+    const processes = (orderProcessResult.data || []) as Record<string, unknown>[];
+    const route = createLotHistoryOrder(processes, (masterResult.data || []) as Record<string, unknown>[]);
+    const ownResults = (lotResult.error ? [] : lotResult.data || []) as Record<string, unknown>[];
+    const packagedAt = lotPackagingCompletedDate(ownResults, processes, targetLot.packagedAt);
+    setLot(current => current?.id === targetLot.id ? { ...current, packagedAt } : current);
+
     const lotResultRows = (
       (lotResult.error ? [] : lotResult.data || []) as Record<string, unknown>[]
     ).map((row) => ({
       id: `lot-result-${String(row.id || "")}`,
+      processOrder: route.resolve(row.order_process_id,row.process_name), eventOrder: 10,
       date: String(row.date || row.created_at || ""),
       sortOrder: 50,
       section: "ロット履歴" as const,
@@ -297,6 +306,7 @@ export default function LotDetailPage() {
       .filter((row) => !lotResultIds.has(String(row.id || "")))
       .map((row) => ({
         id: `order-result-${String(row.id || "")}`,
+        processOrder: route.resolve(row.order_process_id,row.process_name), eventOrder: 10,
         date: String(row.date || row.created_at || ""),
         sortOrder: 20,
         section: "注番工程履歴" as const,
@@ -310,6 +320,7 @@ export default function LotDetailPage() {
       const process=((orderProcessResult.data||[]) as Record<string,unknown>[]).find(process=>process.id===row.order_process_id)||{};
       const detail=`第${process.process_order}工程 ${process.process_name} / ${process.subcontractor_name||"-"} / 分割${row.dispatch_no}${row.cancelled?"（取消）":""} / ${row.note||""}`;
       return [["sent_date","外注分割出し",30],["expected_date","外注分割戻り予定",35],["returned_date","外注分割戻り",40]].flatMap(([key,action,sortOrder])=>row[String(key)]?[{
+        processOrder:route.resolve(process.id,process.process_name,process.process_order),eventOrder:Number(sortOrder),
         id:`remainder-${row.id}-${key}`,date:String(row[String(key)]),sortOrder:Number(sortOrder),section:"注番工程履歴" as const,action:String(action),amount:toNumber(row.quantity),target:targetLot.orderNo||"-",detail,
       }]:[]);
     });
@@ -326,6 +337,7 @@ export default function LotDetailPage() {
       if (row.outsource_sent_date) {
         rows.push({
           id: `outsource-sent-${String(row.id || "")}`,
+          processOrder: route.resolve(row.id,row.process_name,row.process_order), eventOrder: 1,
           date: String(row.outsource_sent_date || ""),
           sortOrder: 30,
           section: "注番工程履歴",
@@ -339,6 +351,7 @@ export default function LotDetailPage() {
       if (row.outsource_expected_return_date) {
         rows.push({
           id: `outsource-expected-${String(row.id || "")}`,
+          processOrder: route.resolve(row.id,row.process_name,row.process_order), eventOrder: 2,
           date: String(row.outsource_expected_return_date || ""),
           sortOrder: 35,
           section: "注番工程履歴",
@@ -352,6 +365,7 @@ export default function LotDetailPage() {
       if (row.outsource_returned_date) {
         rows.push({
           id: `outsource-returned-${String(row.id || "")}`,
+          processOrder: route.resolve(row.id,row.process_name,row.process_order), eventOrder: 3,
           date: String(row.outsource_returned_date || ""),
           sortOrder: 40,
           section: "注番工程履歴",
@@ -383,6 +397,9 @@ export default function LotDetailPage() {
 
       return {
         id: `transfer-${String(row.id || "")}`,
+        processOrder: route.resolve(row.from_order_process_id,row.from_process_name,row.from_process_order)
+          || route.previous(route.resolve(row.to_order_process_id,row.to_process_name,row.to_process_order)),
+        eventOrder: isManualEdit ? 15 : 20,
         date: String(row.created_at || ""),
         sortOrder: 45,
         section: "ロット履歴" as const,
@@ -399,6 +416,7 @@ export default function LotDetailPage() {
       (inventoryResult.error ? [] : inventoryResult.data || []) as Record<string, unknown>[]
     ).map((row) => ({
       id: `inventory-${String(row.id || "")}`,
+      processOrder: route.last + 3,
       date: String(row.updated_at || row.created_at || ""),
       sortOrder: 70,
       section: "ロット履歴" as const,
@@ -414,6 +432,7 @@ export default function LotDetailPage() {
       (allocationResult.error ? [] : allocationResult.data || []) as Record<string, unknown>[]
     ).filter((row) => lotHistoryBelongsTo(row, targetLot, legacyIsUnambiguous)).map((row) => ({
       id: `allocation-${String(row.id || "")}`,
+      processOrder: route.last + 1,
       date: String(row.confirmed_at || ""),
       sortOrder: 80,
       section: "ロット履歴" as const,
@@ -439,6 +458,7 @@ export default function LotDetailPage() {
 
       return {
         id: `shipment-${String(row.id || "")}`,
+        processOrder: route.last + 2,
         date: String(row.delivery_date || row.scheduled_date || row.created_at || ""),
         sortOrder: 90,
         section: "ロット履歴" as const,
@@ -463,11 +483,13 @@ export default function LotDetailPage() {
       ...shipmentRows,
     ];
     const fallbackActions = new Set(detailRows.map((row) => row.action));
-    const fallbackRows = buildBaseRows(targetLot).filter(
+    const fallbackRows = buildBaseRows({ ...targetLot, packagedAt }).map(row => ({ ...row,
+      processOrder: row.action === "在庫登録" ? route.last + 3 : row.action === "出荷" ? route.last + 2 : row.action === "在庫引当" ? route.last + 1 : route.resolve(null,row.action), eventOrder: 10,
+    })).filter(
       (row) => !fallbackActions.has(row.action),
     );
 
-    setHistoryRows(sortHistoryRows([...detailRows, ...fallbackRows]));
+    setHistoryRows(sortLotHistory([...detailRows, ...fallbackRows]));
   }, []);
 
   const loadLotDetail = useCallback(async () => {

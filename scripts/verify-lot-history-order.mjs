@@ -1,0 +1,59 @@
+// Offline route ordering and actual lot-detail loader; no live data writes.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import ts from 'typescript';
+import { createRequire } from 'node:module';
+const require=createRequire(import.meta.url);
+let passed=0;
+const check=(a,b)=>{assert.deepEqual(a,b);passed++;};
+function load(file,mocks={}){
+ const context={exports:{},console,require(name){
+  if(name in mocks)return mocks[name];
+  if(name.endsWith('.css'))return{__esModule:true,default:{}};
+  if(name.startsWith('@/lib/'))return load(name.slice(2)+'.ts',mocks);
+  return require(name);
+ }};
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,context);
+ return context.exports;
+}
+const master=['製造','洗浄','検査','計量','梱包'].map((name,i)=>({id:`master-${i}`,process_name:name,process_order:i+1}));
+const processes=master.map((p,i)=>({...p,id:`order-${i}`,product_process_id:p.id,process_order:10-i}));
+const {createLotHistoryOrder,lotPackagingCompletedDate}=load('lib/lotHistoryOrder.ts');
+const route=createLotHistoryOrder(processes,master);
+check(route.resolve('order-2','wrong-name',99),3);check(route.last,5);check(route.previous(2),1);
+const duplicate=createLotHistoryOrder([{id:'a',process_name:'検査',process_order:2},{id:'b',process_name:'検査',process_order:4}],[]);
+check(duplicate.resolve('b','検査'),4);check(duplicate.resolve(null,'検査'),0);check(duplicate.resolve(null,'検査',2),2);
+check(lotPackagingCompletedDate([{order_process_id:'order-4',date:'2026-11-12',amount:10}],processes,''),'2026-11-12');
+check(lotPackagingCompletedDate([{order_process_id:'order-4',date:'2026-11-10',amount:10},{order_process_id:'order-4',date:'2026-11-12',amount:10}],processes,''),'2026-11-12');
+check(lotPackagingCompletedDate([{process_name:'梱包',date:'2026-02-30',amount:10}],processes,''),'');
+check(lotPackagingCompletedDate([{process_name:'検査',date:'2026-11-12',amount:10}],processes,''),'');
+check(lotPackagingCompletedDate([{process_name:'梱包',date:'2026-11-12',amount:0}],processes,''),'');
+check(lotPackagingCompletedDate([],processes,'2026-11-11'),'2026-11-11');
+const lot={id:'lot',postId:'post',productId:'product',orderNo:'ORDER',lotNo:'LOT',packagedAt:'',measuredAmount:100,packagedAmount:100,inventoryAmount:0,allocatedAmount:0,shippedAmount:100,createdAt:'2026-11-09',updatedAt:'2026-11-25'};
+const results=processes.map((p,i)=>({id:`result-${i}`,lot_id:'lot',order_process_id:p.id,process_name:p.process_name,date:i?'2026-11-12':'2026-11-09',amount:100,created_at:'2026-11-25T00:00:00Z'})).reverse();
+const transfers=processes.map((p,i)=>({id:`transfer-${i}`,from_order_process_id:p.id,to_order_process_id:processes[i+1]?.id,from_process_name:p.process_name,to_process_name:processes[i+1]?.process_name,from_process_order:10-i,to_process_order:9-i,created_at:i?'2026-11-12T09:00:00Z':'2026-11-09T09:00:00Z',quantity:100})).reverse();
+const values=[lot,[],1,false,'',''],callbacks=[];
+let index=0;
+const mocks={react:{...require('react'),useState(initial){const i=index++;if(!(i in values))values[i]=initial;return[values[i],v=>{values[i]=typeof v==='function'?v(values[i]):v;}];},useEffect(){},useMemo:fn=>fn(),useCallback(fn){callbacks.push(fn);return fn;}},
+ '@/lib/auth/client':{},'@/app/components/AuthProvider/AuthProvider':{useAppAuth:()=>({profile:{manager:false}})},'next/navigation':{useParams:()=>({id:'lot'})},
+ '@/lib/supabase':{__esModule:true,default:{from(table){
+  const filters={};
+  const q={select(){return q;},order(){return q;},range(){return q;},or(){return q;},eq(key,value){filters[key]=value;return q;},then(resolve,reject){
+   const data=table==='lots'?[{id:'lot'}]:table==='product_processes'?master:table==='v_order_processes_with_master'?processes:
+    table==='production_results'?results:table==='v_process_transfer_history_with_master'?transfers:
+    table==='inventory_items'?[{id:'inventory',current_stock:0,allocated_stock:0,updated_at:'2026-11-12'}]:
+    table==='shipments'?[{id:'shipment',lot_id:'lot',post_id:'post',quantity:100,delivery_date:'2026-11-20'}]:[];
+   return Promise.resolve({data,error:null}).then(resolve,reject);
+  }};return q;
+ }}}
+};
+const Detail=load('app/lots/[id]/page.tsx',mocks).default;
+Detail();await callbacks[0](lot);
+check(values[0].packagedAt,'2026-11-12');
+check(JSON.stringify(values[1].map(r=>r.action).reverse()),JSON.stringify(['製造','工程移動','洗浄','工程移動','検査','工程移動','計量','工程移動','梱包','工程移動','出荷','在庫登録']));
+check(values[1].find(r=>r.action==='出荷').date,'2026-11-20');
+check(values[1].filter(r=>r.id.startsWith('order-result-')).length,0);
+// No packaging date can be borrowed from another lot or inferred from row update time.
+await callbacks[0]({...lot,id:'other-lot'});check(values[0].id,'lot');
+console.log(JSON.stringify({mode:'product route ordering, interleaved movement history and lot-specific packaging actual dates',passed}));
