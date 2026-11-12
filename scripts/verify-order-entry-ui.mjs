@@ -126,7 +126,7 @@ for (const department of ['製造G', '品質管理G', '梱包出荷G', '全て']
   check(result.includes('<th>開始予定日</th>'), true); check(result.includes('<th>ロット</th>'), false);
   check(result.includes('2026-12-03'), true); check(result.includes('LEGACY-LOT-DO-NOT-DISPLAY'), false);
 }
-sValues[3] = '製造G'; sValues[5] = { ...search, plannedStartDate: '2026-12-04' };
+sValues[3] = '全て'; sValues[5] = { ...search, plannedStartDate: '2026-12-04' };
 const filtered = renderSchedules(); check(filtered.includes('2026-12-04'), true); check(filtered.includes('2026-12-03'), false);
 // All-department edit must update/create the manufacturing schedule without changing actual quantities.
 function scheduleTree() { sh.reset(); return Schedules(); }
@@ -169,10 +169,26 @@ saveError = null; await button(editTree, '保存').props.onClick(); check(schedu
 resetSchedules([]); editTree = scheduleTree(); button(editTree, '編集').props.onClick(); editTree = scheduleTree();
 input(editTree, '製造Gの完了予定日').props.onChange({ target: { value: '2026-12-08' } }); editTree = scheduleTree();
 await button(editTree, 'キャンセル').props.onClick(); check(scheduleWrites.length, 0);
-// Saving a department date never writes the inherited display-only start date.
+// Manufacturing is display-only for both registered schedules and automatic order rows.
 resetSchedules([{ ...schedule, pressCompletedAmount: 0, pressCompletedDate: '2026-12-04' }]);
-sValues[3] = '製造G'; editTree = scheduleTree(); button(editTree, '編集').props.onClick(); editTree = scheduleTree();
-await button(editTree, '保存').props.onClick();
-check(scheduleWrites.length, 1); check(scheduleWrites[0].operation, 'update');
-check(Object.hasOwn(scheduleWrites[0].payload, 'planned_start_date'), false);
+sValues[1] = posts; sValues[3] = '製造G'; editTree = scheduleTree();
+check(Boolean(button(editTree, '編集')), false); check(Boolean(button(editTree, '削除')), false);
+check(Boolean(button(editTree, '検索')), false);
+sValues[3] = '全て'; check(Boolean(button(scheduleTree(), '検索')), true); sValues[3] = '製造G';
+check(nodes(editTree).some(node => node.type === 'th' && node.props.children === '操作'), false);
+check(scheduleWrites.length, 0);
+check(renderSchedules().includes('2026-12-03'), true); check(renderSchedules().includes('2026-12-04'), true);
+// Search moved to All, and its row-level machine filter uses the actual schedules.
+sValues[3] = '全て'; sValues[5] = {...search,pressNumber:'1'};
+let searchHtml = renderSchedules();check(searchHtml.includes('>A</div>'),true);check(searchHtml.includes('>B</div>'),false);
+sValues[3] = '製造G';searchHtml = renderSchedules();check(searchHtml.includes('>B</div>'),true);
+resetSchedules([{...schedule,productPlanAmount:250}]);editTree=scheduleTree();button(editTree,'編集').props.onClick();editTree=scheduleTree();
+check(input(editTree,'Aの計画数').props.value,'250');
+input(editTree,'Aの計画数').props.onChange({target:{value:'0'}});editTree=scheduleTree();await button(editTree,'保存').props.onClick();
+check(scheduleWrites[0].payload.p_plan_amount,0);
+resetSchedules([{...schedule,productPlanAmount:250}]);editTree=scheduleTree();button(editTree,'編集').props.onClick();editTree=scheduleTree();
+input(editTree,'Aの計画数').props.onFocus();editTree=scheduleTree();
+nodes(editTree).find(node=>node.props?.open===true&&typeof node.props?.onClose==='function').props.onChange('125');
+editTree=scheduleTree();check(input(editTree,'Aの計画数').props.value,'125');
+input(editTree,'Aの計画数').props.onChange({target:{value:'-1'}});editTree=scheduleTree();await button(editTree,'保存').props.onClick();check(scheduleWrites.length,0);
 console.log(JSON.stringify({ mode: 'offline customer/product selection, order submission, planned dates and department schedules', passed }));

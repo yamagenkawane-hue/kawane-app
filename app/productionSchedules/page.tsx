@@ -73,9 +73,10 @@ type ProductPlanRow = {
 
 type NumpadTarget =
   | { kind: "form"; field: "planAmount" | "pressCompletedAmount" }
-  | { kind: "schedule"; id: string; field: "planAmount" | "pressCompletedAmount" };
+  | { kind: "all"; id: string; field: "planAmount" };
 
 type AllDepartmentEdit = {
+  planAmount?: string;
   manufacturingCompletedDate: string;
   qualityCompletedDate: string;
   shippingCompletedDate: string;
@@ -194,30 +195,11 @@ const getDepartmentForProcess = (processName: string): Department => {
   return "製造G";
 };
 
-const formatDateKey = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}${month}${day}`;
-};
-
 const todayText = () =>
   new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 
 const isOverdue = (deliveryDate?: string) =>
   Boolean(deliveryDate) && String(deliveryDate) < todayText();
-
-const createScheduleNo = (schedules: ProductionSchedule[]) => {
-  const todayKey = formatDateKey(new Date());
-  const prefix = `PS-${todayKey}-`;
-  const maxSequence = schedules.reduce((max, schedule) => {
-    if (!schedule.orderNo?.startsWith(prefix)) return max;
-    const sequence = Number(schedule.orderNo.slice(prefix.length));
-    return Number.isFinite(sequence) ? Math.max(max, sequence) : max;
-  }, 0);
-
-  return `${prefix}${String(maxSequence + 1).padStart(3, "0")}`;
-};
 
 const filterSchedulesByBackorders = (
   scheduleRows: ProductionSchedule[],
@@ -329,7 +311,7 @@ export default function ProductionSchedulesPage() {
     editingRow?.kind === kind && editingRow.id === id;
 
   const renderCellText = (value?: string | number) => (
-    <div className={styles.displayText}>{value || "-"}</div>
+    <div className={styles.displayText}>{value === "" || value == null ? "-" : value}</div>
   );
 
   const fetchSchedules = async () => {
@@ -471,114 +453,13 @@ export default function ProductionSchedulesPage() {
       return;
     }
 
-    setSchedules((prev) =>
-      prev.map((schedule) =>
-        schedule.id === numpadTarget.id
-          ? { ...schedule, [numpadTarget.field]: numericValue }
-          : schedule,
-      ),
-    );
+    handleAllDepartmentChange(numpadTarget.id, "planAmount", value);
   };
 
   const currentNumpadValue = () => {
     if (!numpadTarget) return "";
     if (numpadTarget.kind === "form") return String(form[numpadTarget.field] || "");
-    const schedule = schedules.find((item) => item.id === numpadTarget.id);
-    return String(schedule?.[numpadTarget.field] || "");
-  };
-
-  const handleChange = (
-    id: string,
-    field: keyof ProductionSchedule,
-    value: string | number,
-  ) => {
-    setSchedules((prev) =>
-      prev.map((schedule) =>
-        schedule.id === id ? { ...schedule, [field]: value } : schedule,
-      ),
-    );
-  };
-
-  const handlePostChange = (
-    id: string,
-    field: keyof PostData,
-    value: string | number,
-  ) => {
-    setOrderSchedules((prev) =>
-      prev.map((post) =>
-        post.id === id ? { ...post, [field]: value } : post,
-      ),
-    );
-  };
-
-  const handleSave = async (schedule: ProductionSchedule) => {
-    try {
-      setLoading(true);
-      const planAmount = Number(schedule.planAmount);
-      const pressCompletedAmount = Number(schedule.pressCompletedAmount);
-      if (planAmount < 0 || pressCompletedAmount < 0) {
-        alert("予定数と完了数は0以上で入力してください");
-        return;
-      }
-      if (pressCompletedAmount > planAmount) {
-        alert("完了数は予定数以下で入力してください");
-        return;
-      }
-
-      const orderNo = schedule.orderNo || createScheduleNo(schedules);
-
-      const { error } = await supabase
-        .from("production_schedules")
-        .update({
-          order_no: orderNo,
-          customer_name: schedule.customerName,
-          product_name: schedule.productName,
-          press_number: schedule.pressNumber,
-          plan_amount: planAmount,
-          press_completed_amount: pressCompletedAmount,
-          press_completed_date: schedule.pressCompletedDate || null,
-          shipping_scheduled_end:
-            schedule.deliveryDate || schedule.shippingScheduledEnd || null,
-          department: schedule.department || "製造G",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", schedule.id);
-
-      if (error) throw error;
-
-      setEditingRow(null);
-      await fetchSchedules();
-    } catch (error) {
-      console.error(error);
-      alert("生産予定の保存に失敗しました");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePostSave = async (post: PostData) => {
-    try {
-      setLoading(true);
-
-      const { error } = await supabase
-        .from("posts")
-        .update({
-          completion_scheduled_date: post.completionScheduledDate || null,
-          delivery_date: post.deliveryDate || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", post.id);
-
-      if (error) throw error;
-
-      setEditingRow(null);
-      await fetchSchedules();
-    } catch (error) {
-      console.error(error);
-      alert("生産予定の保存に失敗しました");
-    } finally {
-      setLoading(false);
-    }
+    return allDepartmentEdits[numpadTarget.id]?.planAmount ?? String(allDepartmentRows.find(row => row.id === numpadTarget.id)?.planAmount ?? 0);
   };
 
   const handleAllDepartmentChange = (
@@ -606,10 +487,15 @@ export default function ProductionSchedulesPage() {
       return;
     }
 
+    const planAmount = edit.planAmount === undefined ? undefined : Number(edit.planAmount);
+    if (planAmount !== undefined && (!edit.planAmount?.trim() || !Number.isInteger(planAmount) || planAmount < 0 || planAmount > 2147483647)) {
+      alert("計画数は0以上の整数で入力してください"); return;
+    }
     try {
       setLoading(true);
       const { error } = await supabase.rpc("save_daily_department_dates", {
         p_post_id: post.id,
+        ...(planAmount === undefined ? {} : { p_plan_amount: planAmount }),
         p_manufacturing_date: edit.manufacturingCompletedDate || null,
         p_quality_date: edit.qualityCompletedDate || null,
         p_shipping_date: edit.shippingCompletedDate || null,
@@ -626,50 +512,6 @@ export default function ProductionSchedulesPage() {
     } catch (error) {
       console.error(error);
       alert("全体表示の完了予定日の保存に失敗しました");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("削除しますか？")) return;
-
-    try {
-      setLoading(true);
-      const { error } = await supabase
-        .from("production_schedules")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
-      await fetchSchedules();
-    } catch (error) {
-      console.error(error);
-      alert("生産予定の削除に失敗しました");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePostDelete = async (id: string) => {
-    if (!confirm("この受注を生産予定画面から外しますか？")) return;
-
-    try {
-      setLoading(true);
-      const { error } = await supabase
-        .from("posts")
-        .update({
-          shipping_scheduled_start: null,
-          shipping_scheduled_end: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id);
-
-      if (error) throw error;
-      await fetchSchedules();
-    } catch (error) {
-      console.error(error);
-      alert("生産予定からの削除に失敗しました");
     } finally {
       setLoading(false);
     }
@@ -697,11 +539,9 @@ export default function ProductionSchedulesPage() {
   const unscheduledOrderSchedules = orderSchedules.filter((post) => {
     if (post.id && scheduledPostIds.has(post.id)) return false;
     if (post.orderNo && scheduledOrderNos.has(post.orderNo)) return false;
-    return matchesSearch(post, appliedSearch);
+    return true;
   });
-  const filteredDepartmentSchedules = departmentSchedules.filter((schedule) =>
-    selectedDepartment === "製造G" ? matchesSearch(schedule, appliedSearch) : true,
-  );
+  const filteredDepartmentSchedules = departmentSchedules;
   const allDepartmentRows = orderSchedules.map((post) => {
     const balances = lotProcessBalances.filter((row) => row.postId === post.id);
     const schedulesForPost = schedules.filter(
@@ -727,6 +567,8 @@ export default function ProductionSchedulesPage() {
 
     return {
       ...post,
+      pressNumber: Array.from(new Set(schedulesForPost.map(schedule => schedule.pressNumber).filter(Boolean))).join(" / ") || post.pressNumber || "",
+      planAmount: scheduleForDepartment("製造G")?.productPlanAmount ?? post.planAmount ?? 0,
       manufacturingCompletedDate: datesForDepartment("製造G"),
       qualityCompletedDate: datesForDepartment("品質管理G"),
       shippingCompletedDate: datesForDepartment("梱包出荷G"),
@@ -737,13 +579,13 @@ export default function ProductionSchedulesPage() {
       shippingScheduleDate:
         scheduleForDepartment("梱包出荷G")?.pressCompletedDate || "",
     };
-  });
+  }).filter(row => matchesSearch(row, appliedSearch));
 
-  const showManualInput = selectedDepartment === "製造G";
+  const showSearchFields = selectedDepartment === "全て";
   const showManufacturingColumns =
     selectedDepartment === "製造G" || selectedDepartment === "全て";
   const emptyColSpan =
-    selectedDepartment === "全て" ? 13 : showManufacturingColumns ? 11 : 9;
+    selectedDepartment === "全て" ? 13 : showManufacturingColumns ? 10 : 9;
 
   return (
     <div className={styles.container}>
@@ -778,7 +620,7 @@ export default function ProductionSchedulesPage() {
             </Link>
           )}
         </div>
-        {showManualInput && (
+        {showSearchFields && (
           <>
         <div className={styles.formGrid}>
           <input
@@ -912,321 +754,38 @@ export default function ProductionSchedulesPage() {
                 </>
               )}
               <th>納期</th>
-              <th>操作</th>
+              {selectedDepartment !== "製造G" && <th>操作</th>}
             </tr>
           </thead>
           <tbody>
-            {selectedDepartment === "製造G" &&
-              unscheduledOrderSchedules.map((post) => {
-              const editing = isEditing("post", post.id);
-              const rowClassName = isOverdue(post.deliveryDate)
-                ? styles.dangerRow
-                : styles.autoRow;
-
-              return (
-                <tr key={`post-${post.id}`} className={rowClassName}>
-                  <td>
-                    {editing ? (
-                      <input
-                        className={`${styles.tableInput} ${styles.orderInput}`}
-                        disabled
-                        value={post.orderNo}
-                        onChange={(e) =>
-                          handlePostChange(post.id, "orderNo", e.target.value)
-                        }
-                      />
-                    ) : (
-                      renderCellText(post.orderNo)
-                    )}
-                  </td>
-                  <td>
-                    {editing ? (
-                      <input
-                        className={`${styles.tableInput} ${styles.customerInput}`}
-                        disabled
-                        value={post.customerName}
-                        onChange={(e) =>
-                          handlePostChange(post.id, "customerName", e.target.value)
-                        }
-                      />
-                    ) : (
-                      renderCellText(post.customerName)
-                    )}
-                  </td>
-                  <td>
-                    {editing ? (
-                      <input
-                        className={`${styles.tableInput} ${styles.productInput}`}
-                        disabled
-                        value={post.productName}
-                        onChange={(e) =>
-                          handlePostChange(post.id, "productName", e.target.value)
-                        }
-                      />
-                    ) : (
-                      renderCellText(post.productName)
-                    )}
-                  </td>
-                  <td>
-                    {editing ? (
-                      <input
-                        className={`${styles.tableInput} ${styles.lotInput}`}
-                        disabled
-                        type="date"
-                        value={post.plannedStartDate || ""}
-                        onChange={(e) =>
-                          handlePostChange(post.id, "plannedStartDate", e.target.value)
-                        }
-                      />
-                    ) : (
-                      renderCellText(post.plannedStartDate)
-                    )}
-                  </td>
-                  <td>
-                    <input
-                      className={`${styles.tableInput} ${styles.numberInput}`}
-                      disabled
-                      inputMode="numeric"
-                      value={post.remainingAmount || ""}
-                      onChange={(e) =>
-                        handlePostChange(
-                          post.id,
-                          "remainingAmount",
-                          Number(e.target.value),
-                        )
-                      }
-                    />
-                  </td>
-                  <td>{renderCellText(post.planAmount || 0)}</td>
-                  <td>{renderCellText(post.pressNumber || "-")}</td>
-                  <td>-</td>
-                  <td>
-                    <input
-                      className={`${styles.tableInput} ${styles.dateInput}`}
-                      disabled={!editing}
-                      type="date"
-                      value={post.completionScheduledDate || ""}
-                      onChange={(e) =>
-                        handlePostChange(
-                          post.id,
-                          "completionScheduledDate",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className={`${styles.tableInput} ${styles.dateInput}`}
-                      disabled
-                      type="date"
-                      value={post.deliveryDate || ""}
-                      onChange={(e) =>
-                        handlePostChange(post.id, "deliveryDate", e.target.value)
-                      }
-                    />
-                  </td>
-                  <td className={styles.actionArea}>
-                    {editing ? (
-                      <>
-                        <button
-                          className={styles.saveButton}
-                          onClick={() => handlePostSave(post)}
-                        >
-                          保存
-                        </button>
-                        <button className={styles.cancelButton} onClick={handleCancel}>
-                          キャンセル
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          className={styles.editButton}
-                          onClick={() => setEditingRow({ kind: "post", id: post.id })}
-                        >
-                          編集
-                        </button>
-                        <button
-                          className={styles.deleteButton}
-                          onClick={() => handlePostDelete(post.id)}
-                        >
-                          削除
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-
-            {selectedDepartment === "製造G" &&
-              filteredDepartmentSchedules.map((schedule) => {
-              const editing = isEditing("schedule", schedule.id);
-
-              return (
-              <tr
-                key={schedule.id}
-                className={isOverdue(schedule.deliveryDate) ? styles.dangerRow : ""}
-              >
-                <td>
-                  {editing ? (
-                    <input
-                      className={`${styles.tableInput} ${styles.orderInput}`}
-                      disabled
-                      value={schedule.orderNo || ""}
-                      onChange={(e) =>
-                        handleChange(schedule.id, "orderNo", e.target.value)
-                      }
-                    />
-                  ) : (
-                    renderCellText(schedule.orderNo)
-                  )}
-                </td>
-                <td>
-                  {editing ? (
-                    <input
-                      className={`${styles.tableInput} ${styles.customerInput}`}
-                      disabled
-                      value={schedule.customerName}
-                      onChange={(e) =>
-                        handleChange(schedule.id, "customerName", e.target.value)
-                      }
-                    />
-                  ) : (
-                    renderCellText(schedule.customerName)
-                  )}
-                </td>
-                <td>
-                  {editing ? (
-                    <input
-                      className={`${styles.tableInput} ${styles.productInput}`}
-                      disabled
-                      value={schedule.productName}
-                      onChange={(e) =>
-                        handleChange(schedule.id, "productName", e.target.value)
-                      }
-                    />
-                  ) : (
-                    renderCellText(schedule.productName)
-                  )}
-                </td>
-                <td>
-                  {editing ? (
-                    <input
-                      className={`${styles.tableInput} ${styles.lotInput}`}
-                      disabled
-                      type="date"
-                      value={schedule.plannedStartDate || ""}
-                      onChange={(e) =>
-                        handleChange(schedule.id, "plannedStartDate", e.target.value)
-                      }
-                    />
-                  ) : (
-                    renderCellText(schedule.plannedStartDate)
-                  )}
-                </td>
-                <td>
-                  <input
-                    className={`${styles.tableInput} ${styles.numberInput}`}
-                    disabled
-                    inputMode="numeric"
-                    value={schedule.planAmount || ""}
-                    onFocus={() =>
-                      editing &&
-                      setNumpadTarget({
-                        kind: "schedule",
-                        id: schedule.id,
-                        field: "planAmount",
-                      })
-                    }
-                    onChange={(e) =>
-                      handleChange(schedule.id, "planAmount", Number(e.target.value))
-                    }
-                  />
-                </td>
+            {selectedDepartment === "製造G" && unscheduledOrderSchedules.map(post => (
+              <tr key={`post-${post.id}`} className={isOverdue(post.deliveryDate) ? styles.dangerRow : styles.autoRow}>
+                <td>{renderCellText(post.orderNo)}</td>
+                <td>{renderCellText(post.customerName)}</td>
+                <td>{renderCellText(post.productName)}</td>
+                <td>{renderCellText(post.plannedStartDate)}</td>
+                <td><input className={`${styles.tableInput} ${styles.numberInput}`} disabled inputMode="numeric" value={post.remainingAmount || ""} /></td>
+                <td>{renderCellText(post.planAmount || 0)}</td>
+                <td>{renderCellText(post.pressNumber || "-")}</td>
+                <td>-</td>
+                <td><input className={`${styles.tableInput} ${styles.dateInput}`} disabled type="date" value={post.completionScheduledDate || ""} /></td>
+                <td><input className={`${styles.tableInput} ${styles.dateInput}`} disabled type="date" value={post.deliveryDate || ""} /></td>
+              </tr>
+            ))}
+            {selectedDepartment === "製造G" && filteredDepartmentSchedules.map(schedule => (
+              <tr key={schedule.id} className={isOverdue(schedule.deliveryDate) ? styles.dangerRow : ""}>
+                <td>{renderCellText(schedule.orderNo)}</td>
+                <td>{renderCellText(schedule.customerName)}</td>
+                <td>{renderCellText(schedule.productName)}</td>
+                <td>{renderCellText(schedule.plannedStartDate)}</td>
+                <td><input className={`${styles.tableInput} ${styles.numberInput}`} disabled inputMode="numeric" value={schedule.planAmount || ""} /></td>
                 <td>{renderCellText(schedule.productPlanAmount || 0)}</td>
                 <td>{renderCellText(schedule.pressNumber)}</td>
-                <td>
-                  <input
-                    className={`${styles.tableInput} ${styles.numberInput}`}
-                    disabled={!editing}
-                    inputMode="numeric"
-                    value={schedule.pressCompletedAmount || ""}
-                    onFocus={() =>
-                      editing &&
-                      setNumpadTarget({
-                        kind: "schedule",
-                        id: schedule.id,
-                        field: "pressCompletedAmount",
-                      })
-                    }
-                    onChange={(e) =>
-                      handleChange(
-                        schedule.id,
-                        "pressCompletedAmount",
-                        Number(e.target.value),
-                      )
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    className={`${styles.tableInput} ${styles.dateInput}`}
-                    disabled={!editing}
-                    type="date"
-                    value={schedule.pressCompletedDate}
-                    onChange={(e) =>
-                      handleChange(schedule.id, "pressCompletedDate", e.target.value)
-                    }
-                  />
-                </td>
-                <td>
-                  <input
-                    className={`${styles.tableInput} ${styles.dateInput}`}
-                    disabled
-                    type="date"
-                    value={schedule.deliveryDate || ""}
-                    onChange={(e) =>
-                      handleChange(schedule.id, "deliveryDate", e.target.value)
-                    }
-                  />
-                </td>
-                <td className={styles.actionArea}>
-                  {editing ? (
-                    <>
-                      <button
-                        className={styles.saveButton}
-                        onClick={() => handleSave(schedule)}
-                      >
-                        保存
-                      </button>
-                      <button className={styles.cancelButton} onClick={handleCancel}>
-                        キャンセル
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        className={styles.editButton}
-                        onClick={() =>
-                          setEditingRow({ kind: "schedule", id: schedule.id })
-                        }
-                      >
-                        編集
-                      </button>
-                      <button
-                        className={styles.deleteButton}
-                        onClick={() => handleDelete(schedule.id)}
-                      >
-                        削除
-                      </button>
-                    </>
-                  )}
-                </td>
+                <td><input className={`${styles.tableInput} ${styles.numberInput}`} disabled inputMode="numeric" value={schedule.pressCompletedAmount || ""} /></td>
+                <td><input className={`${styles.tableInput} ${styles.dateInput}`} disabled type="date" value={schedule.pressCompletedDate || ""} /></td>
+                <td><input className={`${styles.tableInput} ${styles.dateInput}`} disabled type="date" value={schedule.deliveryDate || ""} /></td>
               </tr>
-              );
-            })}
+            ))}
             {selectedDepartment !== "製造G" && selectedDepartment !== "全て" &&
               departmentBalanceRows.map((row) => (
                 <tr
@@ -1265,7 +824,12 @@ export default function ProductionSchedulesPage() {
                     <td>{renderCellText(row.productName)}</td>
                     <td>{renderCellText(row.plannedStartDate)}</td>
                     <td>{renderCellText(row.orderAmount)}</td>
-                    <td>{renderCellText(row.planAmount || 0)}</td>
+                    <td>{editing ? (
+                      <input className={`${styles.tableInput} ${styles.numberInput}`} inputMode="numeric"
+                        aria-label={`${row.orderNo}の計画数`} value={edit.planAmount ?? String(row.planAmount ?? 0)}
+                        onFocus={() => setNumpadTarget({kind:"all",id:row.id,field:"planAmount"})}
+                        onChange={e => handleAllDepartmentChange(row.id,"planAmount",e.target.value)} />
+                    ) : renderCellText(row.planAmount ?? 0)}</td>
                     <td>{renderCellText(row.pressNumber || "-")}</td>
                     <td>{renderCellText("-")}</td>
                     <td>
