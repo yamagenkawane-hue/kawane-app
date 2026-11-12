@@ -475,7 +475,7 @@ export default function LotDetailPage() {
         id: `shipment-${String(row.id || "")}`,
         actorSource: "shipments", actorId: String(row.id), actorKind: cancelled ? "cancel" : "record",
         processOrder: route.last + 2,
-        date: String(row.delivery_date || row.scheduled_date || row.created_at || ""),
+        date: String(row.created_at || ""),
         sortOrder: 90,
         section: "ロット履歴" as const,
         action: cancelled ? "出荷取消済" : "出荷",

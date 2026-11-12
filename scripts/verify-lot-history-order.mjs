@@ -54,7 +54,7 @@ const mocks={react:{...require('react'),useState(initial){const i=index++;if(!(i
    const data=table==='actor-fixture'?actorFixtures:table==='lots'?[{id:'lot'}]:table==='product_processes'?master:table==='v_order_processes_with_master'?processes:
     table==='production_results'?results:table==='v_process_transfer_history_with_master'?transfers:
     table==='inventory_items'?[{id:'inventory',current_stock:0,allocated_stock:0,updated_at:'2026-11-12'}]:
-    table==='shipments'?[{id:'shipment',lot_id:'lot',post_id:'post',quantity:100,delivery_date:'2026-11-20'}]:[];
+    table==='shipments'?[{id:'shipment',lot_id:'lot',post_id:'post',quantity:100,delivery_date:'2026-11-20',scheduled_date:'2026-11-18',created_at:'2026-11-12T01:23:45Z'}]:[];
    return Promise.resolve({data,error:null}).then(resolve,reject);
   }};return q;
  }}}
@@ -67,7 +67,7 @@ check(values[1].find(r=>r.id==='transfer-transfer-0').actorName,'製造担当者
 check(values[1].find(r=>r.action==='出荷').actorName,'出荷担当者');
 check(values[1].find(r=>r.action==='在庫登録').actorName,'不明');
 check(JSON.stringify(values[1].map(r=>r.action).reverse()),JSON.stringify(['製造','工程移動','洗浄','工程移動','検査','工程移動','計量','工程移動','梱包','工程移動','出荷','在庫登録']));
-check(values[1].find(r=>r.action==='出荷').date,'2026-11-20');
+check(values[1].find(r=>r.action==='出荷').date,'2026-11-12T01:23:45Z');
 check(values[1].find(r=>r.id==='transfer-transfer-0').detail.includes('製造実績を登録し、次工程へ自動移動しました'),true);
 check(values[1].find(r=>r.id==='transfer-transfer-1').detail.includes('進捗管理から工程移動'),true);
 check(transfers.find(t=>t.id==='transfer-0').reason,'Manufacturing result registered and moved automatically');
