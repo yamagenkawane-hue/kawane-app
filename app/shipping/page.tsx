@@ -445,6 +445,7 @@ export default function ShippingPage() {
               <th>ロット在庫数</th>
               <th>納期</th>
               <th>受注数</th>
+              <th>残</th>
               <th>出荷数</th>
               <th>操作</th>
             </tr>
@@ -467,6 +468,7 @@ export default function ShippingPage() {
                     <>
                       <td rowSpan={group.rows.length}>{post.deliveryDate}</td>
                       <td rowSpan={group.rows.length}>{post.orderAmount}</td>
+                      <td rowSpan={group.rows.length}>{(post.orderRemaining ?? Math.max(post.orderAmount - post.shippedAmount, 0)).toLocaleString("ja-JP")}</td>
                     </>
                   )}
                   <td>
