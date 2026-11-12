@@ -36,7 +36,9 @@ UIのパスワードは伏字で表示し、サーバーの認証済みIDからA
 
 適用後の読取確認：履歴RLS有効、管理者のSELECTのみを許可。anon閲覧不可、authenticatedの履歴INSERT/UPDATE/DELETE不可。旧RPCはanon/authenticated実行不可、新RPCはservice_role実行可・authenticated実行不可。Security Advisorは従来のRLSポリシーなし3件・Auth漏洩済みパスワード保護無効1件が継続。signed-in向けSECURITY DEFINERは旧RPCの権限撤回により34→33件。今回の履歴テーブルに新規のRLS警告はない。
 
-Git・アプリ公開の確認結果は公開後に追記する。
+Git：修正コミット`19c8cc1814a6f43dac656e7900ba27d9d1db9823`をmainへプッシュ済み。
+
+Vercel：`dpl_42p68KsorixA5zG3cepSku4q4nGq`のREADYと、本番`kawane-app.vercel.app`への割当を確認。`/orders`・`/orders/history`は200、未ログインの`/api/order-cancellations`はGET/POSTとも401。これは公開と認証境界の確認であり、本番の管理者パスワードや実際の受注を用いた取消試験は行っていない。
 
 【次のAIへの引き継ぎ事項】
-本番SQL適用・履歴権限の読取確認は完了。アプリ公開と未ログイン拒否を確認する。実際の受注取消は試験しない。
+本番SQL適用・Gitプッシュ・アプリ公開・未ログイン拒否と履歴権限の読取確認まで完了。旧履歴の推測補完や実際の受注取消は行っていない。
