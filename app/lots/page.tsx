@@ -5,6 +5,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useAppAuth } from "@/app/components/AuthProvider/AuthProvider";
 import supabase from "@/lib/supabase";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { compareLotShipmentRows, enrichLotShipmentList, type ShipmentState } from "@/lib/lotShipmentList";
+import { formatLotHistoryDate as formatDate } from "@/lib/lotHistoryDate";
 import styles from "./page.module.css";
 
 type LotFlowStatus =
@@ -38,6 +41,8 @@ type LotFlowRow = {
   note: string;
   createdAt: string;
   updatedAt: string;
+  shipmentState: ShipmentState;
+  deliveryDate: string;
 };
 
 const PAGE_SIZE = 30;
@@ -90,14 +95,11 @@ const mapLotRow = (row: Record<string, unknown>): LotFlowRow => ({
   note: String(row.note || ""),
   createdAt: String(row.created_at || ""),
   updatedAt: String(row.updated_at || ""),
+  shipmentState: "unshipped",
+  deliveryDate: "",
 });
 
 const formatNumber = (value: number) => value.toLocaleString("ja-JP");
-
-const formatDate = (value: string) => {
-  if (!value) return "-";
-  return value.slice(0, 10);
-};
 
 export default function LotsPage() {
   const {profile}=useAppAuth();
@@ -106,6 +108,7 @@ export default function LotsPage() {
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [shipmentFilter, setShipmentFilter] = useState<"all" | ShipmentState>("all");
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const dragState = useRef({ active: false, startX: 0, scrollLeft: 0 });
 
@@ -114,19 +117,27 @@ export default function LotsPage() {
       setLoading(true);
       setMessage("");
 
-      const { data, error } = await supabase
-        .from("v_lot_flow_status")
+      const [lotResult, orderResult, shipmentResult] = await Promise.all([
+        fetchAllRows((from, to) => supabase.from("v_lot_flow_status")
         .select(LOT_SELECT_COLUMNS)
         .eq("deleted", false)
-        .order("created_at", { ascending: false });
+        .order("id").range(from, to)),
+        fetchAllRows((from, to) => supabase.from("posts")
+          .select("id,order_no,order_amount,delivery_date,shipment_closed_at").order("id").range(from, to)),
+        fetchAllRows((from, to) => supabase.from("shipments")
+          .select("id,post_id,order_no,lot_id,quantity,created_at,cancelled")
+          .or("cancelled.is.null,cancelled.eq.false").order("id").range(from, to)),
+      ]);
 
-      if (error) throw error;
+      for (const result of [lotResult, orderResult, shipmentResult]) {
+        if (result.error) throw result.error;
+      }
 
-      const rows = (data || []) as unknown as Record<string, unknown>[];
-      setLots(rows.map(mapLotRow));
+      const rows = (lotResult.data || []) as unknown as Record<string, unknown>[];
+      setLots(enrichLotShipmentList(rows.map(mapLotRow), orderResult.data || [], shipmentResult.data || []));
     } catch (error) {
       console.error(error);
-      alert("ロット情報の取得に失敗しました。ロット削除管理SQLを実行してください。");
+      alert("注番・ロット情報の取得に失敗しました。時間をおいて再読み込みしてください。");
     } finally {
       setLoading(false);
     }
@@ -144,6 +155,7 @@ export default function LotsPage() {
     const lowerSearch = search.trim().toLowerCase();
 
     return lots.filter((lot) => {
+      if (shipmentFilter !== "all" && lot.shipmentState !== shipmentFilter) return false;
       if (!lowerSearch) return true;
 
       return [
@@ -158,8 +170,8 @@ export default function LotsPage() {
         .join(" ")
         .toLowerCase()
         .includes(lowerSearch);
-    });
-  }, [lots, search]);
+    }).sort(compareLotShipmentRows);
+  }, [lots, search, shipmentFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredLots.length / PAGE_SIZE));
   const normalizedCurrentPage = Math.min(currentPage, totalPages);
@@ -234,7 +246,7 @@ export default function LotsPage() {
         <h1 className={styles.title}>注番管理</h1>
       </div>
 
-      <div className={styles.filterCard}>
+      <div className={`${styles.filterCard} ${styles.shipmentFilterCard}`}>
         <input
           className={styles.input}
           placeholder="注番・得意先・製品・ロットNo・材料ロットNoで検索"
@@ -244,6 +256,13 @@ export default function LotsPage() {
             setCurrentPage(1);
           }}
         />
+        <select className={styles.select} aria-label="出荷状況" value={shipmentFilter}
+          onChange={event => { setShipmentFilter(event.target.value as "all" | ShipmentState); setCurrentPage(1); }}>
+          <option value="all">全て</option>
+          <option value="unshipped">未出荷</option>
+          <option value="partial">一部出荷</option>
+          <option value="completed">完了</option>
+        </select>
         <button className={styles.reloadButton} onClick={fetchLots}>
           再読み込み
         </button>
@@ -276,6 +295,7 @@ export default function LotsPage() {
               <th>出荷数</th>
               <th>残数</th>
               <th>製造日</th>
+              <th>最終出荷日</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -307,6 +327,7 @@ export default function LotsPage() {
                   {formatNumber(lot.remainingAmount)}
                 </td>
                 <td>{formatDate(lot.measuredAt)}</td>
+                <td>{formatDate(lot.lastShippedAt)}</td>
                 <td className={styles.actionArea}>
                   <Link
                     href={`/lots/${lot.id}`}
@@ -330,7 +351,7 @@ export default function LotsPage() {
             ))}
             {filteredLots.length === 0 && (
               <tr>
-                <td className={styles.emptyCell} colSpan={14}>
+                <td className={styles.emptyCell} colSpan={15}>
                   表示できる注番・ロットがありません
                 </td>
               </tr>

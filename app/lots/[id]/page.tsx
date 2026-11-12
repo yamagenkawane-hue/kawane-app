@@ -10,6 +10,7 @@ import { fetchAllRows } from "@/lib/fetchAllRows";
 import { createLotHistoryOrder, sortLotHistory, lotPackagingCompletedDate } from "@/lib/lotHistoryOrder";
 import { lotHistoryBelongsTo } from "@/lib/lotHistoryIdentity";
 import { lotHistoryReasonText } from "@/lib/lotHistoryText";
+import { formatLotHistoryDate as formatDate } from "@/lib/lotHistoryDate";
 import styles from "../page.module.css";
 
 type LotFlowRow = {
@@ -106,11 +107,6 @@ const mapLotRow = (row: Record<string, unknown>): LotFlowRow => ({
 });
 
 const formatNumber = (value: number) => value.toLocaleString("ja-JP");
-
-const formatDate = (value: string) => {
-  if (!value) return "-";
-  return value.slice(0, 10);
-};
 
 const formatAmount = (value: number | null) =>
   value === null ? "-" : formatNumber(value);

@@ -72,6 +72,10 @@
   width: 100%;
 }
 
+.shipmentFilterCard {
+  grid-template-columns: minmax(260px, 1fr) 160px 140px;
+}
+
 .secondaryButton,
 .reloadButton,
 .detailButton,
