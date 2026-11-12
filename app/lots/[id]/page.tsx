@@ -289,7 +289,6 @@ export default function LotDetailPage() {
     const route = createLotHistoryOrder(processes, (masterResult.data || []) as Record<string, unknown>[]);
     const ownResults = (lotResult.error ? [] : lotResult.data || []) as Record<string, unknown>[];
     const packagedAt = lotPackagingCompletedDate(ownResults, processes, targetLot.packagedAt);
-    setLot(current => current?.id === targetLot.id ? { ...current, packagedAt } : current);
 
     const lotResultRows = (
       (lotResult.error ? [] : lotResult.data || []) as Record<string, unknown>[]
@@ -487,6 +486,11 @@ export default function LotDetailPage() {
         cancelled,
       };
     });
+
+    const lastShippedAt = shipmentRows
+      .filter(row => !row.cancelled && Number.isFinite(Date.parse(row.date)))
+      .reduce((latest, row) => !latest || Date.parse(row.date) > Date.parse(latest) ? row.date : latest, "");
+    setLot(current => current?.id === targetLot.id ? { ...current, packagedAt, lastShippedAt } : current);
 
     const detailRows = [
       ...orderRows,

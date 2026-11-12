@@ -38,6 +38,7 @@ check(lotPackagingCompletedDate([{process_name:'梱包',date:'2026-11-12',amount
 check(lotPackagingCompletedDate([],processes,'2026-11-11'),'2026-11-11');
 const lot={id:'lot',postId:'post',productId:'product',orderNo:'ORDER',lotNo:'LOT',packagedAt:'',measuredAmount:100,packagedAmount:100,inventoryAmount:0,allocatedAmount:0,shippedAmount:100,createdAt:'2026-11-09',updatedAt:'2026-11-25'};
 const results=processes.map((p,i)=>({id:`result-${i}`,lot_id:'lot',order_process_id:p.id,process_name:p.process_name,date:i?'2026-11-12':'2026-11-09',amount:100,created_at:'2026-11-25T00:00:00Z'})).reverse();
+const shipments=[{id:'shipment',lot_id:'lot',post_id:'post',quantity:100,delivery_date:'2026-11-20',scheduled_date:'2026-11-18',created_at:'2026-11-12T01:23:45Z'}];
 const transfers=processes.map((p,i)=>({id:`transfer-${i}`,from_order_process_id:p.id,to_order_process_id:processes[i+1]?.id,from_process_name:p.process_name,to_process_name:processes[i+1]?.process_name,from_process_order:10-i,to_process_order:9-i,created_at:i?'2026-11-12T09:00:00Z':'2026-11-09T09:00:00Z',quantity:100})).reverse();
 const actorFixtures=[{source_table:'production_results',source_id:'result-0',event_kind:'record',actor_name:'製造担当者'},
  {source_table:'process_transfer_history',source_id:'transfer-0',event_kind:'record',actor_name:'製造担当者'},
@@ -54,7 +55,7 @@ const mocks={react:{...require('react'),useState(initial){const i=index++;if(!(i
    const data=table==='actor-fixture'?actorFixtures:table==='lots'?[{id:'lot'}]:table==='product_processes'?master:table==='v_order_processes_with_master'?processes:
     table==='production_results'?results:table==='v_process_transfer_history_with_master'?transfers:
     table==='inventory_items'?[{id:'inventory',current_stock:0,allocated_stock:0,updated_at:'2026-11-12'}]:
-    table==='shipments'?[{id:'shipment',lot_id:'lot',post_id:'post',quantity:100,delivery_date:'2026-11-20',scheduled_date:'2026-11-18',created_at:'2026-11-12T01:23:45Z'}]:[];
+    table==='shipments'?shipments:[];
    return Promise.resolve({data,error:null}).then(resolve,reject);
   }};return q;
  }}}
@@ -62,6 +63,7 @@ const mocks={react:{...require('react'),useState(initial){const i=index++;if(!(i
 const Detail=load('app/lots/[id]/page.tsx',mocks).default;
 Detail();await callbacks[0](lot);
 check(values[0].packagedAt,'2026-11-12');
+check(values[0].lastShippedAt,'2026-11-12T01:23:45Z');
 check(values[1].find(r=>r.id==='lot-result-result-0').actorName,'製造担当者');
 check(values[1].find(r=>r.id==='transfer-transfer-0').actorName,'製造担当者');
 check(values[1].find(r=>r.action==='出荷').actorName,'出荷担当者');
@@ -72,6 +74,13 @@ check(values[1].find(r=>r.id==='transfer-transfer-0').detail.includes('製造実
 check(values[1].find(r=>r.id==='transfer-transfer-1').detail.includes('進捗管理から工程移動'),true);
 check(transfers.find(t=>t.id==='transfer-0').reason,'Manufacturing result registered and moved automatically');
 check(values[1].filter(r=>r.id.startsWith('order-result-')).length,0);
+shipments.push({...shipments[0],id:'later-shipment',created_at:'2026-11-13T01:00:00Z'},
+ {...shipments[0],id:'cancelled-shipment',created_at:'2026-11-14T01:00:00Z',cancelled:true});
+await callbacks[0](lot);
+check(values[0].lastShippedAt,'2026-11-13T01:00:00Z');
+shipments.forEach(row=>{row.cancelled=true;});
+await callbacks[0](lot);
+check(values[0].lastShippedAt,'');
 // No packaging date can be borrowed from another lot or inferred from row update time.
 await callbacks[0]({...lot,id:'other-lot'});check(values[0].id,'lot');
 console.log(JSON.stringify({mode:'product route ordering, interleaved movement history and lot-specific packaging actual dates',passed}));
