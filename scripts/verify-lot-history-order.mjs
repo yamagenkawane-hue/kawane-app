@@ -20,6 +20,12 @@ function load(file,mocks={}){
 const master=['製造','洗浄','検査','計量','梱包'].map((name,i)=>({id:`master-${i}`,process_name:name,process_order:i+1}));
 const processes=master.map((p,i)=>({...p,id:`order-${i}`,product_process_id:p.id,process_order:10-i}));
 const {createLotHistoryOrder,lotPackagingCompletedDate}=load('lib/lotHistoryOrder.ts');
+const {lotHistoryReasonText}=load('lib/lotHistoryText.ts');
+check(lotHistoryReasonText('Manufacturing result registered and moved automatically'),'製造実績を登録し、次工程へ自動移動しました');
+check(lotHistoryReasonText(' Progress screen transfer '),'進捗管理から工程移動');
+check(lotHistoryReasonText('進捗管理から数量編集'),'進捗管理から数量編集');
+check(lotHistoryReasonText('Custom note / Manufacturing result registered and moved automatically'),'Custom note / Manufacturing result registered and moved automatically');
+check(lotHistoryReasonText(null),'');
 const route=createLotHistoryOrder(processes,master);
 check(route.resolve('order-2','wrong-name',99),3);check(route.last,5);check(route.previous(2),1);
 const duplicate=createLotHistoryOrder([{id:'a',process_name:'検査',process_order:2},{id:'b',process_name:'検査',process_order:4}],[]);
@@ -33,6 +39,8 @@ check(lotPackagingCompletedDate([],processes,'2026-11-11'),'2026-11-11');
 const lot={id:'lot',postId:'post',productId:'product',orderNo:'ORDER',lotNo:'LOT',packagedAt:'',measuredAmount:100,packagedAmount:100,inventoryAmount:0,allocatedAmount:0,shippedAmount:100,createdAt:'2026-11-09',updatedAt:'2026-11-25'};
 const results=processes.map((p,i)=>({id:`result-${i}`,lot_id:'lot',order_process_id:p.id,process_name:p.process_name,date:i?'2026-11-12':'2026-11-09',amount:100,created_at:'2026-11-25T00:00:00Z'})).reverse();
 const transfers=processes.map((p,i)=>({id:`transfer-${i}`,from_order_process_id:p.id,to_order_process_id:processes[i+1]?.id,from_process_name:p.process_name,to_process_name:processes[i+1]?.process_name,from_process_order:10-i,to_process_order:9-i,created_at:i?'2026-11-12T09:00:00Z':'2026-11-09T09:00:00Z',quantity:100})).reverse();
+transfers.find(t=>t.id==='transfer-0').reason='Manufacturing result registered and moved automatically';
+transfers.find(t=>t.id==='transfer-1').reason='Progress screen transfer';
 const values=[lot,[],1,false,'',''],callbacks=[];
 let index=0;
 const mocks={react:{...require('react'),useState(initial){const i=index++;if(!(i in values))values[i]=initial;return[values[i],v=>{values[i]=typeof v==='function'?v(values[i]):v;}];},useEffect(){},useMemo:fn=>fn(),useCallback(fn){callbacks.push(fn);return fn;}},
@@ -53,6 +61,9 @@ Detail();await callbacks[0](lot);
 check(values[0].packagedAt,'2026-11-12');
 check(JSON.stringify(values[1].map(r=>r.action).reverse()),JSON.stringify(['製造','工程移動','洗浄','工程移動','検査','工程移動','計量','工程移動','梱包','工程移動','出荷','在庫登録']));
 check(values[1].find(r=>r.action==='出荷').date,'2026-11-20');
+check(values[1].find(r=>r.id==='transfer-transfer-0').detail.includes('製造実績を登録し、次工程へ自動移動しました'),true);
+check(values[1].find(r=>r.id==='transfer-transfer-1').detail.includes('進捗管理から工程移動'),true);
+check(transfers.find(t=>t.id==='transfer-0').reason,'Manufacturing result registered and moved automatically');
 check(values[1].filter(r=>r.id.startsWith('order-result-')).length,0);
 // No packaging date can be borrowed from another lot or inferred from row update time.
 await callbacks[0]({...lot,id:'other-lot'});check(values[0].id,'lot');

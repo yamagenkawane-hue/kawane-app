@@ -9,6 +9,7 @@ import supabase from "@/lib/supabase";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { createLotHistoryOrder, sortLotHistory, lotPackagingCompletedDate } from "@/lib/lotHistoryOrder";
 import { lotHistoryBelongsTo } from "@/lib/lotHistoryIdentity";
+import { lotHistoryReasonText } from "@/lib/lotHistoryText";
 import styles from "../page.module.css";
 
 type LotFlowRow = {
@@ -385,7 +386,7 @@ export default function LotDetailPage() {
       const fromProcess = String(row.from_process_name || "開始");
       const toProcess = String(row.to_process_name || "完了");
       const movementType = String(row.movement_type || "");
-      const reason = String(row.reason || "");
+      const reason = lotHistoryReasonText(row.reason);
       const beforeFromQuantity = toNumber(row.before_from_quantity);
       const afterFromQuantity = toNumber(row.after_from_quantity);
       const correctionQuantity = toNumber(row.correction_quantity);
