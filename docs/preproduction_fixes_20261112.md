@@ -92,9 +92,13 @@ DB試験の前提は、合成データ専用クラスタとpgクライアント�
 
 適用後の読取確認：新規2関数はanon実行不可・authenticated実行可、再送記録はRLS有効・authenticated読取不可。工程移動のキー排他と日付検査が存在し、受注削除列・ロット削除列・出荷取消列・出荷INSERTの直接権限はすべてfalse。Security AdvisorはRLSポリシーなし3件・漏洩済みパスワード保護無効1件が従来どおり。認可付きの新規2関数によりauthenticated向けSECURITY DEFINERは32件から34件になった。業務データを使う製造・移動・出荷の試験、旧資格情報の削除は行っていない。
 
-Gitプッシュと公開結果は次の反映記録に追記する。
+Git：`cd0399195affd0c3f3e335a8444db1dd3759ea90`をmainへプッシュ済み。
+
+Vercel：`dpl_HF7NY63zq5kcCjuUr8BvkFEGGchG`がREADYとなり、本番ドメイン`kawane-app.vercel.app`の割当先が同コミットであることを確認した。プロジェクト`kawane-app`、チーム`yoshida0522s-projects`、target=production、aliasError=null。
+
+切替後のHTTP確認：`/`、`/settings`、`/calendar`、`/productionSchedules`、`/productionResults`、`/reservation`はいずれも200。未ログインの`/api/results`、`/api/daily-production`、`/api/production-schedules`、`/api/linebot`、`/api/ai-predictions/status`はいずれも401。これらは公開・認証境界の応答確認であり、ログイン後のブラウザー操作や実データ更新試験の代わりにはしない。
 
 未確定：実Supabase Auth→実ブラウザー→API→隔離DBを接続した5利用者の全工程E2E、実際のLINE送信、バックアップ失効日の確認は未実施。この結果だけで本番運用開始を全面保証しない。
 
 【次のAIへの引き継ぎ事項】
-SQL適用済み。Gitプッシュ・公開を確認し、旧資格情報の廃棄と実認証ブラウザーE2Eを残課題として継続する。
+SQL適用・Gitプッシュ・本番公開・HTTP読取確認まで完了。旧資格情報の廃棄と実認証ブラウザーE2Eを残課題として継続する。
