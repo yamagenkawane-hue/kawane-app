@@ -104,6 +104,7 @@ export type Day = {
 export type User = {
   id: string;
   name: string;
+  displayName?: string;
   pass: string;
   manager: boolean;
   delete: boolean;

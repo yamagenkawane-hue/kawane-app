@@ -90,7 +90,7 @@ const rows = [
   { id: 'legacy-other', lot_id: null, post_id: b, lot_no: lot.lotNo, quantity: 800 },
 ];
 let ambiguous = false;
-const detailDB = { from(table) {
+const detailDB = { rpc() { return this.from("actor-fixture"); }, from(table) {
   const q = { select() { return q; }, eq() { return q; }, order() { return q; }, range() { return q; },
     or(value) { filters.push({ table, value }); return q; },
     then(resolve, reject) {

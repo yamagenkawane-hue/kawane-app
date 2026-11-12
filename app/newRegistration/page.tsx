@@ -13,7 +13,7 @@ const NewRegistration = () => {
     handleInputChange,
     validateInput,
     errors,
-    userName,
+    userName, displayName, setDisplayName,
     passWord,
     setUserName,
     setPassWord,
@@ -57,6 +57,11 @@ const NewRegistration = () => {
           )}
         </div>
 
+        <div className={styles.formGroup}>
+          <label htmlFor="new-display-name" className={styles.label}>表示名</label>
+          <input id="new-display-name" className={styles.input} value={displayName} maxLength={100}
+            placeholder="履歴に表示する名前（未登録時はログインID）" onChange={e => setDisplayName(e.target.value)} />
+        </div>
         {/* Password */}
         <div className={styles.formGroup}>
           <label className={styles.label}>

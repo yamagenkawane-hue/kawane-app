@@ -8,7 +8,7 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse) {
   if(!auth||!supabaseAdmin) return;
   try {
     if(req.method==="GET") {
-      const {data,error}=await supabaseAdmin.from("app_profiles").select("id,login_id,manager,active").order("login_id");
+      const {data,error}=await supabaseAdmin.from("app_profiles").select("id,login_id,display_name,manager,active").order("login_id");
       if(error) throw error;
       return res.status(200).json(data);
     }
@@ -16,6 +16,8 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse) {
     const body=req.body||{};
     const name=typeof body.name==="string"?body.name.trim():"";
     const password=typeof body.password==="string"?body.password:"";
+    if(body.display_name!==undefined&&(typeof body.display_name!=="string"||body.display_name.trim().length>100)) return res.status(400).json({error:"表示名は100文字以内で入力してください"});
+    const displayName=typeof body.display_name==="string"?body.display_name.trim():"";
     if((req.method==="POST"||body.name!==undefined)&&(!name||name.length>128)) return res.status(400).json({error:"IDは1〜128文字で入力してください"});
     if((req.method==="POST"||password)&&(password.length<6||password.length>1024)) return res.status(400).json({error:"パスワードは6文字以上で入力してください"});
     if(body.manager!==undefined&&typeof body.manager!=="boolean"||body.active!==undefined&&typeof body.active!=="boolean") return res.status(400).json({error:"権限・有効状態の指定が不正です"});
@@ -23,7 +25,7 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse) {
       const id=randomUUID(),email=`${id}@kawane-auth.invalid`;
       const {error:createError}=await supabaseAdmin.auth.admin.createUser({id,email,password,email_confirm:true});
       if(createError) throw createError;
-      const {error}=await supabaseAdmin.from("app_profiles").insert({id,login_id:name,auth_email:email,manager:body.manager===true,active:true});
+      const {error}=await supabaseAdmin.from("app_profiles").insert({id,login_id:name,display_name:displayName,auth_email:email,manager:body.manager===true,active:true});
       if(error) {await supabaseAdmin.auth.admin.deleteUser(id);throw error;}
       return res.status(201).json({ok:true});
     }
@@ -36,6 +38,7 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse) {
     // Enforce manager-count constraints before making irreversible Auth changes.
     const values:Record<string,unknown>={};
     if(body.name!==undefined) values.login_id=name;
+    if(body.display_name!==undefined) values.display_name=displayName;
     if(body.manager!==undefined) values.manager=body.manager;
     if(body.active!==undefined) values.active=body.active;
     if(Object.keys(values).length) {

@@ -39,16 +39,19 @@ check(lotPackagingCompletedDate([],processes,'2026-11-11'),'2026-11-11');
 const lot={id:'lot',postId:'post',productId:'product',orderNo:'ORDER',lotNo:'LOT',packagedAt:'',measuredAmount:100,packagedAmount:100,inventoryAmount:0,allocatedAmount:0,shippedAmount:100,createdAt:'2026-11-09',updatedAt:'2026-11-25'};
 const results=processes.map((p,i)=>({id:`result-${i}`,lot_id:'lot',order_process_id:p.id,process_name:p.process_name,date:i?'2026-11-12':'2026-11-09',amount:100,created_at:'2026-11-25T00:00:00Z'})).reverse();
 const transfers=processes.map((p,i)=>({id:`transfer-${i}`,from_order_process_id:p.id,to_order_process_id:processes[i+1]?.id,from_process_name:p.process_name,to_process_name:processes[i+1]?.process_name,from_process_order:10-i,to_process_order:9-i,created_at:i?'2026-11-12T09:00:00Z':'2026-11-09T09:00:00Z',quantity:100})).reverse();
+const actorFixtures=[{source_table:'production_results',source_id:'result-0',event_kind:'record',actor_name:'製造担当者'},
+ {source_table:'process_transfer_history',source_id:'transfer-0',event_kind:'record',actor_name:'製造担当者'},
+ {source_table:'shipments',source_id:'shipment',event_kind:'record',actor_name:'出荷担当者'}];
 transfers.find(t=>t.id==='transfer-0').reason='Manufacturing result registered and moved automatically';
 transfers.find(t=>t.id==='transfer-1').reason='Progress screen transfer';
 const values=[lot,[],1,false,'',''],callbacks=[];
 let index=0;
 const mocks={react:{...require('react'),useState(initial){const i=index++;if(!(i in values))values[i]=initial;return[values[i],v=>{values[i]=typeof v==='function'?v(values[i]):v;}];},useEffect(){},useMemo:fn=>fn(),useCallback(fn){callbacks.push(fn);return fn;}},
  '@/lib/auth/client':{},'@/app/components/AuthProvider/AuthProvider':{useAppAuth:()=>({profile:{manager:false}})},'next/navigation':{useParams:()=>({id:'lot'})},
- '@/lib/supabase':{__esModule:true,default:{from(table){
+ '@/lib/supabase':{__esModule:true,default:{rpc(){return this.from('actor-fixture');},from(table){
   const filters={};
   const q={select(){return q;},order(){return q;},range(){return q;},or(){return q;},eq(key,value){filters[key]=value;return q;},then(resolve,reject){
-   const data=table==='lots'?[{id:'lot'}]:table==='product_processes'?master:table==='v_order_processes_with_master'?processes:
+   const data=table==='actor-fixture'?actorFixtures:table==='lots'?[{id:'lot'}]:table==='product_processes'?master:table==='v_order_processes_with_master'?processes:
     table==='production_results'?results:table==='v_process_transfer_history_with_master'?transfers:
     table==='inventory_items'?[{id:'inventory',current_stock:0,allocated_stock:0,updated_at:'2026-11-12'}]:
     table==='shipments'?[{id:'shipment',lot_id:'lot',post_id:'post',quantity:100,delivery_date:'2026-11-20'}]:[];
@@ -59,6 +62,10 @@ const mocks={react:{...require('react'),useState(initial){const i=index++;if(!(i
 const Detail=load('app/lots/[id]/page.tsx',mocks).default;
 Detail();await callbacks[0](lot);
 check(values[0].packagedAt,'2026-11-12');
+check(values[1].find(r=>r.id==='lot-result-result-0').actorName,'製造担当者');
+check(values[1].find(r=>r.id==='transfer-transfer-0').actorName,'製造担当者');
+check(values[1].find(r=>r.action==='出荷').actorName,'出荷担当者');
+check(values[1].find(r=>r.action==='在庫登録').actorName,'不明');
 check(JSON.stringify(values[1].map(r=>r.action).reverse()),JSON.stringify(['製造','工程移動','洗浄','工程移動','検査','工程移動','計量','工程移動','梱包','工程移動','出荷','在庫登録']));
 check(values[1].find(r=>r.action==='出荷').date,'2026-11-20');
 check(values[1].find(r=>r.id==='transfer-transfer-0').detail.includes('製造実績を登録し、次工程へ自動移動しました'),true);

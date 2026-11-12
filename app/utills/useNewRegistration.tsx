@@ -4,6 +4,7 @@ import { authFetch } from "@/lib/auth/client";
 export const useNewRegistration = () => {
   const [userName, setUserName] = useState("");
   const [passWord, setPassWord] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [errors, setErrors] = useState({
     userName: "",
     passWord: "",
@@ -45,10 +46,11 @@ export const useNewRegistration = () => {
     }
 
     try {
-      const response=await authFetch("/api/auth/users",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:userName,password:passWord})});
+      const response=await authFetch("/api/auth/users",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:userName,display_name:displayName,password:passWord})});
       const result=await response.json();
       if(!response.ok) throw new Error(result.error||"登録できません");
       setUserName("");
+      setDisplayName("");
       setPassWord("");
       setErrors({ userName: "", passWord: "" });
     } catch (error) {
@@ -61,6 +63,7 @@ export const useNewRegistration = () => {
     handleInputChange,
     validateInput,
     errors,
+    displayName, setDisplayName,
     userName,
     passWord,
     setUserName,

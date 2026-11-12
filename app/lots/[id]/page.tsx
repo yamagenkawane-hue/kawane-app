@@ -42,6 +42,7 @@ type HistoryRow = {
   sortOrder: number;
   processOrder?: number;
   eventOrder?: number;
+  actorSource?: string; actorId?: string; actorKind?: string; actorName?: string;
   section: "注番工程履歴" | "ロット履歴";
   action: string;
   amount: number | null;
@@ -221,6 +222,7 @@ export default function LotDetailPage() {
       shipmentResult,
       remainderResult,
       masterResult,
+      actorResult,
     ] = await Promise.all([
       fetchAllRows((from, to) => supabase
         .from("production_results")
@@ -268,8 +270,11 @@ export default function LotDetailPage() {
       targetLot.productId ? fetchAllRows((from,to) => supabase.from("product_processes")
         .select("id,process_name,process_order").eq("product_id",targetLot.productId)
         .order("process_order").order("id").range(from,to)) : Promise.resolve({data:[],error:null}),
+      fetchAllRows<{ source_table: string; source_id: string; event_kind: string; actor_name: string }>((from,to) => supabase.rpc("get_lot_history_actors",{p_lot_id:targetLot.id}).range(from,to)),
     ]);
 
+    if (actorResult.error) throw actorResult.error;
+    const actors = new Map((actorResult.data || []).map(row => [`${row.source_table}/${row.source_id}/${row.event_kind}`, String(row.actor_name || "不明")]));
     if(remainderResult.error) console.warn("外注分割履歴の取得に失敗",remainderResult.error);
     if (orderResult.error) console.warn("注番工程実績の取得に失敗", orderResult.error);
     if (lotResult.error) console.warn("ロット実績の取得に失敗", lotResult.error);
@@ -290,6 +295,7 @@ export default function LotDetailPage() {
       (lotResult.error ? [] : lotResult.data || []) as Record<string, unknown>[]
     ).map((row) => ({
       id: `lot-result-${String(row.id || "")}`,
+      actorSource: "production_results", actorId: String(row.id), actorKind: "record",
       processOrder: route.resolve(row.order_process_id,row.process_name), eventOrder: 10,
       date: String(row.date || row.created_at || ""),
       sortOrder: 50,
@@ -307,6 +313,7 @@ export default function LotDetailPage() {
       .filter((row) => !lotResultIds.has(String(row.id || "")))
       .map((row) => ({
         id: `order-result-${String(row.id || "")}`,
+        actorSource: "production_results", actorId: String(row.id), actorKind: "record",
         processOrder: route.resolve(row.order_process_id,row.process_name), eventOrder: 10,
         date: String(row.date || row.created_at || ""),
         sortOrder: 20,
@@ -322,6 +329,7 @@ export default function LotDetailPage() {
       const detail=`第${process.process_order}工程 ${process.process_name} / ${process.subcontractor_name||"-"} / 分割${row.dispatch_no}${row.cancelled?"（取消）":""} / ${row.note||""}`;
       return [["sent_date","外注分割出し",30],["expected_date","外注分割戻り予定",35],["returned_date","外注分割戻り",40]].flatMap(([key,action,sortOrder])=>row[String(key)]?[{
         processOrder:route.resolve(process.id,process.process_name,process.process_order),eventOrder:Number(sortOrder),
+        actorSource:"outsource_remainder_schedules",actorId:String(row.id),actorKind:String(key),
         id:`remainder-${row.id}-${key}`,date:String(row[String(key)]),sortOrder:Number(sortOrder),section:"注番工程履歴" as const,action:String(action),amount:toNumber(row.quantity),target:targetLot.orderNo||"-",detail,
       }]:[]);
     });
@@ -338,6 +346,7 @@ export default function LotDetailPage() {
       if (row.outsource_sent_date) {
         rows.push({
           id: `outsource-sent-${String(row.id || "")}`,
+          actorSource: "order_processes", actorId: String(row.id), actorKind: "outsource_sent_date",
           processOrder: route.resolve(row.id,row.process_name,row.process_order), eventOrder: 1,
           date: String(row.outsource_sent_date || ""),
           sortOrder: 30,
@@ -352,6 +361,7 @@ export default function LotDetailPage() {
       if (row.outsource_expected_return_date) {
         rows.push({
           id: `outsource-expected-${String(row.id || "")}`,
+          actorSource: "order_processes", actorId: String(row.id), actorKind: "outsource_expected_return_date",
           processOrder: route.resolve(row.id,row.process_name,row.process_order), eventOrder: 2,
           date: String(row.outsource_expected_return_date || ""),
           sortOrder: 35,
@@ -366,6 +376,7 @@ export default function LotDetailPage() {
       if (row.outsource_returned_date) {
         rows.push({
           id: `outsource-returned-${String(row.id || "")}`,
+          actorSource: "order_processes", actorId: String(row.id), actorKind: "outsource_returned_date",
           processOrder: route.resolve(row.id,row.process_name,row.process_order), eventOrder: 3,
           date: String(row.outsource_returned_date || ""),
           sortOrder: 40,
@@ -398,6 +409,7 @@ export default function LotDetailPage() {
 
       return {
         id: `transfer-${String(row.id || "")}`,
+        actorSource: "process_transfer_history", actorId: String(row.id), actorKind: "record",
         processOrder: route.resolve(row.from_order_process_id,row.from_process_name,row.from_process_order)
           || route.previous(route.resolve(row.to_order_process_id,row.to_process_name,row.to_process_order)),
         eventOrder: isManualEdit ? 15 : 20,
@@ -417,6 +429,7 @@ export default function LotDetailPage() {
       (inventoryResult.error ? [] : inventoryResult.data || []) as Record<string, unknown>[]
     ).map((row) => ({
       id: `inventory-${String(row.id || "")}`,
+      actorSource: "inventory_items", actorId: String(row.id), actorKind: "record",
       processOrder: route.last + 3,
       date: String(row.updated_at || row.created_at || ""),
       sortOrder: 70,
@@ -433,6 +446,7 @@ export default function LotDetailPage() {
       (allocationResult.error ? [] : allocationResult.data || []) as Record<string, unknown>[]
     ).filter((row) => lotHistoryBelongsTo(row, targetLot, legacyIsUnambiguous)).map((row) => ({
       id: `allocation-${String(row.id || "")}`,
+      actorSource: "inventory_allocations", actorId: String(row.id), actorKind: "record",
       processOrder: route.last + 1,
       date: String(row.confirmed_at || ""),
       sortOrder: 80,
@@ -459,6 +473,7 @@ export default function LotDetailPage() {
 
       return {
         id: `shipment-${String(row.id || "")}`,
+        actorSource: "shipments", actorId: String(row.id), actorKind: cancelled ? "cancel" : "record",
         processOrder: route.last + 2,
         date: String(row.delivery_date || row.scheduled_date || row.created_at || ""),
         sortOrder: 90,
@@ -485,12 +500,15 @@ export default function LotDetailPage() {
     ];
     const fallbackActions = new Set(detailRows.map((row) => row.action));
     const fallbackRows = buildBaseRows({ ...targetLot, packagedAt }).map(row => ({ ...row,
+      actorSource: "lots", actorId: targetLot.id, actorKind: row.action === "計量" ? "measured_at" : row.action === "梱包" ? "packaged_at" : "unknown",
       processOrder: row.action === "在庫登録" ? route.last + 3 : row.action === "出荷" ? route.last + 2 : row.action === "在庫引当" ? route.last + 1 : route.resolve(null,row.action), eventOrder: 10,
     })).filter(
       (row) => !fallbackActions.has(row.action),
     );
 
-    setHistoryRows(sortLotHistory([...detailRows, ...fallbackRows]));
+    setHistoryRows(sortLotHistory([...detailRows, ...fallbackRows].map(row => ({...row,
+      actorName: actors.get(`${row.actorSource}/${row.actorId}/${row.actorKind}`) || "不明",
+    }))));
   }, []);
 
   const loadLotDetail = useCallback(async () => {
@@ -650,7 +668,7 @@ export default function LotDetailPage() {
           <div className={styles.detailCard}>
             <div className={styles.historyArea}>
               <h2>注番工程とロットの動き</h2>
-              <table className={styles.historyTable}>
+              <div className={styles.historyTableScroll}><table className={styles.historyTable}>
                 <thead>
                   <tr>
                     <th>日付</th>
@@ -659,6 +677,7 @@ export default function LotDetailPage() {
                     <th>数量</th>
                     <th>対象</th>
                     <th>内容</th>
+                    <th>操作者</th>
                     <th>操作</th>
                   </tr>
                 </thead>
@@ -673,6 +692,7 @@ export default function LotDetailPage() {
                       </td>
                       <td>{history.target}</td>
                       <td>{history.detail}</td>
+                      <td className={styles.actorCell}>{history.actorName || "不明"}</td>
                       <td>
                         {history.canCancelShipment && isManagerIn ? (
                           <button
@@ -692,13 +712,13 @@ export default function LotDetailPage() {
                   ))}
                   {historyRows.length === 0 && (
                     <tr>
-                      <td className={styles.emptyCell} colSpan={7}>
+                      <td className={styles.emptyCell} colSpan={8}>
                         表示できる履歴がありません
                       </td>
                     </tr>
                   )}
                 </tbody>
-              </table>
+              </table></div>
               <nav className={styles.pagination} aria-label="履歴のページ切り替え">
                 <div className={styles.pageInfo}>
                   {formatNumber(historyRows.length)}件中 {formatNumber(historyRows.length?historyStart+1:0)}-

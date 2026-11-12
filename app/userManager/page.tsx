@@ -17,8 +17,9 @@ export default function UserManagerPage() {
   const [editPass, setEditPass] = useState("");
   const [editManager, setEditManager] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [editDisplayName, setEditDisplayName] = useState("");
 
-  const {profile}=useAppAuth();
+  const {profile,refresh}=useAppAuth();
   const isLocked=(user:UserType)=>user.id===profile?.id;
   const updateAccount=async(values:Record<string,unknown>)=>{
     const response=await authFetch("/api/auth/users",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(values)});
@@ -30,8 +31,8 @@ export default function UserManagerPage() {
 
       const response=await authFetch("/api/auth/users");
       if(!response.ok) throw new Error("ユーザー情報を取得できません");
-      const data=await response.json() as {id:string;login_id:string;manager:boolean;active:boolean}[];
-      const mapped:UserType[]=data.map(row=>({id:row.id,name:row.login_id,pass:"",manager:row.manager,delete:!row.active}));
+      const data=await response.json() as {id:string;login_id:string;display_name:string;manager:boolean;active:boolean}[];
+      const mapped:UserType[]=data.map(row=>({id:row.id,name:row.login_id,displayName:row.display_name||"",pass:"",manager:row.manager,delete:!row.active}));
       setUsers(mapped.filter((item) => !item.delete));
       setTrashUsers(mapped.filter((item) => item.delete));
     } catch (error) {
@@ -49,9 +50,9 @@ export default function UserManagerPage() {
   }, [fetchUsers]);
 
   const startEdit = (user: UserType) => {
-    if (isLocked(user)) return; // ロック時は何もしない
     setEditingUser(user);
     setEditName(user.name);
+    setEditDisplayName(user.displayName || "");
     setEditPass("");
     setEditManager(user.manager);
   };
@@ -60,7 +61,9 @@ export default function UserManagerPage() {
     if (!editingUser) return;
 
     try {
-      await updateAccount({id:editingUser.id,name:editName,password:editPass,manager:editManager});
+      await updateAccount(isLocked(editingUser) ? {id:editingUser.id,display_name:editDisplayName}
+        : {id:editingUser.id,name:editName,display_name:editDisplayName,password:editPass,manager:editManager});
+      if (isLocked(editingUser)) await refresh();
       setEditingUser(null);
       setEditName("");
       setEditPass("");
@@ -126,12 +129,13 @@ export default function UserManagerPage() {
                   </div>
 
                   <div className={styles.cardBody}>
-                    <h3>{user.name}</h3>
+                    <h3>{user.displayName || user.name}</h3>
+                    <p>ログインID：{user.name}</p>
                     <p>パスワード：非表示</p>
                     <p>権限 :{user.manager ? "管理者" : "一般"}</p>
                     {isLocked(user) && (
                       <p style={{ color: "gray", fontSize: "0.8rem" }}>
-                        🔒 ログイン中の自分自身はここでは変更できません
+                        🔒 ログイン中は表示名のみ変更できます
                       </p>
                     )}
                   </div>
@@ -140,15 +144,7 @@ export default function UserManagerPage() {
                     <button
                       className={styles.editButton}
                       onClick={() => startEdit(user)}
-                      disabled={isLocked(user)}
-                      title={
-                        isLocked(user) ? "このユーザーは編集できません" : "編集"
-                      }
-                      style={
-                        isLocked(user)
-                          ? { opacity: 0.3, cursor: "not-allowed" }
-                          : {}
-                      }
+                      title={isLocked(user) ? "表示名を編集" : "編集"}
                     >
                       <Pencil size={18} />
                     </button>
@@ -185,7 +181,8 @@ export default function UserManagerPage() {
                   </div>
 
                   <div className={styles.cardBody}>
-                    <h3>{user.name}</h3>
+                    <h3>{user.displayName || user.name}</h3>
+                    <p>ログインID：{user.name}</p>
                     <p>パスワード：非表示</p>
                   </div>
 
@@ -213,10 +210,14 @@ export default function UserManagerPage() {
               className={styles.input}
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
-              placeholder="ユーザー名"
+              placeholder="ログインID" aria-label="ログインID" disabled={isLocked(editingUser)}
             />
 
+            <label htmlFor="edit-display-name">表示名</label>
+            <input id="edit-display-name" className={styles.input} value={editDisplayName} maxLength={100}
+              placeholder="履歴に表示する名前（未登録時はログインID）" onChange={e => setEditDisplayName(e.target.value)} />
             <input
+              disabled={isLocked(editingUser)}
               className={styles.input}
               value={editPass}
                       placeholder="変更する場合のみ6文字以上"
@@ -227,6 +228,7 @@ export default function UserManagerPage() {
             <label className={styles.checkboxRow}>
               <input
                 type="checkbox"
+                disabled={isLocked(editingUser)}
                 checked={editManager}
                 onChange={(e) => setEditManager(e.target.checked)}
               />
