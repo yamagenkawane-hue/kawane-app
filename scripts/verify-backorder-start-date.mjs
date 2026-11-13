@@ -14,8 +14,15 @@ class FixedDate extends Date { constructor(...args){super(...(args.length?args:[
 const raw=(id,start)=>({id,order_no:`ORDER-${id}`,planned_start_date:start,order_amount:100,product_name:'製品',customer_name:'得意先',delivery_date:'2026-12-20',completion_scheduled_date:'2026-12-18',delete:false});
 const rows=[raw('past','2026-11-12'),raw('today',today),raw('future','2026-11-14'),raw('empty',''),raw('null',null),raw('invalid','2026-02-30'),raw('complete',today),raw('finished',today)];
 let tables={v_posts_with_master:rows,shipments:[{post_id:'complete',quantity:100,cancelled:null}],v_order_processes_with_master:[{post_id:'finished',process_order:1,completed_amount:100}]};
+// Actual editable columns checked against information_schema on 2026-11-13.
+// remaining_amount belongs to the display view, not the posts table.
+const editableColumns=new Set(['order_no','product_name','customer_name','order_amount','planned_start_date','completion_scheduled_date','delivery_date','remark','updated_at']);
 const db={from(table){let op='read',payload,id,from=0,to=999;const query={select(){return query;},order(){return query;},not(){return query;},gt(){return query;},is(){return query;},or(value){filters.push(value);return query;},lte(key,value){filters.push([key,value]);return query;},eq(key,value){if(key==='id')id=value;return query;},range(a,b){from=a;to=b;return query;},update(value){op='update';payload=value;return query;},then(resolve,reject){
- if(op==='update'){writes.push({table,payload,id});Object.assign(rows.find(row=>row.id===id)||{},payload);}
+ if(op==='update'){
+  const unknown=Object.keys(payload).find(key=>!editableColumns.has(key));
+  if(table==='posts'&&unknown)return Promise.resolve({data:null,error:{message:`Could not find the '${unknown}' column of 'posts' in the schema cache`,code:'PGRST204'}}).then(resolve,reject);
+  writes.push({table,payload,id});Object.assign(rows.find(row=>row.id===id)||{},payload);
+ }
  return Promise.resolve({data:(tables[table]||[]).slice(from,to+1),error:null}).then(resolve,reject);
 }};return query;}};
 const hooks={...React,useState(initial){const i=state++;if(!(i in values))values[i]=initial;return[values[i],v=>{values[i]=typeof v==='function'?v(values[i]):v;}];},useEffect(fn){effects.push(fn);},useMemo:fn=>fn(),useCallback:fn=>fn,useRef:value=>({current:value})};
@@ -38,6 +45,8 @@ function load(file){
  return context.exports;
 }
 const {hasProductionStarted}=load('lib/dailyProductionStart.ts');
+const rejected=await db.from('posts').update({remaining_amount:50}).eq('id','past');
+check(rejected.error.code,'PGRST204');check(writes.length,0);
 for(const [start,expected]of [['2026-11-12',true],[today,true],['2026-11-14',false],['',false],[null,false],[undefined,false],['2026-02-30',false]])check(hasProductionStarted(start,today),expected);
 const handler=load('pages/api/daily-production.ts').default;
 const res=()=>({statusCode:200,body:null,status(n){this.statusCode=n;return this;},json(body){this.body=body;return this;},setHeader(){},end(){return this;}});
@@ -59,6 +68,7 @@ const startInput=()=>nodes(render()).find(node=>node.type==='input'&&node.props[
 check(startInput().props.value,'2026-11-12');startInput().props.onChange({target:{value:'2026-11-14'}});
 await nodes(render()).find(node=>node.type==='button'&&node.props.children==='保存').props.onClick();
 check(writes.length,1);check(writes[0].payload.planned_start_date,'2026-11-14');check(writes[0].id,'past');
+check('remaining_amount' in writes[0].payload,false);
 check(values[0].find(row=>row.id==='past').plannedStartDate,'2026-11-14');
 // Invalid relative dates never reach the update operation; clearing writes NULL.
 render=mount(Orders,[[post],'','delivery','past',{...post,plannedStartDate:'2027-01-01'}]);

@@ -470,7 +470,6 @@ const OrdersPage = () => {
         product_name: editingPost.productName,
         customer_name: editingPost.customerName,
         order_amount: Number(editingPost.orderAmount || 0),
-        remaining_amount: Number(editingPost.remainingAmount || 0),
         planned_start_date: editingPost.plannedStartDate || null,
         completion_scheduled_date:
           editingPost.completionScheduledDate || editingPost.deliveryDate || null,
