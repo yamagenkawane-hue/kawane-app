@@ -15,6 +15,7 @@ import styles from "./page.module.css";
 import { CustomerMaster, InventoryAllocation, PostData } from "@/app/type";
 import { buildShippedAmountMap } from "@/lib/orderVisibility";
 import { fetchAllRows } from "@/lib/fetchAllRows";
+import { plannedStartDateError } from "@/lib/orderEntry";
 import { buildOrderManufacturingLots, type ManufacturingLot } from "@/lib/orderManufacturingLots";
 import {
   buildFinalProcessCompletionMap,
@@ -38,7 +39,7 @@ type AdjustedPost = PostData & {
 };
 
 const POST_SELECT_COLUMNS =
-  "id,delete,shipment_closed_at,order_no,lot_no,product_code,product_name,customer_name,order_amount,remaining_amount,status,completion_scheduled_date,delivery_date,remark";
+  "id,delete,shipment_closed_at,order_no,lot_no,planned_start_date,product_code,product_name,customer_name,order_amount,remaining_amount,status,completion_scheduled_date,delivery_date,remark";
 
 const CUSTOMER_SELECT_COLUMNS =
   "id,customer_name,shipping_offset_days,note";
@@ -302,6 +303,7 @@ const OrdersPage = () => {
           orderAmount: row.order_amount || 0,
           remainingAmount: Math.max(0, Number(row.order_amount || 0) - shippedAmount),
           status,
+          plannedStartDate: row.planned_start_date || "",
           completionScheduledDate:
             row.completion_scheduled_date || row.delivery_date || "",
           deliveryDate: row.delivery_date || "",
@@ -458,6 +460,8 @@ const OrdersPage = () => {
 
   const handleSaveOrder = async () => {
     if (!editingPost) return;
+    const dateError = plannedStartDateError(editingPost.plannedStartDate || "", editingPost.completionScheduledDate, editingPost.deliveryDate);
+    if (dateError) { alert(dateError); return; }
 
     const { error } = await supabase
       .from("posts")
@@ -467,6 +471,7 @@ const OrdersPage = () => {
         customer_name: editingPost.customerName,
         order_amount: Number(editingPost.orderAmount || 0),
         remaining_amount: Number(editingPost.remainingAmount || 0),
+        planned_start_date: editingPost.plannedStartDate || null,
         completion_scheduled_date:
           editingPost.completionScheduledDate || editingPost.deliveryDate || null,
         delivery_date: editingPost.deliveryDate || null,
@@ -537,6 +542,7 @@ const OrdersPage = () => {
               <th>注残</th>
               <th>振替ロット</th>
               <th>状態</th>
+              <th>開始予定</th>
               <th>完了予定日</th>
               <th>納期</th>
               <th>出荷予定日</th>
@@ -626,6 +632,13 @@ const OrdersPage = () => {
                   <td className={styles.remaining}>{post.remainingAmount}</td>
                   <td>{post.transferSource}</td>
                   <td>{post.status}</td>
+                  <td>
+                    {editing ? (
+                      <input className={styles.tableInput} type="date" aria-label="開始予定"
+                        value={editingPost.plannedStartDate || ""}
+                        onChange={event => updateEditingPost("plannedStartDate", event.target.value)} />
+                    ) : (post.plannedStartDate || "-")}
+                  </td>
                   <td>
                     {editing ? (
                       <input

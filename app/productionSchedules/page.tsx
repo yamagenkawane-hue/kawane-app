@@ -2,6 +2,7 @@
 import { authFetch } from "@/lib/auth/client";
 import { pressMachineNumber } from "@/lib/pressMachineNumber";
 import { fetchAllRows } from "@/lib/fetchAllRows";
+import { hasProductionStarted } from "@/lib/dailyProductionStart";
 
 import { type MouseEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -205,7 +206,7 @@ const filterSchedulesByBackorders = (
   );
 
   return scheduleRows.filter((schedule) => {
-    if (schedule.postId && activePostIds.has(schedule.postId)) return true;
+    if (schedule.postId) return activePostIds.has(schedule.postId);
     if (schedule.orderNo && activeOrderNos.has(schedule.orderNo)) return true;
     return false;
   });
@@ -304,6 +305,7 @@ export default function ProductionSchedulesPage() {
   const fetchSchedules = async () => {
     try {
       setLoading(true);
+      const today = todayText();
 
       const [
         scheduleResult,
@@ -335,7 +337,7 @@ export default function ProductionSchedulesPage() {
           .from("shipments")
           .select("post_id,quantity")
           .or("cancelled.is.null,cancelled.eq.false").order("id").range(from, to)),
-        authFetch("/api/daily-production"),
+        authFetch(`/api/daily-production?date=${today}`),
         fetchAllRows((from, to) => supabase
           .from("process_master")
           .select("name").order("id").range(from, to)),
@@ -351,7 +353,7 @@ export default function ProductionSchedulesPage() {
 
       const dailyRows = await dailyResult.json();
       const postMap = new Map(
-        (postResult.data || []).map((row) => [
+        (postResult.data || []).filter(row => hasProductionStarted(row.planned_start_date, today)).map((row) => [
           String(row.id || ""),
           {
             id: String(row.id || ""),
@@ -373,15 +375,19 @@ export default function ProductionSchedulesPage() {
         },
         new Map<string, number>(),
       );
-      const mappedPosts: DailySchedulePost[] = (dailyRows || []).map((row: Record<string,unknown>) => {
+      const mappedPosts: DailySchedulePost[] = (dailyRows || []).filter((row: Record<string, unknown>) => hasProductionStarted(row.planned_start_date, today)).map((row: Record<string,unknown>) => {
         const post = mapPost(row);
         const remainingAmount = Math.max(post.orderAmount - (shippedMap.get(post.id) || 0), 0);
         return {...post,remainingAmount,planAmount:remainingAmount};
       });
       const processNames = (processNameResult.data || []).map(row => String(row.name || ""));
-      const mappedSchedules = (scheduleResult.data || []).map(row => mapSchedule(row,processNames));
+      const mappedSchedules = (scheduleResult.data || []).map(row => {
+        const schedule = mapSchedule(row, processNames);
+        const post = schedule.postId ? postMap.get(schedule.postId) : mappedPosts.find(post => post.orderNo === schedule.orderNo);
+        return { ...schedule, plannedStartDate: post?.plannedStartDate || "" };
+      });
       const mappedBalances = [
-        ...(balanceResult.data || []).map((row) => mapLotProcessBalance(row, postMap)),
+        ...(balanceResult.data || []).filter(row => postMap.has(String(row.post_id || ""))).map((row) => mapLotProcessBalance(row, postMap)),
         ...(completedResult.data || [])
           .filter((row) => {
             const postId = String(row.post_id || "");

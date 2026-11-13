@@ -9,7 +9,7 @@ let passed=0, writes=0, rows={}, databaseError=null, authStatus=200;
 const check=(a,b)=>{assert.deepEqual(a,b);passed++;};
 const db={from(table){
   let from=0,to=999;
-  const q={select(){return q;},order(){return q;},eq(){return q;},is(){return q;},or(){return q;},
+  const q={select(){return q;},order(){return q;},eq(){return q;},is(){return q;},or(){return q;},lte(){return q;},
     range(a,b){from=a;to=b;return q;},insert(){writes++;return q;},update(){writes++;return q;},delete(){writes++;return q;},
     single:async()=>({data:{id:'ok'},error:databaseError}),
     then(resolve,reject){return Promise.resolve({data:(rows[table]||[]).slice(from,Math.min(to,from+999)+1),error:databaseError}).then(resolve,reject);}};
@@ -45,7 +45,7 @@ for(const offset of [-1,0.5,'2',null,Infinity,NaN,3651])check((await request(shi
 check((await request(shipping,{delivery_date:'2028-03-01',shipping_offset_days:1})).body.shipping_date,'2028-02-29');
 check((await request(shipping,{delivery_date:'2026-01-01',shipping_offset_days:0})).statusCode,200);
 for(const count of [999,1000,1001,1500,5000]){
- const items=Array.from({length:count},(_,i)=>({id:String(i),order_no:`N${i}`,post_id:String(i),order_amount:100,quantity:1,process_order:1,completed_amount:0}));
+ const items=Array.from({length:count},(_,i)=>({id:String(i),order_no:`N${i}`,post_id:String(i),order_amount:100,quantity:1,process_order:1,completed_amount:0,planned_start_date:'2026-10-20'}));
  rows={v_posts_with_master:items,v_production_results_with_master:items,v_production_schedules_with_master:items,shipments:items,v_order_processes_with_master:items};
  for(const name of ['results','daily-production','production-schedules']){
   const res=await request(handlers[name],{},'GET',{date:'2026-10-20'});check(res.statusCode,200);check(res.body.length,count);check(new Set(res.body.map(r=>r.id)).size,count);

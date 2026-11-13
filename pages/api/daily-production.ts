@@ -1,6 +1,7 @@
 import { mutationPayload, sendMutationError } from "@/lib/apiMutationValidation";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { isCalendarDate } from "@/lib/orderEntry";
+import { hasProductionStarted } from "@/lib/dailyProductionStart";
 import { requireApiUser } from "@/lib/auth/server";
 import type { NextApiRequest, NextApiResponse } from "next";
 
@@ -70,18 +71,12 @@ export default async function handler(
           .from("v_posts_with_master")
           .select(DAILY_PRODUCTION_SELECT_COLUMNS).is("shipment_closed_at", null)
           .or("delete.is.null,delete.eq.false")
-          .or(
-            [
-              `and(shipping_scheduled_start.lte.${today},shipping_scheduled_end.gte.${today})`,
-              `and(shipping_scheduled_start.is.null,shipping_scheduled_end.is.null,delivery_date.not.is.null)`,
-              `delivery_date.lt.${today}`,
-            ].join(","),
-          )
+          .lte("planned_start_date", today)
           .order("customer_name", { ascending: true }).order("id").range(from, to)),
         fetchAllRows((from, to) => supabase
           .from("shipments")
           .select("post_id,quantity")
-          .eq("cancelled", false).order("id").range(from, to)),
+          .or("cancelled.is.null,cancelled.eq.false").order("id").range(from, to)),
         fetchAllRows((from, to) => supabase
           .from("v_order_processes_with_master")
           .select("post_id,process_order,completed_amount").order("id").range(from, to)),
@@ -97,6 +92,7 @@ export default async function handler(
       );
 
       const activeBackorders = (postResult.data || []).filter((row) => {
+        if (!hasProductionStarted(row.planned_start_date, today)) return false;
         const orderAmount = Number(row.order_amount || 0);
         const shippedAmount = shippedMap.get(row.id) || 0;
         const completedAmount = finalProcessCompletionMap.get(row.id) || 0;
